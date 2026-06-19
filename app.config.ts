@@ -1,0 +1,109 @@
+import { ExpoConfig, ConfigContext } from 'expo/config';
+
+/**
+ * Dynamic Expo config.
+ *
+ * Secrets/keys are read from the environment so they never get committed.
+ * Client-readable values use the EXPO_PUBLIC_ prefix (inlined into the JS
+ * bundle); native Google Maps keys are injected here at build time.
+ *
+ * See .env.example for the full list of variables.
+ */
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: 'Guardians',
+  slug: 'guardians',
+  scheme: 'guardians',
+  version: '1.0.0',
+  orientation: 'portrait',
+  icon: './assets/icon.png',
+  userInterfaceStyle: 'automatic',
+  assetBundlePatterns: ['**/*'],
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: 'com.guardians.app',
+    config: {
+      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY,
+    },
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription:
+        'Guardians uses your location to show nearby cat sightings and to tag where you spotted a cat.',
+      NSLocationAlwaysAndWhenInUseUsageDescription:
+        'Guardians uses your location to alert nearby guardians about cats that need rescue.',
+      NSCameraUsageDescription:
+        'Guardians needs your camera so you can photograph a cat you have spotted.',
+      NSPhotoLibraryUsageDescription:
+        'Guardians needs photo access so you can attach pictures of cats to your reports.',
+      ITSAppUsesNonExemptEncryption: false,
+    },
+  },
+  android: {
+    package: 'com.guardians.app',
+    adaptiveIcon: {
+      backgroundColor: '#0E7C66',
+      foregroundImage: './assets/android-icon-foreground.png',
+      backgroundImage: './assets/android-icon-background.png',
+      monochromeImage: './assets/android-icon-monochrome.png',
+    },
+    predictiveBackGestureEnabled: false,
+    config: {
+      googleMaps: {
+        apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY,
+      },
+    },
+    permissions: [
+      'ACCESS_COARSE_LOCATION',
+      'ACCESS_FINE_LOCATION',
+      'CAMERA',
+      'READ_MEDIA_IMAGES',
+    ],
+  },
+  web: {
+    bundler: 'metro',
+    favicon: './assets/favicon.png',
+  },
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    'expo-font',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash-icon.png',
+        imageWidth: 180,
+        resizeMode: 'contain',
+        backgroundColor: '#0E7C66',
+      },
+    ],
+    [
+      'expo-location',
+      {
+        locationAlwaysAndWhenInUsePermission:
+          'Guardians uses your location to surface cat sightings near you.',
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Guardians needs photo access so you can attach pictures of cats to your reports.',
+        cameraPermission:
+          'Guardians needs your camera so you can photograph a cat you have spotted.',
+      },
+    ],
+    [
+      'expo-notifications',
+      {
+        color: '#0E7C66',
+      },
+    ],
+  ],
+  experiments: {
+    typedRoutes: true,
+  },
+  extra: {
+    eas: {
+      projectId: process.env.EAS_PROJECT_ID,
+    },
+  },
+});

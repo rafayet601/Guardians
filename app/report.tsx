@@ -1,0 +1,330 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { MapView, Marker, MAP_PROVIDER, type LatLng } from '@/components/PlatformMap';
+import { PressableScale } from '@/components/PressableScale';
+import { uploadCatPhoto } from '@/api/storage';
+import { Button, Input, Text } from '@/components/ui';
+import { TEMPERAMENT_META } from '@/constants/status';
+import { choosePhotoSource, notify, type PhotoSource } from '@/lib/dialog';
+import { useCreateSighting } from '@/hooks/useSightings';
+import { useCurrentLocation } from '@/hooks/useLocation';
+import { useAuth } from '@/providers/AuthProvider';
+import { colors, motion, radius, spacing } from '@/theme';
+import type { CatTemperament } from '@/types/models';
+import { DEFAULT_REGION, regionForRadius } from '@/utils/geo';
+
+const entrance = (i: number) =>
+  FadeInDown.delay(i * motion.stagger).duration(motion.enter).springify().damping(motion.damping);
+
+const TEMPERAMENTS = Object.keys(TEMPERAMENT_META) as CatTemperament[];
+const MAX_PHOTOS = 4;
+
+export default function ReportScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { coords } = useCurrentLocation();
+  const createSighting = useCreateSighting();
+
+  const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [marker, setMarker] = useState<LatLng | null>(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [color, setColor] = useState('');
+  const [temperament, setTemperament] = useState<CatTemperament>('unknown');
+  const [isInjured, setIsInjured] = useState(false);
+  const [needsUrgent, setNeedsUrgent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // default the marker to the user's location once available
+  useEffect(() => {
+    if (coords && !marker) setMarker({ latitude: coords.lat, longitude: coords.lng });
+  }, [coords, marker]);
+
+  const pickFrom = async (mode: PhotoSource) => {
+    if (photos.length >= MAX_PHOTOS) return;
+    const perm =
+      mode === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      notify('Permission needed', `Please allow ${mode} access to add a photo.`);
+      return;
+    }
+    const result =
+      mode === 'camera'
+        ? await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: true, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.6, allowsEditing: true, base64: true });
+    if (!result.canceled && result.assets[0]) {
+      setPhotos((p) => [...p, result.assets[0]]);
+    }
+  };
+
+  const addPhoto = async () => {
+    const source = await choosePhotoSource();
+    if (source) pickFrom(source);
+  };
+
+  const submit = async () => {
+    if (!marker) {
+      notify('Location required', 'Tap the map to mark where you saw the cat.');
+      return;
+    }
+    if (!user) return;
+    setSubmitting(true);
+    try {
+      const photoUrls: string[] = [];
+      for (const asset of photos) {
+        const url = await uploadCatPhoto(user.id, {
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+          base64: asset.base64,
+        });
+        photoUrls.push(url);
+      }
+      await createSighting.mutateAsync({
+        lat: marker.latitude,
+        lng: marker.longitude,
+        title: title.trim() || undefined,
+        description: description.trim() || undefined,
+        color: color.trim() || undefined,
+        temperament,
+        isInjured,
+        needsUrgentHelp: needsUrgent,
+        photoUrls,
+      });
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+      router.back();
+    } catch (e) {
+      notify('Could not post', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const region = coords ? regionForRadius(coords.lat, coords.lng, 800) : DEFAULT_REGION;
+
+  return (
+    <View style={[styles.flex, { paddingTop: insets.top }]}>
+      <View style={styles.modalHeader}>
+        <Text variant="heading">Report a cat</Text>
+        <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Ionicons name="close" size={26} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+        keyboardVerticalOffset={insets.top + 56}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Photos */}
+          <Animated.View entering={entrance(0)} style={styles.section}>
+            <Text variant="subheading">Photos</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+              {photos.map((p, i) => (
+                <View key={p.uri} style={styles.photoWrap}>
+                  <Image source={{ uri: p.uri }} style={styles.photo} contentFit="cover" />
+                  <Pressable
+                    style={styles.photoRemove}
+                    onPress={() => setPhotos((arr) => arr.filter((_, idx) => idx !== i))}
+                    hitSlop={6}
+                  >
+                    <Ionicons name="close-circle" size={22} color={colors.white} />
+                  </Pressable>
+                </View>
+              ))}
+              {photos.length < MAX_PHOTOS ? (
+                <Pressable style={styles.addPhoto} onPress={addPhoto}>
+                  <Ionicons name="camera" size={26} color={colors.primary} />
+                  <Text variant="caption" color={colors.primary}>
+                    ADD
+                  </Text>
+                </Pressable>
+              ) : null}
+            </ScrollView>
+          </Animated.View>
+
+          {/* Location */}
+          <Animated.View entering={entrance(1)} style={styles.section}>
+            <Text variant="subheading">Where did you see it?</Text>
+            <Text variant="small" muted>
+              Tap or drag the pin to mark the exact spot.
+            </Text>
+            <View style={styles.mapWrap}>
+              <MapView
+                provider={MAP_PROVIDER}
+                style={styles.map}
+                initialRegion={region}
+                // onPanDrag makes the map win the responder over the parent
+                // ScrollView so taps/drags to place the pin register reliably.
+                onPanDrag={() => {}}
+                onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+              >
+                {marker ? (
+                  <Marker
+                    coordinate={marker}
+                    draggable
+                    onDragEnd={(e) => setMarker(e.nativeEvent.coordinate)}
+                  />
+                ) : null}
+              </MapView>
+            </View>
+          </Animated.View>
+
+          {/* Details */}
+          <Animated.View entering={entrance(2)} style={styles.section}>
+            <Input label="Nickname (optional)" placeholder="e.g. Orange tabby by the park" value={title} onChangeText={setTitle} />
+            <Input
+              label="Description (optional)"
+              placeholder="Behavior, where it hides, anything helpful…"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+            />
+            <Input label="Color / markings (optional)" placeholder="e.g. black & white" value={color} onChangeText={setColor} />
+          </Animated.View>
+
+          {/* Temperament */}
+          <Animated.View entering={entrance(3)} style={styles.section}>
+            <Text variant="smallStrong" color={colors.textSecondary} style={styles.label}>
+              Temperament
+            </Text>
+            <View style={styles.tempRow}>
+              {TEMPERAMENTS.map((t) => {
+                const active = temperament === t;
+                const meta = TEMPERAMENT_META[t];
+                return (
+                  <PressableScale key={t} onPress={() => setTemperament(t)} style={[styles.tempChip, active && styles.tempChipActive]}>
+                    <Text variant="smallStrong" color={active ? colors.white : colors.text}>
+                      {meta.icon} {meta.label}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </Animated.View>
+
+          {/* Flags */}
+          <Animated.View entering={entrance(4)} style={styles.section}>
+            <ToggleRow label="🩹 This cat looks injured" value={isInjured} onChange={setIsInjured} />
+            <ToggleRow label="🚨 Needs urgent help" value={needsUrgent} onChange={setNeedsUrgent} />
+          </Animated.View>
+
+          <Animated.View entering={entrance(5)}>
+            <Button
+              title="Post sighting"
+              size="lg"
+              fullWidth
+              loading={submitting}
+              onPress={submit}
+              style={styles.submit}
+            />
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <Text variant="body">{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: colors.primaryLight, false: colors.border }}
+        thumbColor={colors.white}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.background },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
+  section: { gap: spacing.md },
+  photoRow: { gap: spacing.sm, paddingVertical: spacing.xs },
+  photoWrap: { position: 'relative' },
+  photo: { width: 96, height: 96, borderRadius: radius.md },
+  photoRemove: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: colors.overlay,
+    borderRadius: radius.pill,
+  },
+  addPhoto: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryTint,
+  },
+  mapWrap: { height: 200, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  map: { flex: 1 },
+  label: { marginTop: spacing.xs, marginLeft: 2 },
+  tempRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  tempChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tempChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+  },
+  submit: { marginTop: spacing.lg },
+});
