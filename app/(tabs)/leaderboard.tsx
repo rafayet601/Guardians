@@ -36,6 +36,9 @@ export default function LeaderboardScreen() {
           keyExtractor={(e) => e.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          windowSize={11}
+          removeClippedSubviews
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />

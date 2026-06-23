@@ -12,7 +12,7 @@ import { colors, motion, spacing } from '@/theme';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'At least 6 characters'),
+  password: z.string().min(6, 'At least 6 characters').max(72, 'Password too long'),
 });
 type FormValues = z.infer<typeof schema>;
 

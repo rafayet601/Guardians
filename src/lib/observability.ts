@@ -3,12 +3,8 @@ import { env } from '@/lib/env';
 /**
  * Centralized error + analytics façade.
  *
- * Today it logs in development and is a safe no-op in production, so it ships
- * with zero accounts/native config. Wiring real services is a LOCALIZED change
- * here: drop a Sentry call into `captureError` (gated on `env.sentryDsn`) and a
- * PostHog/analytics call into `track`. The rest of the app already routes
- * through these two functions (React Query caches + key funnel events), so
- * nothing else changes when you turn the real services on.
+ * When EXPO_PUBLIC_SENTRY_DSN is set, errors are forwarded to Sentry.
+ * In development without DSN, errors are logged to console.
  */
 type Props = Record<string, unknown>;
 
@@ -19,7 +15,15 @@ export function captureError(error: unknown, context?: Props): void {
     // eslint-disable-next-line no-console
     console.error('[capture]', error, context ?? '');
   }
-  // TODO(observability): when env.sentryDsn is set, forward to Sentry here.
+  if (env.sentryDsn) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Sentry = require('@sentry/react-native');
+      Sentry.captureException(error, { extra: context });
+    } catch {
+      // Sentry not installed; ignore
+    }
+  }
 }
 
 export function track(event: string, props?: Props): void {
@@ -27,7 +31,7 @@ export function track(event: string, props?: Props): void {
     // eslint-disable-next-line no-console
     console.log('[track]', event, props ?? '');
   }
-  // TODO(observability): forward to analytics (e.g. PostHog) here.
+  // TODO(observability): forward to analytics (e.g. (e.g. PostHog) here.
 }
 
 interface RNErrorUtils {

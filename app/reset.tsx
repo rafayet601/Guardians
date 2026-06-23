@@ -14,7 +14,7 @@ import { colors, spacing } from '@/theme';
 
 const schema = z
   .object({
-    password: z.string().min(6, 'At least 6 characters'),
+    password: z.string().min(6, 'At least 6 characters').max(72, 'Password too long'),
     confirm: z.string(),
   })
   .refine((d) => d.password === d.confirm, {

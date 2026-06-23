@@ -7,6 +7,7 @@ import { TEMPERAMENT_META } from '@/constants/status';
 import { colors, radius, spacing } from '@/theme';
 import type { CatStatus, CatTemperament } from '@/types/models';
 import { formatDistance, timeAgo } from '@/utils/format';
+import { catPhoto } from '@/utils/placeholder';
 
 export interface SightingCardProps {
   title?: string | null;
@@ -16,6 +17,8 @@ export interface SightingCardProps {
   isInjured?: boolean;
   needsUrgentHelp?: boolean;
   thumbnailUrl?: string | null;
+  /** Stable id used to pick a consistent example photo when there's no real one. */
+  seed?: string;
   distanceM?: number | null;
   createdAt: string;
   onPress?: () => void;
@@ -29,21 +32,18 @@ export function SightingCard({
   isInjured,
   needsUrgentHelp,
   thumbnailUrl,
+  seed,
   distanceM,
   createdAt,
   onPress,
 }: SightingCardProps) {
   const temp = TEMPERAMENT_META[temperament];
+  const photo = thumbnailUrl ?? catPhoto(seed ?? title ?? createdAt);
   return (
     <Card onPress={onPress} padded={false} style={styles.card}>
       <View style={styles.row}>
-        {thumbnailUrl ? (
-          <Image source={{ uri: thumbnailUrl }} style={styles.thumb} contentFit="cover" />
-        ) : (
-          <View style={[styles.thumb, styles.thumbFallback]}>
-            <Text style={styles.thumbEmoji}>{temp.icon}</Text>
-          </View>
-        )}
+        <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" transition={180} />
+
 
         <View style={styles.body}>
           <View style={styles.headerRow}>
@@ -86,13 +86,7 @@ export function SightingCard({
 const styles = StyleSheet.create({
   card: { overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'stretch' },
-  thumb: { width: 96, alignSelf: 'stretch', minHeight: 116 },
-  thumbFallback: {
-    backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  thumbEmoji: { fontSize: 36 },
+  thumb: { width: 96, alignSelf: 'stretch', minHeight: 116, backgroundColor: colors.primaryTint },
   body: { flex: 1, padding: spacing.md, gap: spacing.xs },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { flex: 1 },

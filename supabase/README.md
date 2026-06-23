@@ -21,7 +21,7 @@ gamification engine that power Guardians.
 
 1. Create a project at <https://app.supabase.com>.
 2. Open **SQL Editor** and run each file in `migrations/` **in order**
-   (`0001` → `0006`). Then optionally run `seed.sql`.
+   (`0001` → `0012`). Then optionally run `seed.sql`.
 3. In **Project Settings → API**, copy the **Project URL** and **anon public**
    key into the app's `.env`:
    ```

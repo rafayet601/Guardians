@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
-import { colors, palette } from '@/theme';
+import { colors, fontFamily, palette } from '@/theme';
 import { initialsOf } from '@/utils/format';
 import { Text } from './Text';
 
@@ -44,7 +44,7 @@ export function Avatar({ url, name, size = 44 }: AvatarProps) {
     <View style={[styles.base, dim, { backgroundColor: colorFor(name) }]}>
       <Text
         color={colors.white}
-        style={{ fontSize: size * 0.38, fontWeight: '700' }}
+        style={{ fontSize: size * 0.38, fontFamily: fontFamily.extrabold, fontWeight: '800' }}
       >
         {initialsOf(name)}
       </Text>

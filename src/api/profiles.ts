@@ -42,13 +42,3 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   if (error) throw error;
   return data as Profile;
 }
-
-export async function savePushToken(token: string): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return;
-  // Stored in a dedicated owner-only table so a push token never leaks via a
-  // public profile read.
-  await supabase
-    .from('device_push_tokens')
-    .upsert({ user_id: auth.user.id, token, updated_at: new Date().toISOString() });
-}

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,7 +28,9 @@ export default function FeedScreen() {
   const [filterKey, setFilterKey] = useState('all');
 
   const statuses = FILTERS.find((f) => f.key === filterKey)?.statuses;
-  const { data, isLoading, isRefetching, refetch } = useFeed(statuses);
+  const { data, isLoading, isRefetching, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useFeed(statuses);
+  const items = data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
@@ -42,17 +44,16 @@ export default function FeedScreen() {
         </Text>
       </Animated.View>
 
-      <FlatList
-        data={FILTERS}
+      <ScrollView
         horizontal
-        keyExtractor={(f) => f.key}
         showsHorizontalScrollIndicator={false}
         style={styles.filterList}
         contentContainerStyle={styles.filterRow}
-        renderItem={({ item }) => {
+      >
+        {FILTERS.map((item) => {
           const active = item.key === filterKey;
           return (
-            <PressableScale onPress={() => setFilterKey(item.key)}>
+            <PressableScale key={item.key} onPress={() => setFilterKey(item.key)}>
               <View style={[styles.chip, active && styles.chipActive]}>
                 <Text variant="smallStrong" color={active ? colors.white : colors.text}>
                   {item.label}
@@ -60,14 +61,14 @@ export default function FeedScreen() {
               </View>
             </PressableScale>
           );
-        }}
-      />
+        })}
+      </ScrollView>
 
       {isLoading ? (
         <Loading label="Loading sightings…" />
       ) : (
         <FlatList
-          data={data ?? []}
+          data={items}
           keyExtractor={(s) => s.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -75,7 +76,20 @@ export default function FeedScreen() {
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
+          onEndReachedThreshold={0.5}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={11}
+          removeClippedSubviews
           ListHeaderComponent={<SponsoredCard slot="feed_card" style={styles.feedAd} />}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+            ) : null
+          }
           ListEmptyComponent={
             <EmptyState
               icon="🐾"
@@ -98,6 +112,7 @@ export default function FeedScreen() {
                 isInjured={item.is_injured}
                 needsUrgentHelp={item.needs_urgent_help}
                 thumbnailUrl={item.photos?.[0]?.url ?? null}
+                seed={item.id}
                 createdAt={item.created_at}
                 onPress={() => router.push(`/sighting/${item.id}`)}
               />
@@ -112,8 +127,10 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: 2 },
-  filterList: { flexGrow: 0, marginTop: spacing.md },
-  filterRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm },
+  // Explicit height + centered items so the horizontal bar can never collapse
+  // and clip the chips (which crowded the sponsored card below).
+  filterList: { flexGrow: 0, height: 48, marginTop: spacing.md, marginBottom: spacing.xs },
+  filterRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
   chip: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -126,4 +143,5 @@ const styles = StyleSheet.create({
   listContent: { padding: spacing.lg, flexGrow: 1 },
   sep: { height: spacing.md },
   feedAd: { marginBottom: spacing.md },
+  footerLoader: { paddingVertical: spacing.lg },
 });

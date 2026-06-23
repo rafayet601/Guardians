@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   addPhoto,
@@ -30,9 +30,11 @@ export function useNearbySightings(params: NearbyParams | null) {
 }
 
 export function useFeed(statuses?: CatStatus[]) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.feed({ statuses }),
-    queryFn: () => getFeed(statuses),
+    queryFn: ({ pageParam }) => getFeed(statuses, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }
 

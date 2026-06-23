@@ -42,7 +42,17 @@ export async function getNearby(params: NearbyParams): Promise<NearbySighting[]>
   return (data ?? []) as NearbySighting[];
 }
 
-export async function getFeed(statuses?: CatStatus[], limit = 50): Promise<Sighting[]> {
+export interface FeedPage {
+  items: Sighting[];
+  /** created_at of the last row when a full page came back; null when exhausted. */
+  nextCursor: string | null;
+}
+
+export async function getFeed(
+  statuses?: CatStatus[],
+  cursor?: string,
+  limit = 20,
+): Promise<FeedPage> {
   let query = supabase
     .from('sightings')
     .select(SIGHTING_SELECT)
@@ -50,9 +60,12 @@ export async function getFeed(statuses?: CatStatus[], limit = 50): Promise<Sight
     .order('created_at', { ascending: false })
     .limit(limit);
   if (statuses && statuses.length) query = query.in('status', statuses);
+  if (cursor) query = query.lt('created_at', cursor); // keyset pagination
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as unknown as Sighting[];
+  const items = (data ?? []) as unknown as Sighting[];
+  const nextCursor = items.length === limit ? items[items.length - 1].created_at : null;
+  return { items, nextCursor };
 }
 
 export async function getSighting(id: string): Promise<Sighting> {

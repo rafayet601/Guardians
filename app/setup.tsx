@@ -34,7 +34,7 @@ export default function SetupScreen() {
           <Text variant="subheading">2 · Run the migrations</Text>
           <Text variant="small" muted>
             In the SQL Editor, run each file in{' '}
-            <Text variant="smallStrong">supabase/migrations</Text> in order (0001 → 0006).
+            <Text variant="smallStrong">supabase/migrations</Text> in order (0001 → 0012).
           </Text>
         </Card>
       </Animated.View>
