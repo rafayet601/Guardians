@@ -206,6 +206,18 @@ export interface WalletTransaction {
   created_at: string;
 }
 
+export type ModerationTarget = 'sighting' | 'comment' | 'profile' | 'photo';
+
+export interface AbuseReport {
+  id: string;
+  reporter_id: string;
+  target_type: ModerationTarget;
+  target_id: string;
+  reason: string | null;
+  status: 'open' | 'reviewing' | 'actioned' | 'dismissed';
+  created_at: string;
+}
+
 export type PlacementSlot = 'feed_card' | 'rewards_banner';
 
 export interface SponsoredPlacement {

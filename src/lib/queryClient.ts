@@ -40,4 +40,6 @@ export const queryKeys = {
   myRedemptions: (id?: string) => ['rewards', 'redemptions', id] as const,
   wallet: (id?: string) => ['rewards', 'wallet', id] as const,
   placements: (slot: string) => ['rewards', 'placements', slot] as const,
+  isModerator: (id?: string) => ['moderator', id] as const,
+  moderationQueue: ['moderation', 'queue'] as const,
 };

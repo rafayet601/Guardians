@@ -16,6 +16,7 @@ import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
 import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
 import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
+import { useReportContent } from '@/hooks/useModeration';
 import {
   useClaimSighting,
   usePostComment,
@@ -43,6 +44,7 @@ export default function SightingDetailScreen() {
   const expressInterest = useExpressInterest(id);
   const approveAdoption = useApproveAdoption(id);
   const postComment = usePostComment(id);
+  const report = useReportContent();
 
   const [comment, setComment] = useState('');
 
@@ -103,6 +105,23 @@ export default function SightingDetailScreen() {
     });
   };
 
+  const onReportListing = async () => {
+    const ok = await confirmAsync({
+      title: 'Report this listing?',
+      message: 'Our team will review it for inappropriate, false, or duplicate content.',
+      confirmLabel: 'Report',
+      destructive: true,
+    });
+    if (!ok) return;
+    report.mutate(
+      { type: 'sighting', id: sighting.id },
+      {
+        onSuccess: () => notify('Thanks for reporting', 'Our team will take a look.'),
+        onError: (e) => notify('Could not report', errMsg(e)),
+      },
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -136,7 +155,7 @@ export default function SightingDetailScreen() {
             <View style={styles.metaRow}>
               <StatusPill status={sighting.status} />
               <Pill label={`${temp.icon} ${temp.label}`} fg={colors.textSecondary} bg={colors.divider} />
-              {sighting.is_injured ? <Pill label="🩹 Injured" fg={colors.danger} bg={colors.accentSoft} /> : null}
+              {sighting.is_injured ? <Pill label="🩹 Injured" fg={colors.urgent} bg={colors.urgentSoft} /> : null}
             </View>
             <Text variant="small" muted>
               {meta.description}
@@ -179,8 +198,7 @@ export default function SightingDetailScreen() {
             <View style={styles.mapWrap}>
               <MapView
                 provider={MAP_PROVIDER}
-                style={styles.map}
-                pointerEvents="none"
+                style={[styles.map, { pointerEvents: 'none' }]}
                 initialRegion={regionForRadius(sighting.lat, sighting.lng, sighting.is_precise ? 500 : 700)}
               >
                 {sighting.is_precise ? (
@@ -209,13 +227,28 @@ export default function SightingDetailScreen() {
             style={styles.actions}
           >
             {sighting.status === 'spotted' ? (
-              <Button
-                title="🦸 Claim this rescue"
-                size="lg"
-                fullWidth
-                loading={claim.isPending}
-                onPress={onClaim}
-              />
+              <>
+                <View style={styles.rewardCard}>
+                  <View style={styles.rewardIcon}>
+                    <Ionicons name="star" size={16} color={colors.white} />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text variant="smallStrong" color={colors.accentDark}>
+                      Earn 65 points
+                    </Text>
+                    <Text variant="caption" color={colors.accentDark} style={styles.rewardSub}>
+                      for completing this rescue
+                    </Text>
+                  </View>
+                </View>
+                <Button
+                  title="🦸 Claim this rescue"
+                  size="lg"
+                  fullWidth
+                  loading={claim.isPending}
+                  onPress={onClaim}
+                />
+              </>
             ) : null}
 
             {nextStatuses.map((status) => (
@@ -298,6 +331,14 @@ export default function SightingDetailScreen() {
               </Animated.View>
             ))}
           </Animated.View>
+
+          {!isOwner ? (
+            <Pressable onPress={onReportListing} hitSlop={8} style={styles.reportRow}>
+              <Text variant="small" color={colors.textMuted}>
+                ⚠️ Report this listing
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -374,8 +415,28 @@ const styles = StyleSheet.create({
   mapWrap: { height: 160, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   map: { flex: 1 },
   mapNote: { marginTop: spacing.xs },
+  reportRow: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.sm },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
   appliedPill: { alignSelf: 'center' },
+  rewardCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: '#F6E2BC',
+  },
+  rewardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardSub: { marginTop: 1 },
   applicantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   commentRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, alignItems: 'flex-start' },
   systemRow: { alignItems: 'center', paddingVertical: spacing.sm },

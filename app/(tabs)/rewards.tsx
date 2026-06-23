@@ -58,6 +58,9 @@ export default function RewardsScreen() {
           keyExtractor={(o) => o.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={8}
+          windowSize={11}
+          removeClippedSubviews
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />

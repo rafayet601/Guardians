@@ -1,3 +1,16 @@
+import {
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+  Nunito_900Black,
+} from '@expo-google-fonts/nunito';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
+import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,8 +33,21 @@ function RootNavigator() {
   const segments = useSegments();
   const router = useRouter();
 
+  const [fontsLoaded, fontError] = useFonts({
+    'Nunito-Bold': Nunito_700Bold,
+    'Nunito-ExtraBold': Nunito_800ExtraBold,
+    'Nunito-Black': Nunito_900Black,
+    'Jakarta-Regular': PlusJakartaSans_400Regular,
+    'Jakarta-Medium': PlusJakartaSans_500Medium,
+    'Jakarta-SemiBold': PlusJakartaSans_600SemiBold,
+    'Jakarta-Bold': PlusJakartaSans_700Bold,
+    SpaceMono: SpaceMono_400Regular,
+    'SpaceMono-Bold': SpaceMono_700Bold,
+  });
+  const fontsReady = fontsLoaded || !!fontError;
+
   useEffect(() => {
-    if (initializing) return;
+    if (initializing || !fontsReady) return;
     SplashScreen.hideAsync().catch(() => {});
 
     const root = segments[0];
@@ -42,7 +68,7 @@ function RootNavigator() {
     } else if (session && inAuthFlow) {
       router.replace('/');
     }
-  }, [session, initializing, segments, router]);
+  }, [session, initializing, segments, router, fontsReady]);
 
   // Register this device for push once signed in (best-effort).
   useEffect(() => {
@@ -57,6 +83,9 @@ function RootNavigator() {
     });
     return () => sub.remove();
   }, [router]);
+
+  // Hold the splash screen until fonts are ready so text doesn't flash unstyled.
+  if (!fontsReady) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
@@ -74,6 +103,10 @@ function RootNavigator() {
       <Stack.Screen
         name="settings"
         options={{ headerShown: true, title: 'Settings', headerTintColor: colors.primary }}
+      />
+      <Stack.Screen
+        name="moderation"
+        options={{ headerShown: true, title: 'Moderation', headerTintColor: colors.primary }}
       />
       <Stack.Screen
         name="rewards/[id]"

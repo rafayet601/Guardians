@@ -1,16 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, usePathname, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
 import { Text } from '@/components/ui';
-import { colors, radius, shadow, spacing } from '@/theme';
+import { colors, fontFamily, radius, shadow, spacing } from '@/theme';
 
 export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // The Map tab renders its own "+ Report" pill above the nearby sheet, so the
+  // global FAB is shown only on the other four tabs (an allowlist, so it never
+  // leaks onto the map or over a pushed modal/detail route).
+  const pathname = usePathname();
+  const showReportFab = ['/feed', '/leaderboard', '/rewards', '/profile'].includes(pathname);
 
   return (
     <View style={styles.flex}>
@@ -61,24 +66,27 @@ export default function TabsLayout() {
       </Tabs>
 
       {/* Floating "report" action, anchored bottom-right so it never collides
-          with a tab. Springs in on mount and on press. */}
-      <Animated.View
-        entering={FadeInDown.delay(180).duration(520).springify().damping(12)}
-        style={[styles.fabWrap, { bottom: spacing.lg + insets.bottom }]}
-      >
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel="Report a cat"
-          onPress={() => router.push('/report')}
-          style={styles.fab}
-          scaleTo={0.9}
+          with a tab. Springs in on mount and on press. Hidden on the Map tab,
+          which renders its own Report pill above the nearby-sightings sheet. */}
+      {showReportFab ? (
+        <Animated.View
+          entering={FadeInDown.delay(180).duration(520).springify().damping(12)}
+          style={[styles.fabWrap, { bottom: spacing.lg + insets.bottom }]}
         >
-          <Ionicons name="add" size={28} color={colors.white} />
-          <Text variant="caption" color={colors.white} style={styles.fabLabel}>
-            REPORT
-          </Text>
-        </PressableScale>
-      </Animated.View>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Report a cat"
+            onPress={() => router.push('/report')}
+            style={styles.fab}
+            scaleTo={0.9}
+          >
+            <Ionicons name="add" size={28} color={colors.white} />
+            <Text variant="caption" color={colors.white} style={styles.fabLabel}>
+              REPORT
+            </Text>
+          </PressableScale>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -92,10 +100,10 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 8,
   },
-  tabLabel: { fontSize: 11, fontWeight: '600' },
+  tabLabel: { fontSize: 11, fontFamily: fontFamily.bodySemibold, fontWeight: '600' },
   fabWrap: { position: 'absolute', right: spacing.lg },
   fab: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     width: 62,
     height: 62,
     borderRadius: radius.pill,

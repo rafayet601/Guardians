@@ -22,6 +22,18 @@ By gamifying the rescue process with points, levels, and badges, we're building 
 
 ---
 
+## Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/01-welcome.png" alt="Welcome — Every cat deserves a Guardian" width="32%" />
+  <img src="docs/screenshots/02-sign-in.png" alt="Sign in" width="32%" />
+  <img src="docs/screenshots/03-sign-up.png" alt="Create an account" width="32%" />
+</div>
+
+<p align="center"><sub>Onboarding & auth flow. (In-app screens — live map, feed, rewards, and profile — are behind sign-in.)</sub></p>
+
+---
+
 ## Key Features
 
 - **Live Sighting Map:** PostGIS-powered geospatial search to discover cats needing help within your radius. Filter by "needs help" or "adoptable".
@@ -61,7 +73,7 @@ cp .env.example .env
 # Open .env and fill in EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, and your Google Maps keys.
 
 # 3. Set up the database
-# Run the SQL migrations in supabase/migrations/ (0001 → 0011) in order.
+# Run the SQL migrations in supabase/migrations/ (0001 → 0012) in order.
 # Optionally run supabase/seed.sql for demo data. See supabase/README.md for details.
 
 # 4. Start the development server
