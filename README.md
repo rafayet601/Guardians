@@ -10,6 +10,10 @@
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/01-welcome.png" alt="Guardians onboarding — Every cat deserves a Guardian" width="300" />
+</p>
+
 ## The Vision
 
 Every day, countless cats find themselves lost, injured, or abandoned. **Guardians** bridges the gap between those who spot cats in need and those who have the resources to help. 
