@@ -1,13 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
   interpolate,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
@@ -17,48 +19,145 @@ import { PressableScale } from '@/components/PressableScale';
 import { Button, Text } from '@/components/ui';
 import { colors, motion, palette, radius, spacing } from '@/theme';
 
-const HERO_GRADIENT = [palette.green300, palette.green500, palette.green700] as const;
+// Deep emerald → rescue green base the aurora orbs drift over.
+const BASE_GRADIENT = [palette.green900, palette.green700, palette.green500] as const;
+
+/**
+ * Soft, drifting color orbs that together read as a flowing mesh-gradient
+ * "shader" behind the hero. Each orb is a rounded, clipped LinearGradient that
+ * fades to its own hue at zero alpha (so edges feather instead of hard-cutting),
+ * animated on an independent slow loop so the field never visibly repeats.
+ * Pure Reanimated + expo-linear-gradient — no native shader dependency, and it
+ * renders identically on web (the dev preview) and native.
+ */
+type Orb = {
+  colors: readonly [string, string];
+  box: ViewStyle;
+  dur: number;
+  delay: number;
+  drift: { x: number; y: number };
+  rotate: number;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+};
+
+const ORBS: Orb[] = [
+  {
+    colors: ['rgba(244,169,60,0.42)', 'rgba(244,169,60,0)'], // honey, top-right
+    box: { width: 360, height: 360, top: -120, right: -90 },
+    dur: 7200, delay: 0, drift: { x: 26, y: 20 }, rotate: 18,
+    start: { x: 0.2, y: 0 }, end: { x: 1, y: 1 },
+  },
+  {
+    colors: ['rgba(176,232,206,0.55)', 'rgba(176,232,206,0)'], // mint, bottom-left
+    box: { width: 420, height: 380, bottom: -150, left: -120 },
+    dur: 9000, delay: 600, drift: { x: 30, y: 26 }, rotate: 14,
+    start: { x: 0, y: 1 }, end: { x: 1, y: 0 },
+  },
+  {
+    colors: ['rgba(45,200,130,0.5)', 'rgba(45,200,130,0)'], // emerald glow, center
+    box: { width: 300, height: 300, top: '34%', left: '24%' },
+    dur: 6200, delay: 1200, drift: { x: 22, y: 18 }, rotate: 22,
+    start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
+  },
+  {
+    colors: ['rgba(8,48,32,0.45)', 'rgba(8,48,32,0)'], // deep shadow, top-left
+    box: { width: 340, height: 340, top: -90, left: -130 },
+    dur: 8200, delay: 300, drift: { x: 24, y: 20 }, rotate: 16,
+    start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
+  },
+];
+
+function AuroraOrb({ orb, reduced }: { orb: Orb; reduced: boolean }) {
+  const t = useSharedValue(0.5);
+
+  useEffect(() => {
+    if (reduced) {
+      t.value = 0.5;
+      return;
+    }
+    t.value = withDelay(
+      orb.delay,
+      withRepeat(withTiming(1, { duration: orb.dur, easing: Easing.inOut(Easing.ease) }), -1, true),
+    );
+  }, [reduced, orb.delay, orb.dur, t]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(t.value, [0, 1], [-orb.drift.x, orb.drift.x]) },
+      { translateY: interpolate(t.value, [0, 1], [-orb.drift.y, orb.drift.y]) },
+      { scale: interpolate(t.value, [0, 1], [0.92, 1.16]) },
+      { rotate: `${interpolate(t.value, [0, 1], [-orb.rotate, orb.rotate])}deg` },
+    ],
+  }));
+
+  return (
+    <Animated.View style={[styles.orb, orb.box, style]}>
+      <LinearGradient colors={orb.colors} start={orb.start} end={orb.end} style={StyleSheet.absoluteFill} />
+    </Animated.View>
+  );
+}
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const reduced = useReducedMotion() ?? false;
 
-  // Signature moment: the emblem drifts gently, evoking the design's flowing hero.
-  const float = useSharedValue(0);
+  // Signature moment: the emblem drifts gently above the aurora.
+  const float = useSharedValue(0.5);
   useEffect(() => {
+    if (reduced) {
+      float.value = 0.5;
+      return;
+    }
     float.value = withRepeat(
       withTiming(1, { duration: 3600, easing: Easing.inOut(Easing.ease) }),
       -1,
       true,
     );
-  }, [float]);
+  }, [reduced, float]);
   const floatStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: interpolate(float.value, [0, 1], [5, -5]) },
-      { scale: interpolate(float.value, [0, 1], [0.99, 1.01]) },
+      { translateY: interpolate(float.value, [0, 1], [6, -6]) },
+      { scale: interpolate(float.value, [0, 1], [0.99, 1.02]) },
     ],
   }));
-  const blobStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: interpolate(float.value, [0, 1], [-12, 12]) }],
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(float.value, [0, 1], [0.35, 0.6]),
+    transform: [{ scale: interpolate(float.value, [0, 1], [1, 1.12]) }],
   }));
 
   return (
     <View style={styles.flex}>
-      {/* ── Flowing green hero ── */}
+      {/* ── Aurora hero ── */}
       <View style={styles.heroWrap}>
         <LinearGradient
-          colors={HERO_GRADIENT}
+          colors={BASE_GRADIENT}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={styles.hero}
         >
-          <Animated.View style={[styles.blob, styles.blobA, blobStyle]} />
-          <Animated.View style={[styles.blob, styles.blobB, blobStyle]} />
+          {/* drifting mesh-gradient orbs */}
+          {ORBS.map((orb, i) => (
+            <AuroraOrb key={i} orb={orb} reduced={reduced} />
+          ))}
+
+          {/* top sheen for depth */}
+          <LinearGradient
+            colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 0.6 }}
+            style={[StyleSheet.absoluteFill, styles.noEvents]}
+          />
+
           <SafeAreaView edges={['top']} style={styles.heroSafe}>
             <Animated.View
               entering={FadeInDown.duration(motion.enter).springify().damping(motion.damping)}
             >
-              <Animated.View style={[styles.emblem, floatStyle]}>
-                <Text style={styles.emblemLetter}>G</Text>
+              <Animated.View style={styles.emblemWrap}>
+                <Animated.View style={[styles.halo, haloStyle]} />
+                <Animated.View style={[styles.emblem, floatStyle]}>
+                  <Text style={styles.emblemLetter}>G</Text>
+                </Animated.View>
               </Animated.View>
             </Animated.View>
           </SafeAreaView>
@@ -116,21 +215,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radius.sheet,
     overflow: 'hidden',
   },
+  orb: { position: 'absolute', borderRadius: 999, overflow: 'hidden', pointerEvents: 'none' },
+  noEvents: { pointerEvents: 'none' },
   heroSafe: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  blob: { position: 'absolute', borderRadius: 999 },
-  blobA: {
-    width: 320,
-    height: 320,
-    top: -90,
-    right: -110,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  blobB: {
-    width: 260,
-    height: 260,
-    bottom: -70,
-    left: -90,
-    backgroundColor: 'rgba(11,61,40,0.22)',
+  emblemWrap: { alignItems: 'center', justifyContent: 'center' },
+  halo: {
+    position: 'absolute',
+    width: 168,
+    height: 168,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    pointerEvents: 'none',
   },
   emblem: {
     width: 118,
