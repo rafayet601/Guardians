@@ -37,7 +37,7 @@ type Particle = (typeof PARTICLES)[number];
  */
 export function RewardBurst() {
   return (
-    <View pointerEvents="none" style={styles.wrap}>
+    <View style={styles.wrap}>
       {PARTICLES.map((p, i) => (
         <Bit key={i} p={p} />
       ))}
@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+    pointerEvents: 'none',
   },
   bit: { position: 'absolute' },
 });
