@@ -6,6 +6,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { uploadAvatar } from '@/api/storage';
 import { confirmAsync, notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { PressableScale } from '@/components/PressableScale';
 import { Avatar, Button, Input, Loading, Text } from '@/components/ui';
 import { useMyProfile, useUpdateProfile } from '@/hooks/useProfile';
@@ -57,7 +58,7 @@ export default function SettingsScreen() {
       });
       setAvatarUrl(url);
     } catch (e) {
-      notify('Upload failed', e instanceof Error ? e.message : 'Try again.');
+      notify('Upload failed', getErrorMessage(e, 'Try again.'));
     } finally {
       setUploading(false);
     }
@@ -82,7 +83,7 @@ export default function SettingsScreen() {
           notify('Saved', 'Your profile has been updated.');
           router.back();
         },
-        onError: (e) => notify('Could not save', e instanceof Error ? e.message : 'Try again.'),
+        onError: (e) => notify('Could not save', getErrorMessage(e, 'Try again.')),
       },
     );
   };

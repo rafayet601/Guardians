@@ -10,6 +10,7 @@ import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { checkEligibility } from '@/api/rewards';
 import { RewardBurst } from '@/components/RewardBurst';
 import { Button, Card, Loading, Pill, Text } from '@/components/ui';
+import { getErrorMessage } from '@/lib/errors';
 import { useUserBadges } from '@/hooks/useGamification';
 import { useMyProfile } from '@/hooks/useProfile';
 import { useOffers, useRedeemReward } from '@/hooks/useRewards';
@@ -70,7 +71,7 @@ export default function OfferDetailScreen() {
         celebrate();
         setRedeemed(r);
       },
-      onError: (e) => notify('Could not redeem', e instanceof Error ? e.message : 'Please try again.'),
+      onError: (e) => notify('Could not redeem', getErrorMessage(e, 'Please try again.')),
     });
   };
 

@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { Button, Card, EmptyState, Loading, Pill, Text } from '@/components/ui';
 import { useIsModerator, useModerateContent, useModerationQueue } from '@/hooks/useModeration';
 import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { colors, spacing } from '@/theme';
 import { timeAgo } from '@/utils/format';
 import type { ModerationTarget } from '@/types/models';
@@ -31,7 +32,7 @@ export default function ModerationScreen() {
   const act = (type: ModerationTarget, id: string, hide: boolean) =>
     moderate.mutate(
       { type, id, hide },
-      { onError: (e) => notify('Action failed', e instanceof Error ? e.message : 'Please try again.') },
+      { onError: (e) => notify('Action failed', getErrorMessage(e, 'Please try again.')) },
     );
 
   return (

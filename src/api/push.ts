@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { captureError } from '@/lib/observability';
 
 /**
  * Register/refresh this device's Expo push token + a COARSE home area
@@ -22,8 +23,14 @@ export async function upsertPushToken(
  */
 export async function notifyUrgentSighting(sightingId: string): Promise<void> {
   try {
-    await supabase.functions.invoke('send-push', { body: { sighting_id: sightingId } });
-  } catch {
-    // best-effort; the report itself already succeeded
+    const { error } = await supabase.functions.invoke('send-push', {
+      body: { sighting_id: sightingId },
+    });
+    if (error) throw error;
+  } catch (e) {
+    // Best-effort: the report itself already succeeded, so never rethrow. But
+    // route the failure to observability — a broken urgent-alert pipeline is
+    // safety-critical and must not fail silently.
+    captureError(e, { scope: 'notifyUrgentSighting', sightingId });
   }
 }

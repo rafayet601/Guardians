@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, spacing } from '@/theme';
 
@@ -49,7 +50,7 @@ export default function SignUpScreen() {
       }
       // otherwise the root layout redirects into the app automatically
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not create your account');
+      setFormError(getErrorMessage(e, 'Could not create your account'));
     }
   };
 

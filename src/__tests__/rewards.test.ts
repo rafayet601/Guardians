@@ -1,9 +1,9 @@
 // checkEligibility is pure, but its module imports the supabase client; mock it
 // so the unit test never touches the network/native storage.
-jest.mock('@/lib/supabase', () => ({ supabase: {} }));
-
 import { checkEligibility } from '@/api/rewards';
 import type { Profile, RewardOffer } from '@/types/models';
+
+jest.mock('@/lib/supabase', () => ({ supabase: {} }));
 
 const offer = (over: Partial<RewardOffer> = {}): RewardOffer => ({
   id: 'o1',

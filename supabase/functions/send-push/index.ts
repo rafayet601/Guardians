@@ -60,7 +60,10 @@ Deno.serve(async (req: Request) => {
     p_radius_m: RADIUS_M,
     p_exclude_user: s.reporter_id,
   });
-  if (tErr) return json({ error: tErr.message }, 500);
+  if (tErr) {
+    console.error('[send-push] tokens_near failed:', tErr.message);
+    return json({ error: tErr.message }, 500);
+  }
 
   const tokens: string[] = (rows ?? []).map((r: { token: string }) => r.token);
   if (tokens.length === 0) return json({ sent: 0 });
@@ -69,8 +72,12 @@ Deno.serve(async (req: Request) => {
   const message = (s.title ?? '').trim() || 'Tap to help with a rescue near you.';
 
   let sent = 0;
+  let failed = 0;
+  const deadTokens: string[] = [];
+
   for (let i = 0; i < tokens.length; i += 100) {
-    const chunk = tokens.slice(i, i + 100).map((to) => ({
+    const chunkTokens = tokens.slice(i, i + 100);
+    const messages = chunkTokens.map((to) => ({
       to,
       title,
       body: message,
@@ -79,15 +86,60 @@ Deno.serve(async (req: Request) => {
       channelId: 'urgent',
       data: { sighting_id: s.id, type: 'urgent_sighting' },
     }));
-    const resp = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(chunk),
+
+    let resp: Response;
+    try {
+      resp = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(messages),
+      });
+    } catch (e) {
+      failed += chunkTokens.length;
+      console.error('[send-push] Expo request threw:', e);
+      continue;
+    }
+
+    if (!resp.ok) {
+      failed += chunkTokens.length;
+      console.error('[send-push] Expo responded', resp.status, await resp.text().catch(() => ''));
+      continue;
+    }
+
+    // Inspect per-message tickets: count failures and collect tokens Expo
+    // reports as DeviceNotRegistered so we can prune them.
+    const payload = (await resp.json().catch(() => null)) as
+      | { data?: { status: string; message?: string; details?: { error?: string } }[] }
+      | null;
+    const tickets = payload?.data ?? [];
+    if (tickets.length === 0) {
+      sent += chunkTokens.length; // no ticket detail (older response shape)
+      continue;
+    }
+    tickets.forEach((ticket, j) => {
+      if (ticket.status === 'ok') {
+        sent += 1;
+        return;
+      }
+      failed += 1;
+      console.error('[send-push] ticket error:', ticket.message ?? ticket.details?.error);
+      if (ticket.details?.error === 'DeviceNotRegistered') deadTokens.push(chunkTokens[j]);
     });
-    if (resp.ok) sent += chunk.length;
   }
 
-  return json({ sent });
+  // Reap dead tokens so device_push_tokens doesn't accumulate cruft and degrade
+  // deliverability over time.
+  let reaped = 0;
+  if (deadTokens.length > 0) {
+    const { error: delErr } = await admin
+      .from('device_push_tokens')
+      .delete()
+      .in('token', deadTokens);
+    if (delErr) console.error('[send-push] failed to reap dead tokens:', delErr.message);
+    else reaped = deadTokens.length;
+  }
+
+  return json({ sent, failed, reaped });
 });
 
 function json(data: unknown, status = 200): Response {

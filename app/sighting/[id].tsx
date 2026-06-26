@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -14,9 +15,10 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
+import { CLAIM_TO_RESCUE_TOTAL } from '@/constants/points';
 import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
 import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
-import { useReportContent } from '@/hooks/useModeration';
+import { useBlockUser, useReportContent } from '@/hooks/useModeration';
 import {
   useClaimSighting,
   usePostComment,
@@ -25,6 +27,7 @@ import {
   useUpdateStatus,
 } from '@/hooks/useSightings';
 import { confirmAsync, notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, radius, spacing } from '@/theme';
 import type { CatStatus, SightingUpdate } from '@/types/models';
@@ -45,6 +48,7 @@ export default function SightingDetailScreen() {
   const approveAdoption = useApproveAdoption(id);
   const postComment = usePostComment(id);
   const report = useReportContent();
+  const block = useBlockUser();
 
   const [comment, setComment] = useState('');
 
@@ -61,6 +65,8 @@ export default function SightingDetailScreen() {
 
   const onClaim = () =>
     claim.mutate(sighting.id, {
+      onSuccess: () =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
       onError: (e) => notify('Could not claim', errMsg(e)),
     });
 
@@ -74,7 +80,11 @@ export default function SightingDetailScreen() {
     if (!ok) return;
     updateStatus.mutate(
       { id: sighting.id, status },
-      { onError: (e) => notify('Could not update', errMsg(e)) },
+      {
+        onSuccess: () =>
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
+        onError: (e) => notify('Could not update', errMsg(e)),
+      },
     );
   };
 
@@ -120,6 +130,21 @@ export default function SightingDetailScreen() {
         onError: (e) => notify('Could not report', errMsg(e)),
       },
     );
+  };
+
+  const onBlockReporter = async () => {
+    if (!sighting.reporter_id) return;
+    const ok = await confirmAsync({
+      title: `Block ${sighting.reporter?.username ?? 'this user'}?`,
+      message: "You won't see their reports anymore. You can unblock them later from Settings.",
+      confirmLabel: 'Block',
+      destructive: true,
+    });
+    if (!ok) return;
+    block.mutate(sighting.reporter_id, {
+      onSuccess: () => notify('User blocked', "You won't see this person's reports."),
+      onError: (e) => notify('Could not block', errMsg(e)),
+    });
   };
 
   return (
@@ -234,7 +259,7 @@ export default function SightingDetailScreen() {
                   </View>
                   <View style={styles.flex}>
                     <Text variant="smallStrong" color={colors.accentDark}>
-                      Earn 65 points
+                      Earn {CLAIM_TO_RESCUE_TOTAL} points
                     </Text>
                     <Text variant="caption" color={colors.accentDark} style={styles.rewardSub}>
                       for completing this rescue
@@ -333,11 +358,20 @@ export default function SightingDetailScreen() {
           </Animated.View>
 
           {!isOwner ? (
-            <Pressable onPress={onReportListing} hitSlop={8} style={styles.reportRow}>
-              <Text variant="small" color={colors.textMuted}>
-                ⚠️ Report this listing
-              </Text>
-            </Pressable>
+            <View style={styles.modRow}>
+              <Pressable onPress={onReportListing} hitSlop={8} style={styles.modAction}>
+                <Text variant="small" color={colors.textMuted}>
+                  ⚠️ Report this listing
+                </Text>
+              </Pressable>
+              {sighting.reporter_id ? (
+                <Pressable onPress={onBlockReporter} hitSlop={8} style={styles.modAction}>
+                  <Text variant="small" color={colors.textMuted}>
+                    🚫 Block this user
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
         </View>
       </ScrollView>
@@ -396,7 +430,7 @@ function TimelineItem({ update }: { update: SightingUpdate }) {
 }
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : 'Please try again.';
+  return getErrorMessage(e, 'Please try again.');
 }
 
 const styles = StyleSheet.create({
@@ -415,7 +449,14 @@ const styles = StyleSheet.create({
   mapWrap: { height: 160, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   map: { flex: 1 },
   mapNote: { marginTop: spacing.xs },
-  reportRow: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.sm },
+  modRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  modAction: { paddingVertical: spacing.xs },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
   appliedPill: { alignSelf: 'center' },
   rewardCard: {
