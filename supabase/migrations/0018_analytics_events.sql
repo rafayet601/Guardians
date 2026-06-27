@@ -2,11 +2,8 @@
 -- Guardians — 0018_analytics_events
 -- Lightweight self-hosted analytics: a single append-only events table written
 -- only through a SECURITY DEFINER RPC. Gives a queryable funnel (report/claim/
--- rescue/redeem) without any third-party analytics dependency.
---
--- NOT YET APPLIED to the live DB (pending explicit deploy authorization). After
--- applying: `npm run gen:types`, then wire `track()` in src/lib/observability.ts
--- to `supabase.rpc('track_event', { p_event, p_props })`.
+-- rescue/redeem) without any third-party analytics dependency. Applied to the
+-- live DB via MCP; `track()` (src/lib/observability.ts) forwards events to it.
 -- ============================================================================
 create table if not exists public.analytics_events (
   id         uuid primary key default gen_random_uuid(),

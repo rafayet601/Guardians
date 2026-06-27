@@ -1,10 +1,13 @@
 import { env } from '@/lib/env';
+import { supabase } from '@/lib/supabase';
+import type { Json } from '@/types/database';
 
 /**
  * Centralized error + analytics façade.
  *
  * When EXPO_PUBLIC_SENTRY_DSN is set, errors are forwarded to Sentry.
- * In development without DSN, errors are logged to console.
+ * In development without DSN, errors are logged to console. Product events go to
+ * the self-hosted analytics_events table via the track_event RPC.
  */
 type Props = Record<string, unknown>;
 
@@ -27,8 +30,12 @@ export function captureError(error: unknown, context?: Props): void {
 export function track(event: string, props?: Props): void {
   if (isDev) {
     console.log('[track]', event, props ?? '');
+    return; // keep dev events out of the production analytics table
   }
-  // TODO(observability): forward to an analytics backend (e.g. PostHog) here.
+  if (!env.isConfigured) return;
+  // Forward to the self-hosted analytics backend (track_event RPC →
+  // analytics_events). Fire-and-forget — telemetry must never block or throw.
+  void supabase.rpc('track_event', { p_event: event, p_props: (props ?? {}) as Json });
 }
 
 interface RNErrorUtils {
