@@ -11,8 +11,8 @@ export async function upsertPushToken(
 ): Promise<void> {
   const { error } = await supabase.rpc('upsert_push_token', {
     p_token: token,
-    p_lat: coords?.lat ?? null,
-    p_lng: coords?.lng ?? null,
+    p_lat: coords?.lat,
+    p_lng: coords?.lng,
   });
   if (error) throw error;
 }

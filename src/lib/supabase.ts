@@ -5,6 +5,7 @@ import { AppState, Platform } from 'react-native';
 
 import { env } from './env';
 import { secureStorage } from './secureStorage';
+import type { Database } from '@/types/database';
 
 /**
  * Supabase client for React Native.
@@ -14,7 +15,7 @@ import { secureStorage } from './secureStorage';
  * - autoRefreshToken keeps the access token fresh while the app is foregrounded.
  * - detectSessionInUrl is disabled (that's a web-only OAuth-redirect concern).
  */
-export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
+export const supabase = createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
   auth: {
     storage: secureStorage,
     autoRefreshToken: true,

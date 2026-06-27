@@ -35,7 +35,7 @@ export async function getNearby(params: NearbyParams): Promise<NearbySighting[]>
     p_lat: params.lat,
     p_lng: params.lng,
     p_radius_m: params.radiusM,
-    p_statuses: params.statuses ?? null,
+    p_statuses: params.statuses,
     p_limit: params.limit ?? 200,
   });
   if (error) throw error;
@@ -103,13 +103,13 @@ export async function createSighting(input: CreateSightingInput): Promise<Sighti
   const { data, error } = await supabase.rpc('create_sighting', {
     p_lat: input.lat,
     p_lng: input.lng,
-    p_title: input.title ?? null,
-    p_description: input.description ?? null,
+    p_title: input.title,
+    p_description: input.description,
     p_temperament: input.temperament ?? 'unknown',
-    p_color: input.color ?? null,
+    p_color: input.color,
     p_is_injured: input.isInjured ?? false,
     p_needs_urgent_help: input.needsUrgentHelp ?? false,
-    p_address: input.address ?? null,
+    p_address: input.address,
   });
   if (error) throw error;
   return data as Sighting;
@@ -153,7 +153,7 @@ export async function updateStatus(
   const { data, error } = await supabase.rpc('update_sighting_status', {
     p_sighting: id,
     p_new_status: status,
-    p_note: note ?? null,
+    p_note: note,
   });
   if (error) throw error;
   return data as Sighting;
@@ -195,7 +195,7 @@ export async function expressInterest(
 ): Promise<AdoptionInterest> {
   const { data, error } = await supabase.rpc('express_adoption_interest', {
     p_sighting: sightingId,
-    p_message: message ?? null,
+    p_message: message,
   });
   if (error) throw error;
   return data as AdoptionInterest;
