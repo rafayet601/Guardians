@@ -7,3 +7,4 @@ android/
 package-lock.json
 docs/screenshots/
 supabase/schema.sql
+src/types/database.ts

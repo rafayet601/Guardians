@@ -13,6 +13,7 @@ module.exports = [
       'ios/*',
       'android/*',
       'supabase/functions/*', // Deno runtime — linted separately via `deno lint`
+      'src/types/database.ts', // generated from the Supabase schema
       'docs/*',
     ],
   },
