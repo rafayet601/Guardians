@@ -15,7 +15,7 @@ import { colors, motion, radius, shadow, spacing } from '@/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const { data: profile, isLoading } = useMyProfile();
   const updateProfile = useUpdateProfile();
 
@@ -97,6 +97,23 @@ export default function SettingsScreen() {
     if (ok) signOut();
   };
 
+  const confirmDelete = async () => {
+    const ok = await confirmAsync({
+      title: 'Delete your account?',
+      message:
+        'This permanently deletes your profile, reports, points, and rewards. This cannot be undone.',
+      confirmLabel: 'Delete account',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteAccount();
+      // the root layout redirects to /welcome once the session clears
+    } catch (e) {
+      notify('Could not delete account', getErrorMessage(e, 'Please try again.'));
+    }
+  };
+
   const enter = (i: number) =>
     FadeInDown.delay(i * motion.stagger).duration(motion.enter).springify().damping(motion.damping);
 
@@ -144,6 +161,11 @@ export default function SettingsScreen() {
       <Animated.View entering={enter(6)}>
         <Button title="Save changes" size="lg" fullWidth loading={updateProfile.isPending} onPress={save} style={styles.save} />
         <Button title="Sign out" variant="danger" fullWidth onPress={confirmSignOut} style={styles.signOut} />
+        <PressableScale onPress={confirmDelete} style={styles.deleteLink} hitSlop={8}>
+          <Text variant="smallStrong" color={colors.danger} center>
+            Delete account
+          </Text>
+        </PressableScale>
       </Animated.View>
     </ScrollView>
   );
@@ -168,4 +190,5 @@ const styles = StyleSheet.create({
   toggleText: { flex: 1, gap: 2 },
   save: { marginTop: spacing.sm },
   signOut: { marginTop: spacing.xs },
+  deleteLink: { marginTop: spacing.lg, paddingVertical: spacing.sm },
 });

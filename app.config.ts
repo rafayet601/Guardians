@@ -15,6 +15,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'guardians',
   scheme: 'guardians',
   version: '1.0.0',
+  // OTA updates: ties each update to the app version. The URL is only set once an
+  // EAS project exists (run `eas update:configure`), so dev/local builds stay inert.
+  runtimeVersion: { policy: 'appVersion' },
+  updates: process.env.EAS_PROJECT_ID
+    ? { url: `https://u.expo.dev/${process.env.EAS_PROJECT_ID}` }
+    : undefined,
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
