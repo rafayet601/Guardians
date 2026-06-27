@@ -35,7 +35,10 @@ export default function ResetPasswordScreen() {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { password: '', confirm: '' } });
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { password: '', confirm: '' },
+  });
 
   // Establish the recovery session from the email deep link.
   useEffect(() => {
@@ -144,7 +147,10 @@ export default function ResetPasswordScreen() {
 
         <Pressable onPress={() => router.replace('/sign-in')} style={styles.switch} hitSlop={8}>
           <Text variant="body" muted center>
-            Back to <Text variant="bodyStrong" color={colors.primary}>sign in</Text>
+            Back to{' '}
+            <Text variant="bodyStrong" color={colors.primary}>
+              sign in
+            </Text>
           </Text>
         </Pressable>
       </KeyboardAvoidingView>

@@ -164,9 +164,7 @@ export async function updateStatus(
 export async function getUpdates(sightingId: string): Promise<SightingUpdate[]> {
   const { data, error } = await supabase
     .from('sighting_updates')
-    .select(
-      '*, author:profiles!sighting_updates_author_id_fkey(id, username, avatar_url, level)',
-    )
+    .select('*, author:profiles!sighting_updates_author_id_fkey(id, username, avatar_url, level)')
     .eq('sighting_id', sightingId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -204,9 +202,7 @@ export async function expressInterest(
 export async function getAdoptionInterest(sightingId: string): Promise<AdoptionInterest[]> {
   const { data, error } = await supabase
     .from('adoption_interest')
-    .select(
-      '*, applicant:profiles!adoption_interest_user_id_fkey(id, username, avatar_url, level)',
-    )
+    .select('*, applicant:profiles!adoption_interest_user_id_fkey(id, username, avatar_url, level)')
     .eq('sighting_id', sightingId)
     .order('created_at', { ascending: true });
   if (error) throw error;

@@ -15,7 +15,6 @@ const looksConfigured =
   !supabaseAnonKey.includes('YOUR-');
 
 if (!looksConfigured && __DEV__) {
-   
   console.warn(
     '[Guardians] Supabase env not configured. Copy .env.example to .env and fill in your keys.',
   );

@@ -186,5 +186,4 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: radius.lg,
   },
-})
-;
+});

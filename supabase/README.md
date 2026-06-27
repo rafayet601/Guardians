@@ -5,17 +5,17 @@ gamification engine that power Guardians.
 
 ## Layout
 
-| File | Purpose |
-|------|---------|
-| `migrations/0001_init.sql` | Extensions (PostGIS), enums, tables, indexes |
-| `migrations/0002_functions.sql` | Profile bootstrap, gamification, secure transition RPCs |
-| `migrations/0003_geo.sql` | `nearby_sightings()` radius search |
-| `migrations/0004_rls.sql` | Row Level Security + column-level grants |
-| `migrations/0005_storage.sql` | `cat-photos` / `avatars` buckets + policies |
-| `migrations/0006_seed_badges.sql` | Badge catalog (required reference data) |
-| `migrations/0007_rewards.sql` | Rewards marketplace: Kibble wallet, brands/offers/redemptions, sponsored placements, `redeem_reward()` RPC + RLS |
-| `migrations/0008_seed_rewards.sql` | Demo brands, offers, and sponsored placements |
-| `seed.sql` | Optional demo sightings |
+| File                               | Purpose                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `migrations/0001_init.sql`         | Extensions (PostGIS), enums, tables, indexes                                                                     |
+| `migrations/0002_functions.sql`    | Profile bootstrap, gamification, secure transition RPCs                                                          |
+| `migrations/0003_geo.sql`          | `nearby_sightings()` radius search                                                                               |
+| `migrations/0004_rls.sql`          | Row Level Security + column-level grants                                                                         |
+| `migrations/0005_storage.sql`      | `cat-photos` / `avatars` buckets + policies                                                                      |
+| `migrations/0006_seed_badges.sql`  | Badge catalog (required reference data)                                                                          |
+| `migrations/0007_rewards.sql`      | Rewards marketplace: Kibble wallet, brands/offers/redemptions, sponsored placements, `redeem_reward()` RPC + RLS |
+| `migrations/0008_seed_rewards.sql` | Demo brands, offers, and sponsored placements                                                                    |
+| `seed.sql`                         | Optional demo sightings                                                                                          |
 
 ## Option A — hosted Supabase (fastest)
 
@@ -46,7 +46,7 @@ supabase db reset                      # applies migrations + seed.sql
 ## Data model at a glance
 
 - **profiles** — one per auth user; holds `points`, `level`, `is_guardian`,
-  `wants_to_adopt`, and tallies. Score columns are *not* client-writable.
+  `wants_to_adopt`, and tallies. Score columns are _not_ client-writable.
 - **sightings** — the core unit (a reported cat) with a PostGIS `location`.
   Lifecycle: `spotted → claimed → in_rescue → safe → available → adopted`
   (plus `archived`). Status changes only happen via the RPCs below.
@@ -61,14 +61,14 @@ supabase db reset                      # applies migrations + seed.sql
 
 ## RPCs (call with `supabase.rpc(...)`)
 
-| Function | What it does |
-|----------|--------------|
-| `nearby_sightings(lat, lng, radius_m, statuses?, limit?)` | Cats within a radius, nearest first |
-| `claim_sighting(p_sighting)` | A guardian claims an open cat (+15 pts) |
-| `update_sighting_status(p_sighting, p_new_status, p_note?)` | Advance lifecycle (+50 on rescue) |
-| `express_adoption_interest(p_sighting, p_message?)` | Apply to adopt an available cat |
-| `approve_adoption(p_interest)` | Lister approves an adopter (forever home 🎉) |
-| `redeem_reward(p_offer)` | Spend Kibble on a brand offer; issues a discount code |
+| Function                                                    | What it does                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------- |
+| `nearby_sightings(lat, lng, radius_m, statuses?, limit?)`   | Cats within a radius, nearest first                   |
+| `claim_sighting(p_sighting)`                                | A guardian claims an open cat (+15 pts)               |
+| `update_sighting_status(p_sighting, p_new_status, p_note?)` | Advance lifecycle (+50 on rescue)                     |
+| `express_adoption_interest(p_sighting, p_message?)`         | Apply to adopt an available cat                       |
+| `approve_adoption(p_interest)`                              | Lister approves an adopter (forever home 🎉)          |
+| `redeem_reward(p_offer)`                                    | Spend Kibble on a brand offer; issues a discount code |
 
 ## Security notes
 

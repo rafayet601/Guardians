@@ -29,8 +29,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # NOTE: `npm run format:check` is intentionally not gated yet — the repo
-      # predates this Prettier config (run `npm run format` once to adopt it).
+      - name: Format check
+        run: npm run format:check
+
       - name: Typecheck (app)
         run: npm run typecheck
 
@@ -53,8 +54,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check & lint send-push
+      - name: Type-check & lint edge functions
         working-directory: supabase/functions
         run: |
-          deno check send-push/index.ts
-          deno lint send-push/index.ts
+          deno check send-push/index.ts delete-account/index.ts
+          deno lint send-push/index.ts delete-account/index.ts

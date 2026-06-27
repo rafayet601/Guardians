@@ -51,7 +51,8 @@ export default function ModerationScreen() {
             <View style={styles.rowTop}>
               <Pill label={item.target_type} fg={colors.accentDark} bg={colors.accentSoft} />
               <Text variant="caption" muted>
-                {item.report_count} report{item.report_count > 1 ? 's' : ''} · {timeAgo(item.latest_at)}
+                {item.report_count} report{item.report_count > 1 ? 's' : ''} ·{' '}
+                {timeAgo(item.latest_at)}
               </Text>
             </View>
             {item.latest_reason ? (
@@ -88,7 +89,14 @@ export default function ModerationScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.xs, backgroundColor: colors.background },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    gap: spacing.xs,
+    backgroundColor: colors.background,
+  },
   emoji: { fontSize: 52, marginBottom: spacing.xs },
   content: { padding: spacing.lg, flexGrow: 1, backgroundColor: colors.background },
   sep: { height: spacing.md },

@@ -10,25 +10,25 @@ screens or components.
 
 ## Palette
 
-| Token | Hex | Use |
-| --- | --- | --- |
-| `primary` (green500) | `#1FA463` | Primary actions, active states, rescue green |
-| `primaryDark` (green700) | `#15784A` | Pressed / deep green, gradients |
-| `primaryDeep` (green900) | `#0B3D28` | Darkest green, shadows on green |
-| `primarySoft` (green100) | `#D7EEDF` | Soft green chip / tag backgrounds |
-| `primaryTint` (green50) | `#E8F4EC` | Faint green surfaces |
-| `accent` (amber500) | `#F4A93C` | Honey accent (points, badges) |
-| `accentDark` (amber600) | `#8A5A12` | Honey text on soft amber |
-| `accentSoft` (amber100) | `#FCEFD6` | Reward / points card background |
-| `urgent` | `#E0653B` | Friendly urgent orange |
-| `urgentSoft` | `#FBE3DA` | Urgent tag background |
-| `background` | `#FBF9F4` | App canvas (warm off-white) |
-| `cream` | `#ECE7DD` | Grouped / sand sections |
-| `surface` / `card` | `#FFFFFF` | Cards & sheets |
-| `border` | `#E3DDD1` | Warm hairline borders |
-| `text` | `#241F1A` | Warm near-black ink |
-| `textSecondary` | `#5F5949` | Secondary copy |
-| `textMuted` | `#857E70` | Muted / captions |
+| Token                    | Hex       | Use                                          |
+| ------------------------ | --------- | -------------------------------------------- |
+| `primary` (green500)     | `#1FA463` | Primary actions, active states, rescue green |
+| `primaryDark` (green700) | `#15784A` | Pressed / deep green, gradients              |
+| `primaryDeep` (green900) | `#0B3D28` | Darkest green, shadows on green              |
+| `primarySoft` (green100) | `#D7EEDF` | Soft green chip / tag backgrounds            |
+| `primaryTint` (green50)  | `#E8F4EC` | Faint green surfaces                         |
+| `accent` (amber500)      | `#F4A93C` | Honey accent (points, badges)                |
+| `accentDark` (amber600)  | `#8A5A12` | Honey text on soft amber                     |
+| `accentSoft` (amber100)  | `#FCEFD6` | Reward / points card background              |
+| `urgent`                 | `#E0653B` | Friendly urgent orange                       |
+| `urgentSoft`             | `#FBE3DA` | Urgent tag background                        |
+| `background`             | `#FBF9F4` | App canvas (warm off-white)                  |
+| `cream`                  | `#ECE7DD` | Grouped / sand sections                      |
+| `surface` / `card`       | `#FFFFFF` | Cards & sheets                               |
+| `border`                 | `#E3DDD1` | Warm hairline borders                        |
+| `text`                   | `#241F1A` | Warm near-black ink                          |
+| `textSecondary`          | `#5F5949` | Secondary copy                               |
+| `textMuted`              | `#857E70` | Muted / captions                             |
 
 Status hues (claimed / in-rescue / adopt / archived) are warmed variants in
 `palette` and consumed via `src/constants/status.ts` — unchanged in structure.
@@ -53,14 +53,14 @@ smallStrong, caption, overline` (uppercase tracked label), `mono`.
 
 ## Screen mapping (design → app)
 
-| Design screen | App route |
-| --- | --- |
-| Onboarding / "Every cat deserves a Guardian" | `app/(auth)/welcome.tsx` — green flowing hero + emblem |
-| Live map / sightings | `app/(tabs)/index.tsx` |
-| Report a sighting | `app/report.tsx` |
-| Rescue detail / claim & complete | `app/sighting/[id].tsx` — added honey "Earn points" card |
-| Profile (points / level / badges) | `app/(tabs)/profile.tsx` — green identity banner + XP bar |
-| Adoptable gallery / Cat profile | _design includes these; no routes exist yet — candidates for a future `adopt` feature_ |
+| Design screen                                | App route                                                                              |
+| -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Onboarding / "Every cat deserves a Guardian" | `app/(auth)/welcome.tsx` — green flowing hero + emblem                                 |
+| Live map / sightings                         | `app/(tabs)/index.tsx`                                                                 |
+| Report a sighting                            | `app/report.tsx`                                                                       |
+| Rescue detail / claim & complete             | `app/sighting/[id].tsx` — added honey "Earn points" card                               |
+| Profile (points / level / badges)            | `app/(tabs)/profile.tsx` — green identity banner + XP bar                              |
+| Adoptable gallery / Cat profile              | _design includes these; no routes exist yet — candidates for a future `adopt` feature_ |
 
 ## Notes
 

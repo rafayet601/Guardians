@@ -108,9 +108,9 @@ Deno.serve(async (req: Request) => {
 
     // Inspect per-message tickets: count failures and collect tokens Expo
     // reports as DeviceNotRegistered so we can prune them.
-    const payload = (await resp.json().catch(() => null)) as
-      | { data?: { status: string; message?: string; details?: { error?: string } }[] }
-      | null;
+    const payload = (await resp.json().catch(() => null)) as {
+      data?: { status: string; message?: string; details?: { error?: string } }[];
+    } | null;
     const tickets = payload?.data ?? [];
     if (tickets.length === 0) {
       sent += chunkTokens.length; // no ticket detail (older response shape)

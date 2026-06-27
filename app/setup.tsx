@@ -5,7 +5,10 @@ import { Card, Screen, Text } from '@/components/ui';
 import { colors, motion, spacing } from '@/theme';
 
 const stagger = (i: number) =>
-  FadeInDown.delay(i * motion.stagger).duration(motion.enter).springify().damping(motion.damping);
+  FadeInDown.delay(i * motion.stagger)
+    .duration(motion.enter)
+    .springify()
+    .damping(motion.damping);
 
 export default function SetupScreen() {
   return (
@@ -64,6 +67,11 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
   logo: { fontSize: 56 },
   sub: { maxWidth: 300 },
-  card: { gap: spacing.xs, marginBottom: spacing.md, borderLeftWidth: 4, borderLeftColor: colors.primary },
+  card: {
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
   footer: { marginTop: spacing.lg },
 });

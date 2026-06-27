@@ -44,7 +44,10 @@ export default function SignInScreen() {
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View
-          entering={FadeInDown.delay(0 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(0 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
           style={styles.header}
         >
           <Text style={styles.logo}>🐾</Text>
@@ -56,7 +59,10 @@ export default function SignInScreen() {
 
         <View style={styles.form}>
           <Animated.View
-            entering={FadeInDown.delay(1 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(1 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Controller
               control={control}
@@ -77,7 +83,10 @@ export default function SignInScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(2 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Controller
               control={control}
@@ -104,7 +113,10 @@ export default function SignInScreen() {
           ) : null}
 
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(3 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Button
               title="Sign in"
@@ -118,16 +130,26 @@ export default function SignInScreen() {
         </View>
 
         <Animated.View
-          entering={FadeInDown.delay(4 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(4 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
-          <Pressable onPress={() => router.push('/forgot-password')} style={styles.forgot} hitSlop={8}>
+          <Pressable
+            onPress={() => router.push('/forgot-password')}
+            style={styles.forgot}
+            hitSlop={8}
+          >
             <Text variant="smallStrong" color={colors.primary} center>
               Forgot your password?
             </Text>
           </Pressable>
           <Pressable onPress={() => router.replace('/sign-up')} style={styles.switch} hitSlop={8}>
             <Text variant="body" muted center>
-              New here? <Text variant="bodyStrong" color={colors.primary}>Create an account</Text>
+              New here?{' '}
+              <Text variant="bodyStrong" color={colors.primary}>
+                Create an account
+              </Text>
             </Text>
           </Pressable>
         </Animated.View>

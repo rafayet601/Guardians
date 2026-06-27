@@ -11,14 +11,7 @@ export interface TextProps extends RNTextProps {
   muted?: boolean;
 }
 
-export function Text({
-  variant = 'body',
-  color,
-  center,
-  muted,
-  style,
-  ...rest
-}: TextProps) {
+export function Text({ variant = 'body', color, center, muted, style, ...rest }: TextProps) {
   return (
     <RNText
       style={[

@@ -62,7 +62,10 @@ async function setItem(key: string, value: string): Promise<void> {
   const count = Math.ceil(value.length / CHUNK_SIZE);
   await SecureStore.setItemAsync(key, `__chunks__:${count}`);
   for (let i = 0; i < count; i++) {
-    await SecureStore.setItemAsync(`${key}__${i}`, value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE));
+    await SecureStore.setItemAsync(
+      `${key}__${i}`,
+      value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+    );
   }
 }
 

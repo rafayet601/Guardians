@@ -66,7 +66,11 @@ describe('checkEligibility', () => {
   });
 
   it('blocks when Kibble balance is too low', () => {
-    const r = checkEligibility(offer({ cost_kibble: 1000 }), profile({ kibble_balance: 100 }), new Set());
+    const r = checkEligibility(
+      offer({ cost_kibble: 1000 }),
+      profile({ kibble_balance: 100 }),
+      new Set(),
+    );
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/more Kibble/i);
   });

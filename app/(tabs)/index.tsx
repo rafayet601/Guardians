@@ -120,7 +120,6 @@ export default function MapScreen() {
       })),
     );
     return idx;
-     
   }, [sightings]);
 
   const clusters = useMemo(() => {
@@ -202,7 +201,9 @@ export default function MapScreen() {
       </MapView>
 
       {/* Search + filter chips */}
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' }]}>
+      <View
+        style={[styles.topBar, { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' }]}
+      >
         <View style={styles.searchWrap}>
           <MapSearchBar
             value={query}
@@ -307,7 +308,12 @@ function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolea
   const color = urgent ? colors.urgent : meta.fg;
   return (
     <View style={[styles.pinWrap, active && styles.pinWrapActive]}>
-      <View style={[styles.pinHead, { backgroundColor: color, borderColor: active ? colors.accent : colors.white }]}>
+      <View
+        style={[
+          styles.pinHead,
+          { backgroundColor: color, borderColor: active ? colors.accent : colors.white },
+        ]}
+      >
         {urgent ? <Text style={styles.pinGlyph}>🚨</Text> : <View style={styles.pinDot} />}
       </View>
       <View style={[styles.pinTail, { borderTopColor: color }]} />

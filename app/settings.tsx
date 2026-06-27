@@ -115,12 +115,24 @@ export default function SettingsScreen() {
   };
 
   const enter = (i: number) =>
-    FadeInDown.delay(i * motion.stagger).duration(motion.enter).springify().damping(motion.damping);
+    FadeInDown.delay(i * motion.stagger)
+      .duration(motion.enter)
+      .springify()
+      .damping(motion.damping);
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Animated.View entering={enter(0)}>
-        <PressableScale style={styles.avatarPick} onPress={changeAvatar} disabled={uploading} scaleTo={0.97}>
+        <PressableScale
+          style={styles.avatarPick}
+          onPress={changeAvatar}
+          disabled={uploading}
+          scaleTo={0.97}
+        >
           <Avatar url={avatarUrl} name={username} size={88} />
           <Text variant="smallStrong" color={colors.primary}>
             {uploading ? 'Uploading…' : 'Change photo'}
@@ -129,13 +141,30 @@ export default function SettingsScreen() {
       </Animated.View>
 
       <Animated.View entering={enter(1)}>
-        <Input label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
+        <Input
+          label="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
       </Animated.View>
       <Animated.View entering={enter(2)}>
-        <Input label="Full name" value={fullName} onChangeText={setFullName} placeholder="Optional" />
+        <Input
+          label="Full name"
+          value={fullName}
+          onChangeText={setFullName}
+          placeholder="Optional"
+        />
       </Animated.View>
       <Animated.View entering={enter(3)}>
-        <Input label="Bio" value={bio} onChangeText={setBio} placeholder="Tell the community about yourself" multiline />
+        <Input
+          label="Bio"
+          value={bio}
+          onChangeText={setBio}
+          placeholder="Tell the community about yourself"
+          multiline
+        />
       </Animated.View>
 
       <Animated.View entering={enter(4)} style={styles.toggleRow}>
@@ -145,7 +174,12 @@ export default function SettingsScreen() {
             Get involved in rescuing cats.
           </Text>
         </View>
-        <Switch value={isGuardian} onValueChange={setIsGuardian} trackColor={{ true: colors.primaryLight, false: colors.border }} thumbColor={colors.white} />
+        <Switch
+          value={isGuardian}
+          onValueChange={setIsGuardian}
+          trackColor={{ true: colors.primaryLight, false: colors.border }}
+          thumbColor={colors.white}
+        />
       </Animated.View>
 
       <Animated.View entering={enter(5)} style={styles.toggleRow}>
@@ -155,12 +189,30 @@ export default function SettingsScreen() {
             Show interest in giving cats a forever home.
           </Text>
         </View>
-        <Switch value={wantsToAdopt} onValueChange={setWantsToAdopt} trackColor={{ true: colors.primaryLight, false: colors.border }} thumbColor={colors.white} />
+        <Switch
+          value={wantsToAdopt}
+          onValueChange={setWantsToAdopt}
+          trackColor={{ true: colors.primaryLight, false: colors.border }}
+          thumbColor={colors.white}
+        />
       </Animated.View>
 
       <Animated.View entering={enter(6)}>
-        <Button title="Save changes" size="lg" fullWidth loading={updateProfile.isPending} onPress={save} style={styles.save} />
-        <Button title="Sign out" variant="danger" fullWidth onPress={confirmSignOut} style={styles.signOut} />
+        <Button
+          title="Save changes"
+          size="lg"
+          fullWidth
+          loading={updateProfile.isPending}
+          onPress={save}
+          style={styles.save}
+        />
+        <Button
+          title="Sign out"
+          variant="danger"
+          fullWidth
+          onPress={confirmSignOut}
+          style={styles.signOut}
+        />
         <PressableScale onPress={confirmDelete} style={styles.deleteLink} hitSlop={8}>
           <Text variant="smallStrong" color={colors.danger} center>
             Delete account

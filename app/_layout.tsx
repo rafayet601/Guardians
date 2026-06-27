@@ -1,8 +1,4 @@
-import {
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
-  Nunito_900Black,
-} from '@expo-google-fonts/nunito';
+import { Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -88,7 +84,9 @@ function RootNavigator() {
   if (!fontsReady) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+    >
       <Stack.Screen name="report" options={{ presentation: 'modal' }} />
       <Stack.Screen
         name="sighting/[id]"

@@ -1,4 +1,4 @@
-import { ReactNode , ComponentProps } from 'react';
+import { ReactNode, ComponentProps } from 'react';
 import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 

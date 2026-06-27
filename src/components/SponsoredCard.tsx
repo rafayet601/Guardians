@@ -56,7 +56,12 @@ function SponsoredCardView({
 
   return (
     <Animated.View entering={FadeIn.duration(420)} style={style}>
-      <PressableScale onPress={onPress} disabled={!placement.cta_url} style={styles.card} scaleTo={0.985}>
+      <PressableScale
+        onPress={onPress}
+        disabled={!placement.cta_url}
+        style={styles.card}
+        scaleTo={0.985}
+      >
         <LinearGradient
           colors={AD_GRADIENT}
           start={{ x: 0, y: 0 }}

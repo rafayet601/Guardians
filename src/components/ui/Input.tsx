@@ -36,7 +36,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   return (
     <View style={styles.wrap}>
       {label ? (
-        <Text variant="smallStrong" color={focused ? colors.primary : colors.textSecondary} style={styles.label}>
+        <Text
+          variant="smallStrong"
+          color={focused ? colors.primary : colors.textSecondary}
+          style={styles.label}
+        >
           {label}
         </Text>
       ) : null}

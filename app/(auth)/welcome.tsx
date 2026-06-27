@@ -45,26 +45,42 @@ const ORBS: Orb[] = [
   {
     colors: ['rgba(244,169,60,0.42)', 'rgba(244,169,60,0)'], // honey, top-right
     box: { width: 360, height: 360, top: -120, right: -90 },
-    dur: 7200, delay: 0, drift: { x: 26, y: 20 }, rotate: 18,
-    start: { x: 0.2, y: 0 }, end: { x: 1, y: 1 },
+    dur: 7200,
+    delay: 0,
+    drift: { x: 26, y: 20 },
+    rotate: 18,
+    start: { x: 0.2, y: 0 },
+    end: { x: 1, y: 1 },
   },
   {
     colors: ['rgba(176,232,206,0.55)', 'rgba(176,232,206,0)'], // mint, bottom-left
     box: { width: 420, height: 380, bottom: -150, left: -120 },
-    dur: 9000, delay: 600, drift: { x: 30, y: 26 }, rotate: 14,
-    start: { x: 0, y: 1 }, end: { x: 1, y: 0 },
+    dur: 9000,
+    delay: 600,
+    drift: { x: 30, y: 26 },
+    rotate: 14,
+    start: { x: 0, y: 1 },
+    end: { x: 1, y: 0 },
   },
   {
     colors: ['rgba(45,200,130,0.5)', 'rgba(45,200,130,0)'], // emerald glow, center
     box: { width: 300, height: 300, top: '34%', left: '24%' },
-    dur: 6200, delay: 1200, drift: { x: 22, y: 18 }, rotate: 22,
-    start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
+    dur: 6200,
+    delay: 1200,
+    drift: { x: 22, y: 18 },
+    rotate: 22,
+    start: { x: 0, y: 0 },
+    end: { x: 1, y: 1 },
   },
   {
     colors: ['rgba(8,48,32,0.45)', 'rgba(8,48,32,0)'], // deep shadow, top-left
     box: { width: 340, height: 340, top: -90, left: -130 },
-    dur: 8200, delay: 300, drift: { x: 24, y: 20 }, rotate: 16,
-    start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
+    dur: 8200,
+    delay: 300,
+    drift: { x: 24, y: 20 },
+    rotate: 16,
+    start: { x: 0, y: 0 },
+    end: { x: 1, y: 1 },
   },
 ];
 
@@ -93,7 +109,12 @@ function AuroraOrb({ orb, reduced }: { orb: Orb; reduced: boolean }) {
 
   return (
     <Animated.View style={[styles.orb, orb.box, style]}>
-      <LinearGradient colors={orb.colors} start={orb.start} end={orb.end} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={orb.colors}
+        start={orb.start}
+        end={orb.end}
+        style={StyleSheet.absoluteFill}
+      />
     </Animated.View>
   );
 }
@@ -167,7 +188,10 @@ export default function WelcomeScreen() {
       {/* ── Content ── */}
       <SafeAreaView edges={['bottom']} style={styles.content}>
         <Animated.View
-          entering={FadeInDown.delay(motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
           <Text variant="overline" color={colors.primary} style={styles.kicker}>
             Community Cat Rescue
@@ -181,7 +205,10 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(2 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
           style={styles.actions}
         >
           <Button title="Get started" size="lg" fullWidth onPress={() => router.push('/sign-up')} />
@@ -192,7 +219,11 @@ export default function WelcomeScreen() {
             fullWidth
             onPress={() => router.push('/sign-in')}
           />
-          <PressableScale onPress={() => router.push('/sign-in')} style={styles.loginLink} hitSlop={8}>
+          <PressableScale
+            onPress={() => router.push('/sign-in')}
+            style={styles.loginLink}
+            hitSlop={8}
+          >
             <Text variant="smallStrong" muted center>
               Already a Guardian?{'  '}
               <Text variant="smallStrong" color={colors.primary}>

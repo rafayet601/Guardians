@@ -60,7 +60,7 @@ export default function SightingDetailScreen() {
   const meta = STATUS_META[sighting.status];
   const temp = TEMPERAMENT_META[sighting.temperament];
   const heroPhoto = sighting.photos?.[0]?.url;
-  const nextStatuses = canManage ? NEXT_STATUSES[sighting.status] ?? [] : [];
+  const nextStatuses = canManage ? (NEXT_STATUSES[sighting.status] ?? []) : [];
   const myInterest = interests.find((i) => i.user_id === user?.id);
 
   const onClaim = () =>
@@ -168,7 +168,10 @@ export default function SightingDetailScreen() {
         <View style={styles.body}>
           {/* Title + status + summary */}
           <Animated.View
-            entering={FadeInDown.delay(0 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(0 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
             style={styles.headBlock}
           >
             <View style={styles.titleRow}>
@@ -179,8 +182,14 @@ export default function SightingDetailScreen() {
             </View>
             <View style={styles.metaRow}>
               <StatusPill status={sighting.status} />
-              <Pill label={`${temp.icon} ${temp.label}`} fg={colors.textSecondary} bg={colors.divider} />
-              {sighting.is_injured ? <Pill label="🩹 Injured" fg={colors.urgent} bg={colors.urgentSoft} /> : null}
+              <Pill
+                label={`${temp.icon} ${temp.label}`}
+                fg={colors.textSecondary}
+                bg={colors.divider}
+              />
+              {sighting.is_injured ? (
+                <Pill label="🩹 Injured" fg={colors.urgent} bg={colors.urgentSoft} />
+              ) : null}
             </View>
             <Text variant="small" muted>
               {meta.description}
@@ -190,7 +199,10 @@ export default function SightingDetailScreen() {
           {/* Description */}
           {sighting.description ? (
             <Animated.View
-              entering={FadeInDown.delay(1 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+              entering={FadeInDown.delay(1 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
             >
               <Card style={styles.section}>
                 <Text variant="body">{sighting.description}</Text>
@@ -201,10 +213,17 @@ export default function SightingDetailScreen() {
           {/* Reporter */}
           {sighting.reporter ? (
             <Animated.View
-              entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+              entering={FadeInDown.delay(2 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
               style={styles.reporterRow}
             >
-              <Avatar url={sighting.reporter.avatar_url} name={sighting.reporter.username} size={36} />
+              <Avatar
+                url={sighting.reporter.avatar_url}
+                name={sighting.reporter.username}
+                size={36}
+              />
               <Text variant="small" muted>
                 Reported by{' '}
                 <Text variant="smallStrong" color={colors.text}>
@@ -218,13 +237,20 @@ export default function SightingDetailScreen() {
           {/* Map — exact pin for the rescue coordinators, an approximate area
               for everyone else (privacy; see get_sighting_detail RPC). */}
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(3 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <View style={styles.mapWrap}>
               <MapView
                 provider={MAP_PROVIDER}
                 style={[styles.map, { pointerEvents: 'none' }]}
-                initialRegion={regionForRadius(sighting.lat, sighting.lng, sighting.is_precise ? 500 : 700)}
+                initialRegion={regionForRadius(
+                  sighting.lat,
+                  sighting.lng,
+                  sighting.is_precise ? 500 : 700,
+                )}
               >
                 {sighting.is_precise ? (
                   <Marker coordinate={{ latitude: sighting.lat, longitude: sighting.lng }} />
@@ -248,7 +274,10 @@ export default function SightingDetailScreen() {
 
           {/* Actions */}
           <Animated.View
-            entering={FadeInDown.delay(4 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(4 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
             style={styles.actions}
           >
             {sighting.status === 'spotted' ? (
@@ -293,7 +322,12 @@ export default function SightingDetailScreen() {
 
             {sighting.status === 'available' && !canManage ? (
               myInterest ? (
-                <Pill label="✓ You applied to adopt" fg={colors.primary} bg={colors.primarySoft} style={styles.appliedPill} />
+                <Pill
+                  label="✓ You applied to adopt"
+                  fg={colors.primary}
+                  bg={colors.primarySoft}
+                  style={styles.appliedPill}
+                />
               ) : (
                 <Button
                   title="🏠 I want to adopt"
@@ -310,7 +344,10 @@ export default function SightingDetailScreen() {
           {/* Adoption applicants (for the lister) */}
           {sighting.status === 'available' && canManage ? (
             <Animated.View
-              entering={FadeInDown.delay(5 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+              entering={FadeInDown.delay(5 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
               style={styles.section}
             >
               <Text variant="heading">Adoption requests ({interests.length})</Text>
@@ -333,7 +370,11 @@ export default function SightingDetailScreen() {
                     {i.status === 'approved' ? (
                       <Pill label="Approved" fg={colors.primary} bg={colors.primarySoft} />
                     ) : (
-                      <Button title="Approve" size="sm" onPress={() => onApprove(i.id, i.applicant?.username)} />
+                      <Button
+                        title="Approve"
+                        size="sm"
+                        onPress={() => onApprove(i.id, i.applicant?.username)}
+                      />
                     )}
                   </Card>
                 ))
@@ -343,14 +384,20 @@ export default function SightingDetailScreen() {
 
           {/* Timeline */}
           <Animated.View
-            entering={FadeInDown.delay(6 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(6 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
             style={styles.section}
           >
             <Text variant="heading">Activity</Text>
             {updates.map((u, i) => (
               <Animated.View
                 key={u.id}
-                entering={FadeInDown.delay(Math.min(i, 8) * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+                entering={FadeInDown.delay(Math.min(i, 8) * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)}
               >
                 <TimelineItem update={u} />
               </Animated.View>
@@ -439,14 +486,27 @@ const styles = StyleSheet.create({
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
   heroEmoji: { fontSize: 96 },
-  body: { padding: spacing.lg, gap: spacing.md, marginTop: -spacing.xl, backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl },
+  body: {
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginTop: -spacing.xl,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+  },
   headBlock: { gap: spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
   urgent: { fontSize: 24 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   section: { gap: spacing.sm, marginTop: spacing.sm },
   reporterRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  mapWrap: { height: 160, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  mapWrap: {
+    height: 160,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   map: { flex: 1 },
   mapNote: { marginTop: spacing.xs },
   modRow: {
@@ -479,7 +539,12 @@ const styles = StyleSheet.create({
   },
   rewardSub: { marginTop: 1 },
   applicantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  commentRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, alignItems: 'flex-start' },
+  commentRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: 'flex-start',
+  },
   systemRow: { alignItems: 'center', paddingVertical: spacing.sm },
   composer: {
     flexDirection: 'row',

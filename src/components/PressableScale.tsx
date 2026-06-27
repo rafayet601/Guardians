@@ -1,10 +1,6 @@
 import { ReactNode } from 'react';
 import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -19,12 +15,7 @@ interface PressableScaleProps extends Omit<PressableProps, 'style'> {
  * A Pressable that springs inward on press — the app's standard tactile
  * micro-interaction. Driven on the UI thread via Reanimated.
  */
-export function PressableScale({
-  children,
-  style,
-  scaleTo = 0.96,
-  ...rest
-}: PressableScaleProps) {
+export function PressableScale({ children, style, scaleTo = 0.96, ...rest }: PressableScaleProps) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 

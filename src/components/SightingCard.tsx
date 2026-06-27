@@ -44,7 +44,6 @@ export function SightingCard({
       <View style={styles.row}>
         <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" transition={180} />
 
-
         <View style={styles.body}>
           <View style={styles.headerRow}>
             <Text variant="subheading" numberOfLines={1} style={styles.title}>

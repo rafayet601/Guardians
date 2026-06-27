@@ -1,4 +1,12 @@
-import { ActivityIndicator, Pressable, PressableProps, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  PressableProps,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { colors, fontFamily, radius, shadow, spacing } from '@/theme';

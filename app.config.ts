@@ -23,7 +23,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     : undefined,
   orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'automatic',
+  // The design system is a single warm-light theme (tokens in src/theme are
+  // light-only), so pin the UI to light for consistent system chrome. A true
+  // dark mode would need a second palette + dynamic theming (tracked separately).
+  userInterfaceStyle: 'light',
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
@@ -57,12 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY,
       },
     },
-    permissions: [
-      'ACCESS_COARSE_LOCATION',
-      'ACCESS_FINE_LOCATION',
-      'CAMERA',
-      'READ_MEDIA_IMAGES',
-    ],
+    permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'CAMERA', 'READ_MEDIA_IMAGES'],
   },
   web: {
     bundler: 'metro',

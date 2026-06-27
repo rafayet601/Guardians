@@ -15,8 +15,7 @@ export function useExpressInterest(sightingId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (message?: string) => expressInterest(sightingId, message),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.adoptionInterest(sightingId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.adoptionInterest(sightingId) }),
   });
 }
 

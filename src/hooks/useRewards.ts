@@ -1,12 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import {
-  getMyRedemptions,
-  getOffers,
-  getPlacements,
-  getWallet,
-  redeemReward,
-} from '@/api/rewards';
+import { getMyRedemptions, getOffers, getPlacements, getWallet, redeemReward } from '@/api/rewards';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuth } from '@/providers/AuthProvider';

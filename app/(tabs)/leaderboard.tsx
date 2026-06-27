@@ -41,7 +41,11 @@ export default function LeaderboardScreen() {
           removeClippedSubviews
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
           }
           ListEmptyComponent={
             <EmptyState icon="🏆" title="No rankings yet" message="Be the first to earn points!" />
@@ -96,7 +100,12 @@ function Row({ entry, index, isMe }: { entry: LeaderboardEntry; index: number; i
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md, gap: 2 },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: 2,
+  },
   listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl, flexGrow: 1 },
   sep: { height: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
