@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { StatusPill } from '@/components/StatusPill';
 import { Card, Pill, Text } from '@/components/ui';
 import { TEMPERAMENT_META } from '@/constants/status';
-import { colors, radius, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import type { CatStatus, CatTemperament } from '@/types/models';
 import { formatDistance, timeAgo } from '@/utils/format';
 import { catPhoto } from '@/utils/placeholder';

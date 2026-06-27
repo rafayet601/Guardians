@@ -22,6 +22,7 @@ import { uploadCatPhoto } from '@/api/storage';
 import { Button, Input, Text } from '@/components/ui';
 import { TEMPERAMENT_META } from '@/constants/status';
 import { choosePhotoSource, notify, type PhotoSource } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -115,7 +116,7 @@ export default function ReportScreen() {
       }
       router.back();
     } catch (e) {
-      notify('Could not post', e instanceof Error ? e.message : 'Please try again.');
+      notify('Could not post', getErrorMessage(e, 'Please try again.'));
     } finally {
       setSubmitting(false);
     }

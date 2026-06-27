@@ -12,7 +12,7 @@ import { NearbySheet } from '@/components/NearbySheet';
 import { PressableScale } from '@/components/PressableScale';
 import { MapView, Marker, MAP_PROVIDER, type Region } from '@/components/PlatformMap';
 import { Text } from '@/components/ui';
-import { STATUS_META, TEMPERAMENT_META } from '@/constants/status';
+import { STATUS_META } from '@/constants/status';
 import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
@@ -120,7 +120,7 @@ export default function MapScreen() {
       })),
     );
     return idx;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [sightings]);
 
   const clusters = useMemo(() => {

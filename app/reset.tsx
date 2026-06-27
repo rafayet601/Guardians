@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Button, Input, Loading, Screen, Text } from '@/components/ui';
 import { sessionFromUrl } from '@/lib/authLink';
 import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, spacing } from '@/theme';
 
@@ -56,7 +57,7 @@ export default function ResetPasswordScreen() {
       notify('Password updated', 'You can now use your new password.');
       router.replace('/');
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not update your password');
+      setFormError(getErrorMessage(e, 'Could not update your password'));
     }
   };
 

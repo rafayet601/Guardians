@@ -17,7 +17,7 @@ export async function reportContent(
   const { error } = await supabase.rpc('report_content', {
     p_type: type,
     p_id: id,
-    p_reason: reason ?? null,
+    p_reason: reason,
   });
   if (error) throw error;
 }

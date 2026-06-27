@@ -7,6 +7,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { z } from 'zod';
 
 import { Button, Input, Screen, Text } from '@/components/ui';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, spacing } from '@/theme';
 
@@ -35,7 +36,7 @@ export default function SignInScreen() {
       await signIn(values.email.trim(), values.password);
       // root layout redirects to the app on session change
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not sign in');
+      setFormError(getErrorMessage(e, 'Could not sign in'));
     }
   };
 

@@ -44,7 +44,7 @@ By gamifying the rescue process with points, levels, and badges, we're building 
 - **Instant Reporting:** Drop an exact map-pin, snap photos, and flag urgency, temperament, and injuries.
 - **Rescue Lifecycle:** Secure, server-side state transitions tracking a cat's journey: `Spotted` → `Claimed` → `In Rescue` → `Safe` → `Available` → `Adopted`.
 - **Gamification Engine:** Earn points for every good deed. Level up, climb the leaderboard, and unlock exclusive community badges.
-- **Community Timeline:** Real-time activity feeds and comments on every rescue mission.
+- **Community Timeline:** An activity feed and threaded comments on every rescue mission (refreshed on demand; live Realtime sync is on the roadmap).
 - **Adoption Flow:** Streamlined matching between rescuers and prospective adopters.
 - **Secure Auth:** Email/password authentication with persisted sessions and rigorous Row Level Security.
 

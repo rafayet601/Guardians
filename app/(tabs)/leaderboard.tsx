@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Card, EmptyState, Loading, Text } from '@/components/ui';
 import { useLeaderboard } from '@/hooks/useGamification';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, palette, radius, spacing } from '@/theme';
+import { colors, motion, palette, spacing } from '@/theme';
 import type { LeaderboardEntry } from '@/types/models';
 import { compactNumber } from '@/utils/format';
 
