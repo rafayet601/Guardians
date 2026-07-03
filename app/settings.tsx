@@ -1,10 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { uploadAvatar } from '@/api/storage';
+import { LEGAL_LINKS } from '@/constants/links';
 import { confirmAsync, notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import { PressableScale } from '@/components/PressableScale';
@@ -218,6 +220,32 @@ export default function SettingsScreen() {
             Delete account
           </Text>
         </PressableScale>
+
+        <View style={styles.legalRow}>
+          <PressableScale
+            onPress={() => Linking.openURL(LEGAL_LINKS.privacyPolicy)}
+            hitSlop={8}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+          >
+            <Text variant="small" muted>
+              Privacy Policy
+            </Text>
+          </PressableScale>
+          <Text variant="small" muted>
+            ·
+          </Text>
+          <PressableScale
+            onPress={() => Linking.openURL(LEGAL_LINKS.terms)}
+            hitSlop={8}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of Service"
+          >
+            <Text variant="small" muted>
+              Terms of Service
+            </Text>
+          </PressableScale>
+        </View>
       </Animated.View>
     </ScrollView>
   );
@@ -243,4 +271,11 @@ const styles = StyleSheet.create({
   save: { marginTop: spacing.sm },
   signOut: { marginTop: spacing.xs },
   deleteLink: { marginTop: spacing.lg, paddingVertical: spacing.sm },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.xs,
+  },
 });

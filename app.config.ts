@@ -101,6 +101,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         color: '#0E7C66',
       },
     ],
+    [
+      '@sentry/react-native/expo',
+      {
+        // Native crash handling is always wired; source-map/symbol upload runs
+        // only in EAS builds where SENTRY_AUTH_TOKEN + these two are set.
+        organization: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
