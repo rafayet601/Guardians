@@ -31,12 +31,7 @@ export function Avatar({ url, name, size = 44 }: AvatarProps) {
 
   if (url) {
     return (
-      <Image
-        source={{ uri: url }}
-        style={[styles.base, dim]}
-        contentFit="cover"
-        transition={150}
-      />
+      <Image source={{ uri: url }} style={[styles.base, dim]} contentFit="cover" transition={150} />
     );
   }
 

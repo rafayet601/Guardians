@@ -80,4 +80,11 @@ export const TEMPERAMENT_META: Record<CatTemperament, { label: string; icon: str
   unknown: { label: 'Unknown', icon: '🐱' },
 };
 
-export const STATUS_OPTIONS: CatStatus[] = ['spotted', 'claimed', 'in_rescue', 'safe', 'available', 'adopted'];
+export const STATUS_OPTIONS: CatStatus[] = [
+  'spotted',
+  'claimed',
+  'in_rescue',
+  'safe',
+  'available',
+  'adopted',
+];

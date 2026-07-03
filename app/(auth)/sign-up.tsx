@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, spacing } from '@/theme';
 
@@ -49,7 +50,7 @@ export default function SignUpScreen() {
       }
       // otherwise the root layout redirects into the app automatically
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not create your account');
+      setFormError(getErrorMessage(e, 'Could not create your account'));
     }
   };
 
@@ -69,7 +70,10 @@ export default function SignUpScreen() {
 
         <View style={styles.form}>
           <Animated.View
-            entering={FadeInDown.delay(1 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(1 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Controller
               control={control}
@@ -89,7 +93,10 @@ export default function SignUpScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(2 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Controller
               control={control}
@@ -110,7 +117,10 @@ export default function SignUpScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(3 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Controller
               control={control}
@@ -138,7 +148,10 @@ export default function SignUpScreen() {
           ) : null}
 
           <Animated.View
-            entering={FadeInDown.delay(4 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(4 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <Button
               title="Create account"
@@ -152,7 +165,10 @@ export default function SignUpScreen() {
         </View>
 
         <Animated.View
-          entering={FadeInDown.delay(5 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(5 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
           <Pressable onPress={() => router.replace('/sign-in')} style={styles.switch} hitSlop={8}>
             <Text variant="body" muted center>

@@ -4,7 +4,11 @@ This MVP is a complete, runnable vertical slice. The items below are what stand
 between it and a polished public launch on the App Store / Play Store. They're
 ordered roughly by priority.
 
+> The detailed, **sequenced milestone plan** now lives in [`ROADMAP.md`](./ROADMAP.md).
+> This file is the raw status checklist; several items below are now done.
+
 ## 1. Secrets & keys
+
 - [ ] Put `EXPO_PUBLIC_*` values and Google Maps keys into **EAS environment
       variables / secrets** (not just local `.env`) so cloud builds pick them up.
 - [ ] **Restrict the Google Maps keys** in Google Cloud Console:
@@ -12,42 +16,47 @@ ordered roughly by priority.
 - [ ] Rotate the Supabase anon key if it was ever committed.
 
 ## 2. Backend hardening (Supabase)
+
 - [ ] Turn **email confirmation ON** and configure a real SMTP sender.
-- [ ] Add a **password reset** flow + deep link (`guardians://reset`).
+- [x] Add a **password reset** flow + deep link. _(done — `app/(auth)/forgot-password.tsx`, `app/reset.tsx`, `src/lib/authLink.ts`)_
 - [ ] Enable **Point-in-Time Recovery / scheduled backups**.
-- [ ] Add DB **rate limiting / abuse protection** (Supabase API gateway settings).
+- [x] Add DB **rate limiting / abuse protection**. _(done at the DB layer — insert rate-limit triggers in migration 0011; gateway-level limits still TODO)_
 - [ ] Review every RLS policy against the [Supabase RLS test guide]; add
       `pgTAP` tests for the policies in `supabase/migrations/0004_rls.sql`.
-- [ ] Consider an **`is_moderator`** role + admin policies for handling reports.
+- [x] Add an **`is_moderator`** role + moderation policies. _(done — migration 0012; `app/moderation.tsx`)_
 
-## 3. Safety, privacy & moderation  ⚠️ important for this app
+## 3. Safety, privacy & moderation ⚠️ important for this app
+
 - [x] **Map coordinates are coarsened** to ~110 m and the radius is clamped in
       `nearby_sightings` so the map can't be used to enumerate exact locations.
-- [ ] **Also gate the sighting-detail exact location** (`getSighting` still
-      returns precise lat/lng): expose precise coords only to the reporter/
-      assigned guardian via a SECURITY DEFINER RPC; show an approximate circle to
-      everyone else.
-- [ ] Add **report/flag abuse** + **block user** flows.
-- [ ] Add **photo moderation** (e.g. AWS Rekognition / a moderation queue).
+- [x] **Sighting-detail exact location is gated** — precise coords + address go
+      only to the reporter/assigned guardian via the `get_sighting_detail`
+      SECURITY DEFINER RPC; everyone else sees an approximate circle. _(done — migration 0009)_
+- [x] **Report/flag + block-user backend** — `report_content`, `moderate_content`,
+      `blockUser`/`unblockUser`, and a moderation queue. _(done — migration 0012; surfacing the block-user action in the sighting UI is the remaining bit)_
+- [ ] Add **photo moderation** (e.g. AWS Rekognition / a moderation queue review step).
 - [ ] Write the **Privacy Policy** and **Terms** (you collect location + photos).
 - [ ] Fill out the App Store **Privacy Nutrition Labels** and Play **Data Safety**
       form (location, photos, account data).
 
 ## 4. Notifications
-- [ ] Implement push registration with `expo-notifications` (the `push_token`
-      column + `savePushToken()` API are already scaffolded).
-- [ ] Add a Supabase **Edge Function / DB webhook** that notifies nearby
-      guardians when an urgent sighting is reported, and notifies the reporter
-      when their cat is claimed/rescued.
+
+- [x] **Push registration** — `registerForPush()` + the `upsert_push_token` RPC
+      (stores a coarse home area). _(done — `src/lib/push.ts`, migration 0010)_
+- [x] **Urgent-sighting push fan-out** — `supabase/functions/send-push` +
+      service-role `tokens_near` RPC alerts nearby opted-in guardians. _(done;
+      currently client-triggered, and only urgent reports — moving to a DB webhook
+      and adding claimed/rescued notifications is on the roadmap)_
 
 ## 5. Maps & performance
-- [ ] **Cluster markers** when many cats are visible (`react-native-map-clustering`
-      or a supercluster integration) — the current map renders raw pins.
-- [ ] **Paginate** the feed (currently a 50-row limit) with infinite scroll.
+
+- [x] **Marker clustering** via supercluster. _(done — `app/(tabs)/index.tsx`)_
+- [x] **Feed pagination** — keyset cursor + infinite scroll. _(done — `getFeed`, `useFeed`)_
 - [ ] Serve **resized images** via Supabase image transformations / a CDN.
 - [ ] Build a **dev/production client** (Google Maps on iOS + camera require it).
 
 ## 6. Quality & release engineering
+
 - [ ] Add **unit tests** (Jest + React Native Testing Library) and a couple of
       **E2E flows** (Maestro or Detox): sign up → report → claim → adopt.
 - [ ] Add **error tracking** (Sentry) and basic **analytics**.
@@ -56,6 +65,7 @@ ordered roughly by priority.
 - [ ] Generate final **app icons, splash, store screenshots & copy**.
 
 ## 7. Nice-to-haves
+
 - [ ] Dark mode (theme tokens are centralized in `src/theme`).
 - [ ] Social / Apple / Google sign-in.
 - [ ] Map heatmap of rescue activity; guardian "on duty" radius alerts.

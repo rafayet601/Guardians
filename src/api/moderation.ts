@@ -17,7 +17,7 @@ export async function reportContent(
   const { error } = await supabase.rpc('report_content', {
     p_type: type,
     p_id: id,
-    p_reason: reason ?? null,
+    p_reason: reason,
   });
   if (error) throw error;
 }
@@ -28,7 +28,11 @@ export async function moderateContent(
   id: string,
   hide: boolean,
 ): Promise<void> {
-  const { error } = await supabase.rpc('moderate_content', { p_type: type, p_id: id, p_hide: hide });
+  const { error } = await supabase.rpc('moderate_content', {
+    p_type: type,
+    p_id: id,
+    p_hide: hide,
+  });
   if (error) throw error;
 }
 

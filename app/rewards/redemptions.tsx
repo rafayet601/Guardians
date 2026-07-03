@@ -9,11 +9,12 @@ import type { RewardRedemption } from '@/types/models';
 
 const KIBBLE = '🐟';
 
-const STATUS_STYLE: Record<RewardRedemption['status'], { label: string; fg: string; bg: string }> = {
-  active: { label: 'Active', fg: colors.primary, bg: colors.primarySoft },
-  used: { label: 'Used', fg: colors.textSecondary, bg: colors.divider },
-  expired: { label: 'Expired', fg: colors.danger, bg: colors.accentSoft },
-};
+const STATUS_STYLE: Record<RewardRedemption['status'], { label: string; fg: string; bg: string }> =
+  {
+    active: { label: 'Active', fg: colors.primary, bg: colors.primarySoft },
+    used: { label: 'Used', fg: colors.textSecondary, bg: colors.divider },
+    expired: { label: 'Expired', fg: colors.danger, bg: colors.accentSoft },
+  };
 
 export default function RedemptionsScreen() {
   const { data: redemptions, isLoading } = useMyRedemptions();
@@ -36,7 +37,12 @@ export default function RedemptionsScreen() {
       renderItem={({ item, index }) => {
         const status = STATUS_STYLE[item.status];
         return (
-          <Animated.View entering={FadeInDown.delay(index * 55).duration(420).springify().damping(16)}>
+          <Animated.View
+            entering={FadeInDown.delay(index * 55)
+              .duration(420)
+              .springify()
+              .damping(16)}
+          >
             <Card style={styles.row}>
               <View style={styles.rowTop}>
                 <View style={styles.flex}>

@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { spacing } from '@/theme';
@@ -13,7 +13,13 @@ export interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export function EmptyState({ icon = '🐾', title, message, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  icon = '🐾',
+  title,
+  message,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   return (
     <Animated.View entering={FadeInUp.duration(420)} style={styles.wrap}>
       <Text style={styles.icon}>{icon}</Text>

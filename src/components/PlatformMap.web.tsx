@@ -19,7 +19,7 @@ export type LatLng = { latitude: number; longitude: number };
 
 // Props are intentionally loose: this shim ignores every map-specific prop and
 // only forwards `style`. Typed as `any` so screens can pass real MapView props.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export const MapView = forwardRef<unknown, any>(function MapView(props, ref) {
   // Imperative methods used by screens are no-ops on web (so optional-chained
   // calls like mapRef.current?.animateToRegion don't throw).

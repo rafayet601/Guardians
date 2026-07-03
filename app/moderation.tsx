@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { Button, Card, EmptyState, Loading, Pill, Text } from '@/components/ui';
 import { useIsModerator, useModerateContent, useModerationQueue } from '@/hooks/useModeration';
 import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { colors, spacing } from '@/theme';
 import { timeAgo } from '@/utils/format';
 import type { ModerationTarget } from '@/types/models';
@@ -31,7 +32,7 @@ export default function ModerationScreen() {
   const act = (type: ModerationTarget, id: string, hide: boolean) =>
     moderate.mutate(
       { type, id, hide },
-      { onError: (e) => notify('Action failed', e instanceof Error ? e.message : 'Please try again.') },
+      { onError: (e) => notify('Action failed', getErrorMessage(e, 'Please try again.')) },
     );
 
   return (
@@ -50,7 +51,8 @@ export default function ModerationScreen() {
             <View style={styles.rowTop}>
               <Pill label={item.target_type} fg={colors.accentDark} bg={colors.accentSoft} />
               <Text variant="caption" muted>
-                {item.report_count} report{item.report_count > 1 ? 's' : ''} · {timeAgo(item.latest_at)}
+                {item.report_count} report{item.report_count > 1 ? 's' : ''} ·{' '}
+                {timeAgo(item.latest_at)}
               </Text>
             </View>
             {item.latest_reason ? (
@@ -87,7 +89,14 @@ export default function ModerationScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.xs, backgroundColor: colors.background },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    gap: spacing.xs,
+    backgroundColor: colors.background,
+  },
   emoji: { fontSize: 52, marginBottom: spacing.xs },
   content: { padding: spacing.lg, flexGrow: 1, backgroundColor: colors.background },
   sep: { height: spacing.md },

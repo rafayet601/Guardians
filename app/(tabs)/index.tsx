@@ -12,7 +12,7 @@ import { NearbySheet } from '@/components/NearbySheet';
 import { PressableScale } from '@/components/PressableScale';
 import { MapView, Marker, MAP_PROVIDER, type Region } from '@/components/PlatformMap';
 import { Text } from '@/components/ui';
-import { STATUS_META, TEMPERAMENT_META } from '@/constants/status';
+import { STATUS_META } from '@/constants/status';
 import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
@@ -120,7 +120,6 @@ export default function MapScreen() {
       })),
     );
     return idx;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sightings]);
 
   const clusters = useMemo(() => {
@@ -202,7 +201,9 @@ export default function MapScreen() {
       </MapView>
 
       {/* Search + filter chips */}
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' }]}>
+      <View
+        style={[styles.topBar, { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' }]}
+      >
         <View style={styles.searchWrap}>
           <MapSearchBar
             value={query}
@@ -307,7 +308,12 @@ function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolea
   const color = urgent ? colors.urgent : meta.fg;
   return (
     <View style={[styles.pinWrap, active && styles.pinWrapActive]}>
-      <View style={[styles.pinHead, { backgroundColor: color, borderColor: active ? colors.accent : colors.white }]}>
+      <View
+        style={[
+          styles.pinHead,
+          { backgroundColor: color, borderColor: active ? colors.accent : colors.white },
+        ]}
+      >
         {urgent ? <Text style={styles.pinGlyph}>🚨</Text> : <View style={styles.pinDot} />}
       </View>
       <View style={[styles.pinTail, { borderTopColor: color }]} />

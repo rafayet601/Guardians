@@ -1,24 +1,23 @@
 import 'react-native-url-polyfill/auto';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 import { env } from './env';
+import { secureStorage } from './secureStorage';
+import type { Database } from '@/types/database';
 
 /**
  * Supabase client for React Native.
  *
- * - AsyncStorage persists the session across app launches.
+ * - The session persists across launches via `secureStorage`: an encrypted
+ *   SecureStore (keychain/keystore) adapter on native, AsyncStorage on web.
  * - autoRefreshToken keeps the access token fresh while the app is foregrounded.
  * - detectSessionInUrl is disabled (that's a web-only OAuth-redirect concern).
- *
- * NOTE: For stricter at-rest security you can swap AsyncStorage for an
- * encrypted SecureStore-backed adapter — see README "Production checklist".
  */
-export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
+export const supabase = createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: secureStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

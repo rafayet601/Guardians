@@ -1,6 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -74,7 +81,11 @@ export default function FeedScreen() {
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
           }
           onEndReachedThreshold={0.5}
           onEndReached={() => {

@@ -20,6 +20,7 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -78,6 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async updatePassword(password) {
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
+      },
+      async deleteAccount() {
+        // Permanently deletes the auth user (cascades all data) via the
+        // `delete-account` Edge Function, then clears the local session.
+        const { error } = await supabase.functions.invoke('delete-account');
+        if (error) throw error;
+        await supabase.auth.signOut();
       },
     }),
     [session, initializing],

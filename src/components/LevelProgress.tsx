@@ -19,7 +19,9 @@ export function LevelProgress({ points }: { points: number }) {
   useEffect(() => {
     fill.value = withDelay(140, withSpring(progress, { damping: 18, stiffness: 90 }));
   }, [fill, progress]);
-  const fillStyle = useAnimatedStyle(() => ({ width: `${Math.min(100, Math.max(0, fill.value * 100))}%` }));
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${Math.min(100, Math.max(0, fill.value * 100))}%`,
+  }));
 
   return (
     <View style={styles.wrap}>

@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Typecheck & test
+    name: Lint, typecheck & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +26,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
       - name: Typecheck (app)
         run: npm run typecheck
 
@@ -34,3 +40,22 @@ jobs:
 
       - name: Unit tests
         run: npm run test:ci
+
+      # Catch Metro/bundling + native-config breakage that tsc and node-env jest
+      # never surface (e.g. a bad import or Reanimated/worklets resolution issue).
+      - name: Bundle smoke test
+        run: npx expo export --platform web --output-dir /tmp/export-check
+
+  edge-functions:
+    name: Deno check (edge functions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check & lint edge functions
+        working-directory: supabase/functions
+        run: |
+          deno check send-push/index.ts delete-account/index.ts
+          deno lint send-push/index.ts delete-account/index.ts

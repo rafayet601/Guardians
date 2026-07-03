@@ -10,7 +10,13 @@ import Animated, {
 
 import { palette } from '@/theme';
 
-const CONFETTI = [palette.amber500, palette.green500, palette.amber600, palette.green300, palette.pink500];
+const CONFETTI = [
+  palette.amber500,
+  palette.green500,
+  palette.amber600,
+  palette.green300,
+  palette.pink500,
+];
 const COUNT = 16;
 
 // Particle vectors are computed once at module load so they stay stable across
@@ -69,7 +75,12 @@ function Bit({ p }: { p: Particle }) {
     <Animated.View
       style={[
         styles.bit,
-        { width: p.size, height: p.size, backgroundColor: p.color, borderRadius: p.round ? p.size / 2 : 2 },
+        {
+          width: p.size,
+          height: p.size,
+          backgroundColor: p.color,
+          borderRadius: p.round ? p.size / 2 : 2,
+        },
         style,
       ]}
     />

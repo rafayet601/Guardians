@@ -19,7 +19,12 @@ describe('regionForRadius', () => {
 describe('radiusFromRegion', () => {
   it('clamps very small regions up to 500m', () => {
     expect(
-      radiusFromRegion({ latitude: 0, longitude: 0, latitudeDelta: 0.0001, longitudeDelta: 0.0001 }),
+      radiusFromRegion({
+        latitude: 0,
+        longitude: 0,
+        latitudeDelta: 0.0001,
+        longitudeDelta: 0.0001,
+      }),
     ).toBe(500);
   });
 

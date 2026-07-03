@@ -22,6 +22,7 @@ import { uploadCatPhoto } from '@/api/storage';
 import { Button, Input, Text } from '@/components/ui';
 import { TEMPERAMENT_META } from '@/constants/status';
 import { choosePhotoSource, notify, type PhotoSource } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -30,7 +31,10 @@ import type { CatTemperament } from '@/types/models';
 import { DEFAULT_REGION, regionForRadius } from '@/utils/geo';
 
 const entrance = (i: number) =>
-  FadeInDown.delay(i * motion.stagger).duration(motion.enter).springify().damping(motion.damping);
+  FadeInDown.delay(i * motion.stagger)
+    .duration(motion.enter)
+    .springify()
+    .damping(motion.damping);
 
 const TEMPERAMENTS = Object.keys(TEMPERAMENT_META) as CatTemperament[];
 const MAX_PHOTOS = 4;
@@ -70,7 +74,11 @@ export default function ReportScreen() {
     const result =
       mode === 'camera'
         ? await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: true, base64: true })
-        : await ImagePicker.launchImageLibraryAsync({ quality: 0.6, allowsEditing: true, base64: true });
+        : await ImagePicker.launchImageLibraryAsync({
+            quality: 0.6,
+            allowsEditing: true,
+            base64: true,
+          });
     if (!result.canceled && result.assets[0]) {
       setPhotos((p) => [...p, result.assets[0]]);
     }
@@ -115,7 +123,7 @@ export default function ReportScreen() {
       }
       router.back();
     } catch (e) {
-      notify('Could not post', e instanceof Error ? e.message : 'Please try again.');
+      notify('Could not post', getErrorMessage(e, 'Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -145,7 +153,11 @@ export default function ReportScreen() {
           {/* Photos */}
           <Animated.View entering={entrance(0)} style={styles.section}>
             <Text variant="subheading">Photos</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.photoRow}
+            >
               {photos.map((p, i) => (
                 <View key={p.uri} style={styles.photoWrap}>
                   <Image source={{ uri: p.uri }} style={styles.photo} contentFit="cover" />
@@ -198,7 +210,12 @@ export default function ReportScreen() {
 
           {/* Details */}
           <Animated.View entering={entrance(2)} style={styles.section}>
-            <Input label="Nickname (optional)" placeholder="e.g. Orange tabby by the park" value={title} onChangeText={setTitle} />
+            <Input
+              label="Nickname (optional)"
+              placeholder="e.g. Orange tabby by the park"
+              value={title}
+              onChangeText={setTitle}
+            />
             <Input
               label="Description (optional)"
               placeholder="Behavior, where it hides, anything helpful…"
@@ -206,7 +223,12 @@ export default function ReportScreen() {
               onChangeText={setDescription}
               multiline
             />
-            <Input label="Color / markings (optional)" placeholder="e.g. black & white" value={color} onChangeText={setColor} />
+            <Input
+              label="Color / markings (optional)"
+              placeholder="e.g. black & white"
+              value={color}
+              onChangeText={setColor}
+            />
           </Animated.View>
 
           {/* Temperament */}
@@ -219,7 +241,11 @@ export default function ReportScreen() {
                 const active = temperament === t;
                 const meta = TEMPERAMENT_META[t];
                 return (
-                  <PressableScale key={t} onPress={() => setTemperament(t)} style={[styles.tempChip, active && styles.tempChipActive]}>
+                  <PressableScale
+                    key={t}
+                    onPress={() => setTemperament(t)}
+                    style={[styles.tempChip, active && styles.tempChipActive]}
+                  >
                     <Text variant="smallStrong" color={active ? colors.white : colors.text}>
                       {meta.icon} {meta.label}
                     </Text>
@@ -231,7 +257,11 @@ export default function ReportScreen() {
 
           {/* Flags */}
           <Animated.View entering={entrance(4)} style={styles.section}>
-            <ToggleRow label="🩹 This cat looks injured" value={isInjured} onChange={setIsInjured} />
+            <ToggleRow
+              label="🩹 This cat looks injured"
+              value={isInjured}
+              onChange={setIsInjured}
+            />
             <ToggleRow label="🚨 Needs urgent help" value={needsUrgent} onChange={setNeedsUrgent} />
           </Animated.View>
 
@@ -307,7 +337,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primaryTint,
   },
-  mapWrap: { height: 200, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  mapWrap: {
+    height: 200,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   map: { flex: 1 },
   label: { marginTop: spacing.xs, marginLeft: 2 },
   tempRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

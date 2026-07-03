@@ -30,7 +30,11 @@ import type { RewardOffer } from '@/types/models';
 export const KIBBLE = '🐟';
 
 const WALLET_GRADIENT = [palette.green900, palette.green700, palette.green500] as const;
-const SHIMMER_GRADIENT = ['rgba(255,255,255,0)', 'rgba(255,255,255,0.22)', 'rgba(255,255,255,0)'] as const;
+const SHIMMER_GRADIENT = [
+  'rgba(255,255,255,0)',
+  'rgba(255,255,255,0.22)',
+  'rgba(255,255,255,0)',
+] as const;
 
 export default function RewardsScreen() {
   const router = useRouter();
@@ -63,7 +67,11 @@ export default function RewardsScreen() {
           removeClippedSubviews
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
           }
           ListHeaderComponent={
             <View style={styles.headerBlock}>
@@ -113,12 +121,23 @@ function WalletHero({
   const bob = useSharedValue(0);
 
   useEffect(() => {
-    shimmer.value = withRepeat(withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.ease) }), -1, false);
-    bob.value = withRepeat(withTiming(1, { duration: 3400, easing: Easing.inOut(Easing.ease) }), -1, true);
+    shimmer.value = withRepeat(
+      withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      false,
+    );
+    bob.value = withRepeat(
+      withTiming(1, { duration: 3400, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
   }, [shimmer, bob]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: interpolate(shimmer.value, [0, 1], [-280, 380]) }, { rotate: '18deg' }],
+    transform: [
+      { translateX: interpolate(shimmer.value, [0, 1], [-280, 380]) },
+      { rotate: '18deg' },
+    ],
   }));
   const bobStyle = useAnimatedStyle(() => ({
     transform: [
@@ -128,7 +147,10 @@ function WalletHero({
   }));
 
   return (
-    <Animated.View entering={FadeInDown.duration(520).springify().damping(15)} style={styles.heroShadow}>
+    <Animated.View
+      entering={FadeInDown.duration(520).springify().damping(15)}
+      style={styles.heroShadow}
+    >
       <View style={styles.hero}>
         <LinearGradient
           colors={WALLET_GRADIENT}
@@ -166,8 +188,8 @@ function WalletHero({
           </Text>
 
           <Text variant="small" color={palette.green100}>
-            Earned alongside your {compactNumber(points)} rank points — spending Kibble never
-            lowers your rank.
+            Earned alongside your {compactNumber(points)} rank points — spending Kibble never lowers
+            your rank.
           </Text>
         </View>
       </View>
@@ -187,13 +209,21 @@ function OfferRow({
   onPress: () => void;
 }) {
   return (
-    <Animated.View entering={FadeInDown.delay(60 + index * 55).duration(440).springify().damping(16)}>
+    <Animated.View
+      entering={FadeInDown.delay(60 + index * 55)
+        .duration(440)
+        .springify()
+        .damping(16)}
+    >
       <PressableScale onPress={onPress} style={styles.offer}>
         <View style={[styles.thumb, !eligibility.ok && styles.dim]}>
           {offer.image_url ? (
             <Image source={{ uri: offer.image_url }} style={styles.thumbImg} contentFit="cover" />
           ) : (
-            <LinearGradient colors={[palette.green100, palette.green50]} style={StyleSheet.absoluteFill} />
+            <LinearGradient
+              colors={[palette.green100, palette.green50]}
+              style={StyleSheet.absoluteFill}
+            />
           )}
           {!offer.image_url ? <Text style={styles.thumbEmoji}>🎁</Text> : null}
         </View>
@@ -206,7 +236,11 @@ function OfferRow({
             {offer.title}
           </Text>
           <View style={styles.offerMeta}>
-            <Pill label={`${KIBBLE} ${offer.cost_kibble}`} fg={colors.primary} bg={colors.primarySoft} />
+            <Pill
+              label={`${KIBBLE} ${offer.cost_kibble}`}
+              fg={colors.primary}
+              bg={colors.primarySoft}
+            />
             {offer.discount_label ? (
               <Pill label={offer.discount_label} fg={colors.accentDark} bg={colors.accentSoft} />
             ) : null}

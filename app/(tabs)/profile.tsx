@@ -24,7 +24,8 @@ const LEVEL_TITLES = [
   'Rescue Hero',
   'Cat Legend',
 ];
-const levelTitle = (level: number) => LEVEL_TITLES[Math.min(level - 1, LEVEL_TITLES.length - 1)] ?? 'Guardian';
+const levelTitle = (level: number) =>
+  LEVEL_TITLES[Math.min(level - 1, LEVEL_TITLES.length - 1)] ?? 'Guardian';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -108,7 +109,10 @@ export default function ProfileScreen() {
 
       {/* Kibble wallet */}
       <Animated.View
-        entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+        entering={FadeInDown.delay(2 * motion.stagger)
+          .duration(motion.enter)
+          .springify()
+          .damping(motion.damping)}
       >
         <Card style={styles.kibbleCard}>
           <View style={styles.kibbleInfo}>
@@ -127,7 +131,10 @@ export default function ProfileScreen() {
       {/* Moderation (moderators/admins only) */}
       {isModerator ? (
         <Animated.View
-          entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(2 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
           <Card onPress={() => router.push('/moderation')} style={styles.kibbleCard}>
             <View style={styles.kibbleInfo}>
@@ -143,7 +150,10 @@ export default function ProfileScreen() {
 
       {/* Stats */}
       <Animated.View
-        entering={FadeInDown.delay(3 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+        entering={FadeInDown.delay(3 * motion.stagger)
+          .duration(motion.enter)
+          .springify()
+          .damping(motion.damping)}
         style={styles.statsRow}
       >
         <Stat label="Reports" value={profile.reports_count} icon="👀" />
@@ -153,7 +163,10 @@ export default function ProfileScreen() {
 
       {/* Badges */}
       <Animated.View
-        entering={FadeInDown.delay(4 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+        entering={FadeInDown.delay(4 * motion.stagger)
+          .duration(motion.enter)
+          .springify()
+          .damping(motion.damping)}
       >
         <Text variant="heading" style={styles.sectionTitle}>
           Badges
@@ -164,11 +177,19 @@ export default function ProfileScreen() {
             return (
               <Animated.View
                 key={b.id}
-                entering={ZoomIn.delay(Math.min(i, 8) * (motion.stagger / 2)).duration(motion.enter).springify().damping(motion.damping)}
+                entering={ZoomIn.delay(Math.min(i, 8) * (motion.stagger / 2))
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)}
                 style={[styles.badge, !has && styles.badgeLocked]}
               >
                 <Text style={[styles.badgeIcon, !has && styles.badgeIconLocked]}>{b.icon}</Text>
-                <Text variant="caption" center numberOfLines={2} color={has ? colors.text : colors.textMuted}>
+                <Text
+                  variant="caption"
+                  center
+                  numberOfLines={2}
+                  color={has ? colors.text : colors.textMuted}
+                >
                   {b.name}
                 </Text>
               </Animated.View>
@@ -179,7 +200,10 @@ export default function ProfileScreen() {
 
       {/* My sightings */}
       <Animated.View
-        entering={FadeInDown.delay(5 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+        entering={FadeInDown.delay(5 * motion.stagger)
+          .duration(motion.enter)
+          .springify()
+          .damping(motion.damping)}
       >
         <Text variant="heading" style={styles.sectionTitle}>
           My reports ({sightings.length})
@@ -191,7 +215,11 @@ export default function ProfileScreen() {
         ) : (
           <View style={styles.mineList}>
             {sightings.slice(0, 8).map((s) => (
-              <Card key={s.id} onPress={() => router.push(`/sighting/${s.id}`)} style={styles.mineRow}>
+              <Card
+                key={s.id}
+                onPress={() => router.push(`/sighting/${s.id}`)}
+                style={styles.mineRow}
+              >
                 <View style={styles.mineInfo}>
                   <Text variant="bodyStrong" numberOfLines={1}>
                     {s.title?.trim() || 'Cat sighting'}
@@ -286,7 +314,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   roleDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: '#BFE0CD' },
-  levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
+  levelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
   xpText: { fontFamily: fontFamily.mono, fontSize: 11.5, color: 'rgba(255,255,255,0.9)' },
   track: {
     height: 10,

@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, spacing } from '@/theme';
 
@@ -34,7 +35,7 @@ export default function ForgotPasswordScreen() {
       );
       router.back();
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not send the reset email');
+      setFormError(getErrorMessage(e, 'Could not send the reset email'));
     }
   };
 
@@ -42,7 +43,10 @@ export default function ForgotPasswordScreen() {
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View
-          entering={FadeInDown.delay(0 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(0 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
           style={styles.header}
         >
           <Text style={styles.logo}>🔑</Text>
@@ -53,7 +57,10 @@ export default function ForgotPasswordScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(1 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(1 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
           <Controller
             control={control}
@@ -81,7 +88,10 @@ export default function ForgotPasswordScreen() {
         ) : null}
 
         <Animated.View
-          entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(2 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
           <Button
             title="Send reset link"
@@ -94,11 +104,17 @@ export default function ForgotPasswordScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(3 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+          entering={FadeInDown.delay(3 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
         >
           <Pressable onPress={() => router.back()} style={styles.switch} hitSlop={8}>
             <Text variant="body" muted center>
-              Back to <Text variant="bodyStrong" color={colors.primary}>sign in</Text>
+              Back to{' '}
+              <Text variant="bodyStrong" color={colors.primary}>
+                sign in
+              </Text>
             </Text>
           </Pressable>
         </Animated.View>

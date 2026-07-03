@@ -10,6 +10,7 @@ import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { checkEligibility } from '@/api/rewards';
 import { RewardBurst } from '@/components/RewardBurst';
 import { Button, Card, Loading, Pill, Text } from '@/components/ui';
+import { getErrorMessage } from '@/lib/errors';
 import { useUserBadges } from '@/hooks/useGamification';
 import { useMyProfile } from '@/hooks/useProfile';
 import { useOffers, useRedeemReward } from '@/hooks/useRewards';
@@ -70,7 +71,7 @@ export default function OfferDetailScreen() {
         celebrate();
         setRedeemed(r);
       },
-      onError: (e) => notify('Could not redeem', e instanceof Error ? e.message : 'Please try again.'),
+      onError: (e) => notify('Could not redeem', getErrorMessage(e, 'Please try again.')),
     });
   };
 
@@ -90,14 +91,21 @@ export default function OfferDetailScreen() {
         </View>
       )}
 
-      <Animated.View entering={FadeInDown.duration(460).springify().damping(16)} style={styles.body}>
+      <Animated.View
+        entering={FadeInDown.duration(460).springify().damping(16)}
+        style={styles.body}
+      >
         <Text variant="caption" muted>
           {offer.brand?.name?.toUpperCase() ?? 'PARTNER'}
         </Text>
         <Text variant="title">{offer.title}</Text>
 
         <View style={styles.metaRow}>
-          <Pill label={`${KIBBLE} ${offer.cost_kibble} Kibble`} fg={colors.primary} bg={colors.primarySoft} />
+          <Pill
+            label={`${KIBBLE} ${offer.cost_kibble} Kibble`}
+            fg={colors.primary}
+            bg={colors.primarySoft}
+          />
           {offer.discount_label ? (
             <Pill label={offer.discount_label} fg={colors.accentDark} bg={colors.accentSoft} />
           ) : null}
@@ -195,7 +203,13 @@ export default function OfferDetailScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   content: { paddingBottom: spacing.xxxl },
-  hero: { width: '100%', height: 220, backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center' },
+  hero: {
+    width: '100%',
+    height: 220,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   heroEmoji: { fontSize: 88 },
   body: { padding: spacing.lg, gap: spacing.sm },
   metaRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.xs },

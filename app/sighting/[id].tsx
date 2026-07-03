@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -14,9 +15,10 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
+import { CLAIM_TO_RESCUE_TOTAL } from '@/constants/points';
 import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
 import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
-import { useReportContent } from '@/hooks/useModeration';
+import { useBlockUser, useReportContent } from '@/hooks/useModeration';
 import {
   useClaimSighting,
   usePostComment,
@@ -25,6 +27,7 @@ import {
   useUpdateStatus,
 } from '@/hooks/useSightings';
 import { confirmAsync, notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, radius, spacing } from '@/theme';
 import type { CatStatus, SightingUpdate } from '@/types/models';
@@ -45,6 +48,7 @@ export default function SightingDetailScreen() {
   const approveAdoption = useApproveAdoption(id);
   const postComment = usePostComment(id);
   const report = useReportContent();
+  const block = useBlockUser();
 
   const [comment, setComment] = useState('');
 
@@ -56,11 +60,13 @@ export default function SightingDetailScreen() {
   const meta = STATUS_META[sighting.status];
   const temp = TEMPERAMENT_META[sighting.temperament];
   const heroPhoto = sighting.photos?.[0]?.url;
-  const nextStatuses = canManage ? NEXT_STATUSES[sighting.status] ?? [] : [];
+  const nextStatuses = canManage ? (NEXT_STATUSES[sighting.status] ?? []) : [];
   const myInterest = interests.find((i) => i.user_id === user?.id);
 
   const onClaim = () =>
     claim.mutate(sighting.id, {
+      onSuccess: () =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
       onError: (e) => notify('Could not claim', errMsg(e)),
     });
 
@@ -74,7 +80,11 @@ export default function SightingDetailScreen() {
     if (!ok) return;
     updateStatus.mutate(
       { id: sighting.id, status },
-      { onError: (e) => notify('Could not update', errMsg(e)) },
+      {
+        onSuccess: () =>
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
+        onError: (e) => notify('Could not update', errMsg(e)),
+      },
     );
   };
 
@@ -122,6 +132,21 @@ export default function SightingDetailScreen() {
     );
   };
 
+  const onBlockReporter = async () => {
+    if (!sighting.reporter_id) return;
+    const ok = await confirmAsync({
+      title: `Block ${sighting.reporter?.username ?? 'this user'}?`,
+      message: "You won't see their reports anymore. You can unblock them later from Settings.",
+      confirmLabel: 'Block',
+      destructive: true,
+    });
+    if (!ok) return;
+    block.mutate(sighting.reporter_id, {
+      onSuccess: () => notify('User blocked', "You won't see this person's reports."),
+      onError: (e) => notify('Could not block', errMsg(e)),
+    });
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -143,7 +168,10 @@ export default function SightingDetailScreen() {
         <View style={styles.body}>
           {/* Title + status + summary */}
           <Animated.View
-            entering={FadeInDown.delay(0 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(0 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
             style={styles.headBlock}
           >
             <View style={styles.titleRow}>
@@ -154,8 +182,14 @@ export default function SightingDetailScreen() {
             </View>
             <View style={styles.metaRow}>
               <StatusPill status={sighting.status} />
-              <Pill label={`${temp.icon} ${temp.label}`} fg={colors.textSecondary} bg={colors.divider} />
-              {sighting.is_injured ? <Pill label="🩹 Injured" fg={colors.urgent} bg={colors.urgentSoft} /> : null}
+              <Pill
+                label={`${temp.icon} ${temp.label}`}
+                fg={colors.textSecondary}
+                bg={colors.divider}
+              />
+              {sighting.is_injured ? (
+                <Pill label="🩹 Injured" fg={colors.urgent} bg={colors.urgentSoft} />
+              ) : null}
             </View>
             <Text variant="small" muted>
               {meta.description}
@@ -165,7 +199,10 @@ export default function SightingDetailScreen() {
           {/* Description */}
           {sighting.description ? (
             <Animated.View
-              entering={FadeInDown.delay(1 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+              entering={FadeInDown.delay(1 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
             >
               <Card style={styles.section}>
                 <Text variant="body">{sighting.description}</Text>
@@ -176,10 +213,17 @@ export default function SightingDetailScreen() {
           {/* Reporter */}
           {sighting.reporter ? (
             <Animated.View
-              entering={FadeInDown.delay(2 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+              entering={FadeInDown.delay(2 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
               style={styles.reporterRow}
             >
-              <Avatar url={sighting.reporter.avatar_url} name={sighting.reporter.username} size={36} />
+              <Avatar
+                url={sighting.reporter.avatar_url}
+                name={sighting.reporter.username}
+                size={36}
+              />
               <Text variant="small" muted>
                 Reported by{' '}
                 <Text variant="smallStrong" color={colors.text}>
@@ -193,13 +237,20 @@ export default function SightingDetailScreen() {
           {/* Map — exact pin for the rescue coordinators, an approximate area
               for everyone else (privacy; see get_sighting_detail RPC). */}
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(3 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
           >
             <View style={styles.mapWrap}>
               <MapView
                 provider={MAP_PROVIDER}
                 style={[styles.map, { pointerEvents: 'none' }]}
-                initialRegion={regionForRadius(sighting.lat, sighting.lng, sighting.is_precise ? 500 : 700)}
+                initialRegion={regionForRadius(
+                  sighting.lat,
+                  sighting.lng,
+                  sighting.is_precise ? 500 : 700,
+                )}
               >
                 {sighting.is_precise ? (
                   <Marker coordinate={{ latitude: sighting.lat, longitude: sighting.lng }} />
@@ -223,7 +274,10 @@ export default function SightingDetailScreen() {
 
           {/* Actions */}
           <Animated.View
-            entering={FadeInDown.delay(4 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(4 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
             style={styles.actions}
           >
             {sighting.status === 'spotted' ? (
@@ -234,7 +288,7 @@ export default function SightingDetailScreen() {
                   </View>
                   <View style={styles.flex}>
                     <Text variant="smallStrong" color={colors.accentDark}>
-                      Earn 65 points
+                      Earn {CLAIM_TO_RESCUE_TOTAL} points
                     </Text>
                     <Text variant="caption" color={colors.accentDark} style={styles.rewardSub}>
                       for completing this rescue
@@ -268,7 +322,12 @@ export default function SightingDetailScreen() {
 
             {sighting.status === 'available' && !canManage ? (
               myInterest ? (
-                <Pill label="✓ You applied to adopt" fg={colors.primary} bg={colors.primarySoft} style={styles.appliedPill} />
+                <Pill
+                  label="✓ You applied to adopt"
+                  fg={colors.primary}
+                  bg={colors.primarySoft}
+                  style={styles.appliedPill}
+                />
               ) : (
                 <Button
                   title="🏠 I want to adopt"
@@ -285,7 +344,10 @@ export default function SightingDetailScreen() {
           {/* Adoption applicants (for the lister) */}
           {sighting.status === 'available' && canManage ? (
             <Animated.View
-              entering={FadeInDown.delay(5 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+              entering={FadeInDown.delay(5 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
               style={styles.section}
             >
               <Text variant="heading">Adoption requests ({interests.length})</Text>
@@ -308,7 +370,11 @@ export default function SightingDetailScreen() {
                     {i.status === 'approved' ? (
                       <Pill label="Approved" fg={colors.primary} bg={colors.primarySoft} />
                     ) : (
-                      <Button title="Approve" size="sm" onPress={() => onApprove(i.id, i.applicant?.username)} />
+                      <Button
+                        title="Approve"
+                        size="sm"
+                        onPress={() => onApprove(i.id, i.applicant?.username)}
+                      />
                     )}
                   </Card>
                 ))
@@ -318,14 +384,20 @@ export default function SightingDetailScreen() {
 
           {/* Timeline */}
           <Animated.View
-            entering={FadeInDown.delay(6 * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+            entering={FadeInDown.delay(6 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)}
             style={styles.section}
           >
             <Text variant="heading">Activity</Text>
             {updates.map((u, i) => (
               <Animated.View
                 key={u.id}
-                entering={FadeInDown.delay(Math.min(i, 8) * motion.stagger).duration(motion.enter).springify().damping(motion.damping)}
+                entering={FadeInDown.delay(Math.min(i, 8) * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)}
               >
                 <TimelineItem update={u} />
               </Animated.View>
@@ -333,11 +405,20 @@ export default function SightingDetailScreen() {
           </Animated.View>
 
           {!isOwner ? (
-            <Pressable onPress={onReportListing} hitSlop={8} style={styles.reportRow}>
-              <Text variant="small" color={colors.textMuted}>
-                ⚠️ Report this listing
-              </Text>
-            </Pressable>
+            <View style={styles.modRow}>
+              <Pressable onPress={onReportListing} hitSlop={8} style={styles.modAction}>
+                <Text variant="small" color={colors.textMuted}>
+                  ⚠️ Report this listing
+                </Text>
+              </Pressable>
+              {sighting.reporter_id ? (
+                <Pressable onPress={onBlockReporter} hitSlop={8} style={styles.modAction}>
+                  <Text variant="small" color={colors.textMuted}>
+                    🚫 Block this user
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
         </View>
       </ScrollView>
@@ -396,7 +477,7 @@ function TimelineItem({ update }: { update: SightingUpdate }) {
 }
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : 'Please try again.';
+  return getErrorMessage(e, 'Please try again.');
 }
 
 const styles = StyleSheet.create({
@@ -405,17 +486,37 @@ const styles = StyleSheet.create({
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
   heroEmoji: { fontSize: 96 },
-  body: { padding: spacing.lg, gap: spacing.md, marginTop: -spacing.xl, backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl },
+  body: {
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginTop: -spacing.xl,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+  },
   headBlock: { gap: spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
   urgent: { fontSize: 24 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   section: { gap: spacing.sm, marginTop: spacing.sm },
   reporterRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  mapWrap: { height: 160, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  mapWrap: {
+    height: 160,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   map: { flex: 1 },
   mapNote: { marginTop: spacing.xs },
-  reportRow: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.sm },
+  modRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  modAction: { paddingVertical: spacing.xs },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
   appliedPill: { alignSelf: 'center' },
   rewardCard: {
@@ -438,7 +539,12 @@ const styles = StyleSheet.create({
   },
   rewardSub: { marginTop: 1 },
   applicantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  commentRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, alignItems: 'flex-start' },
+  commentRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: 'flex-start',
+  },
   systemRow: { alignItems: 'center', paddingVertical: spacing.sm },
   composer: {
     flexDirection: 'row',

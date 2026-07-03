@@ -7,7 +7,7 @@ Stack: **Expo SDK 56 · Expo Router · react-native-maps · Reanimated 4**. Toke
 > **Map scope:** The map surface itself stays as the **native map (Apple Maps on
 > iOS via `PROVIDER_DEFAULT`, Google on Android)** through `@/components/PlatformMap`.
 > Do **not** restyle map tiles or apply a custom map JSON. Everything specced here is
-> the *chrome over* the map — search, chips, pins/overlays, the Report action, and the
+> the _chrome over_ the map — search, chips, pins/overlays, the Report action, and the
 > "Sightings nearby" sheet.
 
 ---
@@ -20,7 +20,7 @@ primary **Report** action, and a **persistent bottom sheet** listing nearby sigh
 Tapping a pin or a row opens the rescue detail (`/sighting/[id]`).
 
 Current code already implements the map, clustering, filter chips, recenter button,
-and a *transient* selected-sighting card. The design adds a **search bar** and a
+and a _transient_ selected-sighting card. The design adds a **search bar** and a
 **persistent "Sightings nearby" sheet**, and restyles pins, chips, and the Report
 button. Deltas are flagged with **▲ NEW** / **△ CHANGE** throughout.
 
@@ -30,14 +30,14 @@ button. Deltas are flagged with **▲ NEW** / **△ CHANGE** throughout.
 
 Vertical stack over `MapView` (`StyleSheet.absoluteFill`), inside a safe-area-aware root:
 
-| Zone | Anchor | Notes |
-|------|--------|-------|
-| Search bar ▲ NEW | Top, `insets.top + spacing.sm` | Full-width minus `spacing.lg` gutters |
-| Filter chips | Below search, `spacing.sm` gap | Horizontal scroll, no scrollbar |
-| Map (native) | Fills remaining space | Apple Maps; pins + user location overlay only |
-| Recenter button | Right gutter, above sheet | `48×48`, floats |
-| Report button △ CHANGE | Right gutter, sits just above the sheet peek | Green pill, `+ Report` |
-| "Sightings nearby" sheet ▲ NEW | Bottom, draggable | Peek height ≈ 30% screen, expands to ≈ 80% |
+| Zone                           | Anchor                                       | Notes                                         |
+| ------------------------------ | -------------------------------------------- | --------------------------------------------- |
+| Search bar ▲ NEW               | Top, `insets.top + spacing.sm`               | Full-width minus `spacing.lg` gutters         |
+| Filter chips                   | Below search, `spacing.sm` gap               | Horizontal scroll, no scrollbar               |
+| Map (native)                   | Fills remaining space                        | Apple Maps; pins + user location overlay only |
+| Recenter button                | Right gutter, above sheet                    | `48×48`, floats                               |
+| Report button △ CHANGE         | Right gutter, sits just above the sheet peek | Green pill, `+ Report`                        |
+| "Sightings nearby" sheet ▲ NEW | Bottom, draggable                            | Peek height ≈ 30% screen, expands to ≈ 80%    |
 
 Gutters: `spacing.lg` (16) left/right. Respect `useSafeAreaInsets()` top and bottom
 (home indicator). The sheet's bottom content padding = `insets.bottom + spacing.sm`.
@@ -46,45 +46,45 @@ Gutters: `spacing.lg` (16) left/right. Respect `useSafeAreaInsets()` top and bot
 
 ## Design Tokens Used
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `colors.primary` | `#1FA463` | Active chip, Report button, pin (default), distance text, recenter icon |
-| `colors.primaryDark` | `#15784A` | Report button pressed |
-| `colors.urgent` | `#E0653B` | Urgent pin, "Urgent" tag |
-| `colors.urgentSoft` | `#FBE3DA` | "Urgent"/"Injured" tag background |
-| `colors.accent` | `#F4A93C` | "Watching"/secondary status accent |
-| `colors.surface` | `#FFFFFF` | Search bar, chips (resting), sheet, cards, pin center dot |
-| `colors.background` | `#FBF9F4` | Root fallback behind map |
-| `colors.border` | `#E3DDD1` | Chip/sheet hairline, search bar border |
-| `colors.text` | `#241F1A` | Chip label (resting), row title |
-| `colors.textMuted` | `#857E70` | Search placeholder, meta, timestamps |
-| `radius.pill` | `999` | Chips, Report button, search bar, recenter |
-| `radius.sheet` | `28` | Sheet top corners (`borderTopLeftRadius`/`Right`) |
-| `radius.lg` | `18` | Sighting row cards |
-| `typography.subheading` | 15 / Jakarta 700 | Row title, "Sightings nearby" |
-| `typography.smallStrong` | 12.5 / Jakarta 600 | Chip labels |
-| `typography.small` | 12.5 / Jakarta 400 | Row meta line |
-| `typography.mono` | 12 / Space Mono | Distance + age ("0.3 mi", "8m") |
-| `typography.caption` | 10.5 / Jakarta 700 | "3 active" badge, pin labels |
-| `shadow.card` | soft warm | Chips, search bar, pins, rows |
-| `shadow.floating` | stronger | Recenter, Report button, sheet |
-| `motion.enter` / `stagger` / `damping` | 300 / 40 / 19 | Entrances, sheet spring |
+| Token                                  | Value              | Usage                                                                   |
+| -------------------------------------- | ------------------ | ----------------------------------------------------------------------- |
+| `colors.primary`                       | `#1FA463`          | Active chip, Report button, pin (default), distance text, recenter icon |
+| `colors.primaryDark`                   | `#15784A`          | Report button pressed                                                   |
+| `colors.urgent`                        | `#E0653B`          | Urgent pin, "Urgent" tag                                                |
+| `colors.urgentSoft`                    | `#FBE3DA`          | "Urgent"/"Injured" tag background                                       |
+| `colors.accent`                        | `#F4A93C`          | "Watching"/secondary status accent                                      |
+| `colors.surface`                       | `#FFFFFF`          | Search bar, chips (resting), sheet, cards, pin center dot               |
+| `colors.background`                    | `#FBF9F4`          | Root fallback behind map                                                |
+| `colors.border`                        | `#E3DDD1`          | Chip/sheet hairline, search bar border                                  |
+| `colors.text`                          | `#241F1A`          | Chip label (resting), row title                                         |
+| `colors.textMuted`                     | `#857E70`          | Search placeholder, meta, timestamps                                    |
+| `radius.pill`                          | `999`              | Chips, Report button, search bar, recenter                              |
+| `radius.sheet`                         | `28`               | Sheet top corners (`borderTopLeftRadius`/`Right`)                       |
+| `radius.lg`                            | `18`               | Sighting row cards                                                      |
+| `typography.subheading`                | 15 / Jakarta 700   | Row title, "Sightings nearby"                                           |
+| `typography.smallStrong`               | 12.5 / Jakarta 600 | Chip labels                                                             |
+| `typography.small`                     | 12.5 / Jakarta 400 | Row meta line                                                           |
+| `typography.mono`                      | 12 / Space Mono    | Distance + age ("0.3 mi", "8m")                                         |
+| `typography.caption`                   | 10.5 / Jakarta 700 | "3 active" badge, pin labels                                            |
+| `shadow.card`                          | soft warm          | Chips, search bar, pins, rows                                           |
+| `shadow.floating`                      | stronger           | Recenter, Report button, sheet                                          |
+| `motion.enter` / `stagger` / `damping` | 300 / 40 / 19      | Entrances, sheet spring                                                 |
 
 ---
 
 ## Components
 
-| Component | Source | Variant / Props | Notes |
-|-----------|--------|-----------------|-------|
-| `MapView`, `Marker`, `Circle` | `@/components/PlatformMap` | `provider={MAP_PROVIDER}` | Keep. On iOS, set provider to Apple (`PROVIDER_DEFAULT` / undefined) — **not** Google |
-| **SearchBar** ▲ NEW | new `src/components/MapSearchBar.tsx` | `value, onChangeText, onSubmit, onFilterPress` | "Search this area"; search icon left, list/filter icon right |
-| **FilterChips** △ CHANGE | inline (exists) | `active: Filter` | Restyle to design; see States |
-| **MapPin** △ CHANGE | inline `MapPin` | `sighting, active` | Teardrop + white center dot; color by status; urgent = `colors.urgent` |
-| `ClusterBubble` | inline (exists) | `count` | Keep; recolor to `colors.primary` (already) |
-| **ReportButton** △ CHANGE | move from `(tabs)/_layout.tsx` | label `+ Report` | Green pill `48` tall, label `caption`/`smallStrong`, white text; `shadow.floating` |
-| **NearbySheet** ▲ NEW | new `src/components/NearbySheet.tsx` | `sightings, activeCount, onSelect` | Draggable; header "Sightings nearby" + "N active" pill |
-| `SightingCard` | `@/components/SightingCard` | existing props | Reuse for sheet rows (compact). Already token-driven |
-| `RecenterButton` | inline (exists) | — | Keep; `colors.primary` icon on `surface` |
+| Component                     | Source                                | Variant / Props                                | Notes                                                                                 |
+| ----------------------------- | ------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `MapView`, `Marker`, `Circle` | `@/components/PlatformMap`            | `provider={MAP_PROVIDER}`                      | Keep. On iOS, set provider to Apple (`PROVIDER_DEFAULT` / undefined) — **not** Google |
+| **SearchBar** ▲ NEW           | new `src/components/MapSearchBar.tsx` | `value, onChangeText, onSubmit, onFilterPress` | "Search this area"; search icon left, list/filter icon right                          |
+| **FilterChips** △ CHANGE      | inline (exists)                       | `active: Filter`                               | Restyle to design; see States                                                         |
+| **MapPin** △ CHANGE           | inline `MapPin`                       | `sighting, active`                             | Teardrop + white center dot; color by status; urgent = `colors.urgent`                |
+| `ClusterBubble`               | inline (exists)                       | `count`                                        | Keep; recolor to `colors.primary` (already)                                           |
+| **ReportButton** △ CHANGE     | move from `(tabs)/_layout.tsx`        | label `+ Report`                               | Green pill `48` tall, label `caption`/`smallStrong`, white text; `shadow.floating`    |
+| **NearbySheet** ▲ NEW         | new `src/components/NearbySheet.tsx`  | `sightings, activeCount, onSelect`             | Draggable; header "Sightings nearby" + "N active" pill                                |
+| `SightingCard`                | `@/components/SightingCard`           | existing props                                 | Reuse for sheet rows (compact). Already token-driven                                  |
+| `RecenterButton`              | inline (exists)                       | —                                              | Keep; `colors.primary` icon on `surface`                                              |
 
 **SightingCard props** (already implemented, reuse as-is): `title, status,
 temperament, color, isInjured, needsUrgentHelp, thumbnailUrl, distanceM, createdAt,
@@ -97,24 +97,24 @@ onPress`.
 No hover on touch — every interactive element uses a press/scale state via
 `PressableScale` (`motion.pressScale` 0.97; cards 0.985).
 
-| Element | State | Behavior |
-|---------|-------|----------|
-| Filter chip | Resting | `surface` bg, `text` label, `border` hairline, `shadow.card` |
-| Filter chip | Active | `colors.primary` bg, white label, no border |
-| Filter chip | Press | Scale `0.97`, 120ms spring |
-| Filter chip | Change | Refetch nearby sightings for new `statuses`; announce selection (a11y) |
-| Search bar | Focus | Border eases `border → primary` (160ms); keyboard avoids sheet |
-| Search bar | Submit | Geocode/recenter to query area (or no-op stub if search not wired yet) |
-| Map pin | Default | Status color, white center dot, `shadow.card` |
-| Map pin | Urgent | `colors.urgent` body + 🚨 glyph |
-| Map pin | Selected | Scale `1.25`, border `colors.accent`; row in sheet highlights |
-| Cluster | Press | Zoom to expansion zoom (400ms `animateToRegion`), repaint pins ~600ms |
-| Report button | Default | `colors.primary` pill, white `+ Report`, `shadow.floating` |
-| Report button | Press | Scale `0.9`; navigate `/report` (modal) |
-| Recenter | Press | `animateToRegion` to user @3km (500ms); disabled-look if no location |
-| Sheet row | Press | Scale `0.985`; navigate `/sighting/[id]` |
-| Sheet | Drag | Spring between peek and expanded; respects velocity |
-| Data | Fetching | "Updating…" pill, top-center, `FadeIn` (`motion.enter`), non-blocking |
+| Element       | State    | Behavior                                                               |
+| ------------- | -------- | ---------------------------------------------------------------------- |
+| Filter chip   | Resting  | `surface` bg, `text` label, `border` hairline, `shadow.card`           |
+| Filter chip   | Active   | `colors.primary` bg, white label, no border                            |
+| Filter chip   | Press    | Scale `0.97`, 120ms spring                                             |
+| Filter chip   | Change   | Refetch nearby sightings for new `statuses`; announce selection (a11y) |
+| Search bar    | Focus    | Border eases `border → primary` (160ms); keyboard avoids sheet         |
+| Search bar    | Submit   | Geocode/recenter to query area (or no-op stub if search not wired yet) |
+| Map pin       | Default  | Status color, white center dot, `shadow.card`                          |
+| Map pin       | Urgent   | `colors.urgent` body + 🚨 glyph                                        |
+| Map pin       | Selected | Scale `1.25`, border `colors.accent`; row in sheet highlights          |
+| Cluster       | Press    | Zoom to expansion zoom (400ms `animateToRegion`), repaint pins ~600ms  |
+| Report button | Default  | `colors.primary` pill, white `+ Report`, `shadow.floating`             |
+| Report button | Press    | Scale `0.9`; navigate `/report` (modal)                                |
+| Recenter      | Press    | `animateToRegion` to user @3km (500ms); disabled-look if no location   |
+| Sheet row     | Press    | Scale `0.985`; navigate `/sighting/[id]`                               |
+| Sheet         | Drag     | Spring between peek and expanded; respects velocity                    |
+| Data          | Fetching | "Updating…" pill, top-center, `FadeIn` (`motion.enter`), non-blocking  |
 
 ---
 
@@ -122,14 +122,14 @@ No hover on touch — every interactive element uses a press/scale state via
 
 React Native — no web breakpoints. Define by device class & accessibility:
 
-| Class | Changes |
-|-------|---------|
-| Small phones (< 360pt wide, e.g. SE) | Chips stay single-row scroll; sheet peek shows 2 rows; titles `numberOfLines={1}` |
-| Standard phones | Default; sheet peek shows ~3 rows |
-| Large phones / Max | More peek rows; Report button & recenter keep `spacing.lg` inset |
-| Tablet (≥ 768pt) | Cap sheet width at 480pt, center it; map full-bleed behind |
-| Landscape | Sheet max height 60%; search + chips stay pinned top; respect left/right safe-area insets (notch) |
-| Dynamic Type (large) | All `Text` allows scaling; rows grow vertically, never clip — switch row meta to 2 lines if needed |
+| Class                                | Changes                                                                                            |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Small phones (< 360pt wide, e.g. SE) | Chips stay single-row scroll; sheet peek shows 2 rows; titles `numberOfLines={1}`                  |
+| Standard phones                      | Default; sheet peek shows ~3 rows                                                                  |
+| Large phones / Max                   | More peek rows; Report button & recenter keep `spacing.lg` inset                                   |
+| Tablet (≥ 768pt)                     | Cap sheet width at 480pt, center it; map full-bleed behind                                         |
+| Landscape                            | Sheet max height 60%; search + chips stay pinned top; respect left/right safe-area insets (notch)  |
+| Dynamic Type (large)                 | All `Text` allows scaling; rows grow vertically, never clip — switch row meta to 2 lines if needed |
 
 ---
 
@@ -157,15 +157,15 @@ React Native — no web breakpoints. Define by device class & accessibility:
 
 ## Animation / Motion
 
-| Element | Trigger | Animation | Duration | Easing |
-|---------|---------|-----------|----------|--------|
-| Sheet (initial) | Mount | Rise from bottom | `motion.enter` 300ms | spring `damping 19` |
-| Sheet rows | Mount / data change | `FadeInDown`, `motion.stagger` 40ms between rows | 300ms | spring |
-| Report button | Mount | `FadeInDown.delay(180)` | 520ms | spring `damping 12` |
-| Selected pin | Select | Scale → `1.25` | ~150ms | spring |
-| "Updating…" pill | Fetch start/stop | `FadeIn` / `FadeOut` | 300ms | default |
-| Recenter / cluster | Press | `animateToRegion` | 400–600ms | native |
-| Sheet drag | Pan release | Snap to peek/expanded | velocity-based | spring |
+| Element            | Trigger             | Animation                                        | Duration             | Easing              |
+| ------------------ | ------------------- | ------------------------------------------------ | -------------------- | ------------------- |
+| Sheet (initial)    | Mount               | Rise from bottom                                 | `motion.enter` 300ms | spring `damping 19` |
+| Sheet rows         | Mount / data change | `FadeInDown`, `motion.stagger` 40ms between rows | 300ms                | spring              |
+| Report button      | Mount               | `FadeInDown.delay(180)`                          | 520ms                | spring `damping 12` |
+| Selected pin       | Select              | Scale → `1.25`                                   | ~150ms               | spring              |
+| "Updating…" pill   | Fetch start/stop    | `FadeIn` / `FadeOut`                             | 300ms                | default             |
+| Recenter / cluster | Press               | `animateToRegion`                                | 400–600ms            | native              |
+| Sheet drag         | Pan release         | Snap to peek/expanded                            | velocity-based       | spring              |
 
 Respect **Reduce Motion**: when enabled, swap spring entrances for instant/`FadeIn`
 and disable the pin pulse-scale.

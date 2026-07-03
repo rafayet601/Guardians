@@ -16,7 +16,7 @@
 
 ## The Vision
 
-Every day, countless cats find themselves lost, injured, or abandoned. **Guardians** bridges the gap between those who spot cats in need and those who have the resources to help. 
+Every day, countless cats find themselves lost, injured, or abandoned. **Guardians** bridges the gap between those who spot cats in need and those who have the resources to help.
 
 - **Spot a cat in need?** Report it on our live, interactive map.
 - **Ready to answer the call?** Step up as a **Guardian** to claim the rescue.
@@ -44,20 +44,20 @@ By gamifying the rescue process with points, levels, and badges, we're building 
 - **Instant Reporting:** Drop an exact map-pin, snap photos, and flag urgency, temperament, and injuries.
 - **Rescue Lifecycle:** Secure, server-side state transitions tracking a cat's journey: `Spotted` → `Claimed` → `In Rescue` → `Safe` → `Available` → `Adopted`.
 - **Gamification Engine:** Earn points for every good deed. Level up, climb the leaderboard, and unlock exclusive community badges.
-- **Community Timeline:** Real-time activity feeds and comments on every rescue mission.
+- **Community Timeline:** An activity feed and threaded comments on every rescue mission (refreshed on demand; live Realtime sync is on the roadmap).
 - **Adoption Flow:** Streamlined matching between rescuers and prospective adopters.
 - **Secure Auth:** Email/password authentication with persisted sessions and rigorous Row Level Security.
 
 ## Tech Stack
 
-| Layer | Choice |
-|------|--------|
-| **App** | Expo SDK 56, React Native 0.85, React 19, TypeScript |
-| **Navigation** | Expo Router (file-based, typed routes) |
-| **Server State** | TanStack Query |
-| **Backend** | Supabase — Postgres + PostGIS, Auth, Storage, Edge Functions |
-| **Maps** | `react-native-maps` (Google provider) |
-| **Forms** | React Hook Form + Zod |
+| Layer            | Choice                                                       |
+| ---------------- | ------------------------------------------------------------ |
+| **App**          | Expo SDK 56, React Native 0.85, React 19, TypeScript         |
+| **Navigation**   | Expo Router (file-based, typed routes)                       |
+| **Server State** | TanStack Query                                               |
+| **Backend**      | Supabase — Postgres + PostGIS, Auth, Storage, Edge Functions |
+| **Maps**         | `react-native-maps` (Google provider)                        |
+| **Forms**        | React Hook Form + Zod                                        |
 
 ## Prerequisites
 
@@ -101,13 +101,13 @@ npx expo start
 
 Doing good earns you points. Here is the current reward structure:
 
-| Action | Points Earned |
-|--------|-------:|
-| Report a cat | **+10** |
-| Claim a rescue | **+15** |
-| Complete a rescue (mark as "safe") | **+50** |
-| Adopt a cat | **+25** |
-| Place a cat in a forever home (Lister) | **+30** |
+| Action                                 | Points Earned |
+| -------------------------------------- | ------------: |
+| Report a cat                           |       **+10** |
+| Claim a rescue                         |       **+15** |
+| Complete a rescue (mark as "safe")     |       **+50** |
+| Adopt a cat                            |       **+25** |
+| Place a cat in a forever home (Lister) |       **+30** |
 
 **Levels:** Automatically scale based on the formula: `level = floor(sqrt(points / 50)) + 1`
 **Badges:** Awarded automatically by the database upon hitting milestones (e.g. `Rescue Hero`, `Matchmaker`, `Legend`).
