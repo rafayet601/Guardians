@@ -21,20 +21,25 @@ import { useAuth } from '@/providers/AuthProvider';
 import type { CatStatus } from '@/types/models';
 
 export function useNearbySightings(params: NearbyParams | null) {
+  // Gated on auth: screens can mount for a frame before the root layout
+  // redirects signed-out users, and the RPCs reject `anon` since migration 0014.
+  const { user } = useAuth();
   return useQuery({
     queryKey: queryKeys.nearby(params ?? {}),
     queryFn: () => getNearby(params as NearbyParams),
-    enabled: !!params,
+    enabled: !!params && !!user,
     staleTime: 15_000,
   });
 }
 
 export function useFeed(statuses?: CatStatus[]) {
+  const { user } = useAuth();
   return useInfiniteQuery({
     queryKey: queryKeys.feed({ statuses }),
     queryFn: ({ pageParam }) => getFeed(statuses, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled: !!user,
   });
 }
 
