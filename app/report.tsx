@@ -20,9 +20,11 @@ import { MapView, Marker, MAP_PROVIDER, type LatLng } from '@/components/Platfor
 import { PressableScale } from '@/components/PressableScale';
 import { uploadCatPhoto } from '@/api/storage';
 import { Button, Input, Text } from '@/components/ui';
+import { AI_FEATURES } from '@/constants/ai';
 import { TEMPERAMENT_META } from '@/constants/status';
 import { choosePhotoSource, notify, type PhotoSource } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
+import { useAiAutofill } from '@/hooks/useAiAutofill';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -45,6 +47,7 @@ export default function ReportScreen() {
   const { user } = useAuth();
   const { coords } = useCurrentLocation();
   const createSighting = useCreateSighting();
+  const autofill = useAiAutofill();
 
   const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [marker, setMarker] = useState<LatLng | null>(null);
@@ -55,6 +58,9 @@ export default function ReportScreen() {
   const [isInjured, setIsInjured] = useState(false);
   const [needsUrgent, setNeedsUrgent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // True once an autofill suggestion has prefilled the form, so we can subtly
+  // label the fields as AI-suggested-but-editable until the user posts.
+  const [autofilled, setAutofilled] = useState(false);
 
   // default the marker to the user's location once available
   useEffect(() => {
@@ -87,6 +93,39 @@ export default function ReportScreen() {
   const addPhoto = async () => {
     const source = await choosePhotoSource();
     if (source) pickFrom(source);
+  };
+
+  // ✨ AI autofill: send the first attached photo to the vision model and use
+  // its result to PREFILL the editable form fields. The user still reviews and
+  // posts — the suggestion is never wired straight into createSighting.
+  const runAutofill = async () => {
+    const photo = photos[0];
+    if (!photo?.base64) {
+      notify('No photo data', 'Please attach a photo before using autofill.');
+      return;
+    }
+    try {
+      const s = await autofill.mutateAsync({
+        imageBase64: photo.base64,
+        mediaType: photo.mimeType ?? 'image/jpeg',
+      });
+      // Fold distinguishing marks into the "color / markings" field.
+      const colorMarks = [s.color, s.marks]
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .join(' · ');
+      if (s.title) setTitle(s.title);
+      if (s.description) setDescription(s.description);
+      if (colorMarks) setColor(colorMarks);
+      setTemperament(s.temperament);
+      setIsInjured(s.isInjured);
+      setAutofilled(true);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      }
+    } catch (e) {
+      notify('Autofill unavailable', getErrorMessage(e, 'Please fill the form in manually.'));
+    }
   };
 
   const submit = async () => {
@@ -179,6 +218,26 @@ export default function ReportScreen() {
                 </Pressable>
               ) : null}
             </ScrollView>
+
+            {AI_FEATURES.reportAutofill && photos.length > 0 ? (
+              <View style={styles.autofillWrap}>
+                <PressableScale
+                  onPress={runAutofill}
+                  disabled={autofill.isPending}
+                  style={styles.autofillBtn}
+                >
+                  <Ionicons name="sparkles" size={16} color={colors.primary} />
+                  <Text variant="smallStrong" color={colors.primary}>
+                    {autofill.isPending ? 'Reading the photo…' : 'Autofill from photo'}
+                  </Text>
+                </PressableScale>
+                {autofilled ? (
+                  <Text variant="small" muted style={styles.autofillHint}>
+                    AI suggested these details — please review and edit before posting.
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </Animated.View>
 
           {/* Location */}
@@ -317,6 +376,20 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
   section: { gap: spacing.md },
   photoRow: { gap: spacing.sm, paddingVertical: spacing.xs },
+  autofillWrap: { gap: spacing.xs },
+  autofillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  autofillHint: { marginLeft: 2 },
   photoWrap: { position: 'relative' },
   photo: { width: 96, height: 96, borderRadius: radius.md },
   photoRemove: {

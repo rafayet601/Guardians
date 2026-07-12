@@ -159,6 +159,27 @@ export async function updateStatus(
   return data as Sighting;
 }
 
+/**
+ * Update a sighting's listing description in place. Used to save an (edited)
+ * AI-drafted adoption listing via the existing profile-update path — the
+ * `description` column is directly writable by the reporter under RLS (migration
+ * 0004: "reporters edit their own sightings" + the column-level update grant).
+ * Returns the updated row. Only the reporter may do this; the DB rejects others.
+ */
+export async function updateSightingDescription(
+  id: string,
+  description: string,
+): Promise<Sighting> {
+  const { data, error } = await supabase
+    .from('sightings')
+    .update({ description })
+    .eq('id', id)
+    .select(SIGHTING_SELECT)
+    .single();
+  if (error) throw error;
+  return data as unknown as Sighting;
+}
+
 // ── activity timeline ───────────────────────────────────────────────────────
 
 export async function getUpdates(sightingId: string): Promise<SightingUpdate[]> {

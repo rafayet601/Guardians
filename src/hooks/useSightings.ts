@@ -10,6 +10,7 @@ import {
   getSighting,
   getUpdates,
   postComment,
+  updateSightingDescription,
   updateStatus,
   type CreateSightingInput,
   type NearbyParams,
@@ -119,6 +120,20 @@ export function useUpdateStatus() {
       invalidate(s.id);
       if (s.status === 'safe') track('rescue_completed', { id: s.id });
     },
+  });
+}
+
+/**
+ * Save an (edited) listing description — used to persist the reviewed AI
+ * adoption-listing draft via the existing update path. Invalidates the sighting
+ * so the detail view reflects the new copy.
+ */
+export function useUpdateDescription() {
+  const invalidate = useInvalidateSightings();
+  return useMutation({
+    mutationFn: (vars: { id: string; description: string }) =>
+      updateSightingDescription(vars.id, vars.description),
+    onSuccess: (s) => invalidate(s.id),
   });
 }
 

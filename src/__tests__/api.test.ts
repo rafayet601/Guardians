@@ -15,14 +15,20 @@ import {
 } from '@/api/sightings';
 import { redeemReward } from '@/api/rewards';
 import { upsertPushToken } from '@/api/push';
+import { getAdoptionDraft, getReportAutofill } from '@/api/ai';
 
-jest.mock('@/lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
+jest.mock('@/lib/supabase', () => ({
+  supabase: { rpc: jest.fn(), functions: { invoke: jest.fn() } },
+}));
 
 const rpc = supabase.rpc as unknown as jest.Mock;
+const invoke = supabase.functions.invoke as unknown as jest.Mock;
 
 beforeEach(() => {
   rpc.mockReset();
   rpc.mockResolvedValue({ data: {}, error: null });
+  invoke.mockReset();
+  invoke.mockResolvedValue({ data: {}, error: null });
 });
 
 describe('API client → RPC argument mapping', () => {
@@ -98,5 +104,72 @@ describe('API client → RPC argument mapping', () => {
   it('propagates RPC errors', async () => {
     rpc.mockResolvedValue({ data: null, error: new Error('boom') });
     await expect(claimSighting('s1')).rejects.toThrow('boom');
+  });
+});
+
+describe('API client → Edge Function invocation', () => {
+  it('getReportAutofill → ai-report-autofill with the photo body', async () => {
+    invoke.mockResolvedValue({
+      data: {
+        suggestion: {
+          title: 'Tabby',
+          description: 'An orange cat.',
+          color: 'orange',
+          marks: 'torn ear',
+          temperament: 'shy',
+          is_injured: true,
+        },
+      },
+      error: null,
+    });
+    const result = await getReportAutofill({ imageBase64: 'AAAA', mediaType: 'image/png' });
+    expect(invoke).toHaveBeenCalledWith('ai-report-autofill', {
+      body: { imageBase64: 'AAAA', mediaType: 'image/png' },
+    });
+    // snake_case is_injured is normalised to camelCase isInjured for the client.
+    expect(result).toEqual({
+      title: 'Tabby',
+      description: 'An orange cat.',
+      color: 'orange',
+      marks: 'torn ear',
+      temperament: 'shy',
+      isInjured: true,
+    });
+  });
+
+  it('getReportAutofill coerces an out-of-enum temperament to unknown', async () => {
+    invoke.mockResolvedValue({
+      data: { suggestion: { temperament: 'grumpy', is_injured: false } },
+      error: null,
+    });
+    const result = await getReportAutofill({ imageBase64: 'AAAA' });
+    expect(result.temperament).toBe('unknown');
+    expect(result.isInjured).toBe(false);
+  });
+
+  it('getReportAutofill propagates Edge Function errors (e.g. rate limit)', async () => {
+    invoke.mockResolvedValue({ data: null, error: new Error('rate_limited') });
+    await expect(getReportAutofill({ imageBase64: 'AAAA' })).rejects.toThrow('rate_limited');
+  });
+
+  it('getAdoptionDraft → ai-adoption-copy with the sighting id', async () => {
+    invoke.mockResolvedValue({
+      data: { draft: '  A gentle tabby looking for home.  ' },
+      error: null,
+    });
+    const result = await getAdoptionDraft('s1');
+    expect(invoke).toHaveBeenCalledWith('ai-adoption-copy', { body: { sighting_id: 's1' } });
+    // the wrapper trims the draft body
+    expect(result).toEqual({ draft: 'A gentle tabby looking for home.' });
+  });
+
+  it('getAdoptionDraft throws when the draft is empty', async () => {
+    invoke.mockResolvedValue({ data: { draft: '   ' }, error: null });
+    await expect(getAdoptionDraft('s1')).rejects.toThrow('No draft returned.');
+  });
+
+  it('getAdoptionDraft propagates Edge Function errors (e.g. rate limit)', async () => {
+    invoke.mockResolvedValue({ data: null, error: new Error('rate_limited') });
+    await expect(getAdoptionDraft('s1')).rejects.toThrow('rate_limited');
   });
 });
