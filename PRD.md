@@ -1,11 +1,11 @@
 # PRD — Guardians v1.0 Public Launch
 
-|                    |                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| **Product**        | Guardians — community cat-rescue platform (iOS + Android, Expo)                                            |
-| **Doc status**     | Draft v1 · 2026-07-03                                                                                      |
-| **Owner**          | Rafayet Quader                                                                                             |
-| **Companion docs** | [`ROADMAP.md`](./ROADMAP.md) (engineering milestones) · [`PRODUCTION.md`](./PRODUCTION.md) (ops checklist) |
+|                    |                                                                                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Product**        | Guardians — community cat-rescue platform (iOS + Android, Expo)                                                                                                        |
+| **Doc status**     | Draft v1 · 2026-07-03                                                                                                                                                  |
+| **Owner**          | Rafayet Quader                                                                                                                                                         |
+| **Companion docs** | [`ROADMAP.md`](./ROADMAP.md) (engineering milestones) · [`PRODUCTION.md`](./PRODUCTION.md) (ops checklist) · [`AI_ROADMAP.md`](./AI_ROADMAP.md) (post-launch AI track) |
 
 ---
 
@@ -77,8 +77,14 @@ team flying blind.
 
 Realtime timeline (Supabase Realtime, replacing refetch) · in-app notification center ·
 coordination chat · image thumbnails/CDN (needs paid plan) · dark mode (second palette +
-dynamic theming) · i18n + km/mi · richer profiles & shareable rescue cards · photo
-moderation queue automation · streaks/local leaderboards.
+dynamic theming) · i18n + km/mi · richer profiles & shareable rescue cards · streaks/local
+leaderboards.
+
+**AI integration** (photo-based report autofill, automated photo/text moderation,
+duplicate-cat detection, lost-cat reunification, a grounded rescue copilot) has its own
+milestone-by-milestone plan in [`AI_ROADMAP.md`](./AI_ROADMAP.md) rather than a single
+backlog line — it's a distinct track with its own sequencing, guardrails, and
+specialized-agent delegation model.
 
 ## 5. Non-functional requirements
 

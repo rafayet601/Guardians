@@ -15,6 +15,7 @@ module.exports = [
       'supabase/functions/*', // Deno runtime — linted separately via `deno lint`
       'src/types/database.ts', // generated from the Supabase schema
       'docs/*',
+      '.claude/workflows/*', // Workflow-tool DSL: top-level await/return outside a function scope
     ],
   },
   {

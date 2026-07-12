@@ -2,6 +2,8 @@
 
 > Path from "complete, runnable MVP" to a confident public launch on the App Store & Google Play.
 > Companion to [`PRODUCTION.md`](./PRODUCTION.md). Generated from a code-level audit (2026-06-23).
+> See [`AI_ROADMAP.md`](./AI_ROADMAP.md) for the post-launch AI integration track — it
+> intentionally does not compete with M0/M1 here for attention.
 
 **Effort key:** `S` ≤ 1 day · `M` ≈ 2–4 days · `L` ≈ 1–2 weeks · `XL` > 2 weeks.
 **Estimate to launch:** ~6–9 weeks focused; **M0** is the critical path, **M1/M2** overlap it.
