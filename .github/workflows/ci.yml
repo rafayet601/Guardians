@@ -57,5 +57,5 @@ jobs:
       - name: Type-check & lint edge functions
         working-directory: supabase/functions
         run: |
-          deno check send-push/index.ts delete-account/index.ts
-          deno lint send-push/index.ts delete-account/index.ts
+          deno check send-push/index.ts delete-account/index.ts ai-health/index.ts
+          deno lint send-push/index.ts delete-account/index.ts ai-health/index.ts _shared/anthropic.ts

@@ -8,6 +8,11 @@
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
+// Master switch for AI UI. Off unless EXPO_PUBLIC_AI_ENABLED is exactly 'true'
+// so screens can gate AI affordances until the server-side plumbing is live.
+// Note: no model key is ever read here — those live only as Supabase secrets.
+const aiEnabled = process.env.EXPO_PUBLIC_AI_ENABLED === 'true';
+
 const looksConfigured =
   supabaseUrl.startsWith('http') &&
   !supabaseUrl.includes('YOUR-PROJECT') &&
@@ -34,4 +39,6 @@ export const env = {
   // Optional: set to enable real error reporting via the observability façade.
   sentryDsn: realEnv(process.env.EXPO_PUBLIC_SENTRY_DSN),
   isConfigured: looksConfigured,
+  // Master flag for client-side AI UI (server does the actual model calls).
+  aiEnabled,
 };

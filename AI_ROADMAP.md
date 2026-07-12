@@ -31,17 +31,19 @@ unless a specific milestone is pulled forward deliberately.
 
 **Goal:** the shared plumbing every later milestone reuses, so no feature starts from zero.
 
-| Task                                                                                                                | Notes                                                                                   |
-| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `supabase/functions/ai-*` edge-function scaffold + secrets pattern                                                  | Mirrors `send-push`: service-role key, JWT-identified caller, no client-side model keys |
-| Enable `pgvector`; add an `embeddings` table (RLS: no direct client access, written only via SECURITY DEFINER RPCs) | Foundation for AI-M3/M4/M6                                                              |
-| Model/provider + cost-ceiling policy doc                                                                            | Which tier for which use case; a per-endpoint budget                                    |
-| Rate limiting on AI endpoints                                                                                       | Reuse the insert rate-limit trigger pattern from migration `0011`                       |
-| `analytics_events` extended with AI cost/latency fields                                                             | Builds on the `track_event` RPC already live                                            |
-| Privacy Policy amendment                                                                                            | Disclose the AI processor(s) and what data reaches them                                 |
+| Task                                                                                                                   | Notes                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ `supabase/functions/ai-*` edge-function scaffold + secrets pattern                                                  | `ai-health` + `_shared/anthropic.ts` (raw-fetch Claude client); mirrors `send-push`: JWT-identified caller, no client-side model keys |
+| ✅ Enable `pgvector`; add an `embeddings` table (RLS: no direct client access, written only via SECURITY DEFINER RPCs) | Migration `0019` (additive; awaits human deploy). Foundation for AI-M3/M4/M6                                                          |
+| ✅ Model/provider + cost-ceiling policy doc                                                                            | Anthropic Claude API; default `claude-haiku-4-5`; per-user/feature hourly cap via `check_ai_rate_limit`                               |
+| ✅ Rate limiting on AI endpoints                                                                                       | `check_ai_rate_limit(feature, max_per_hour)` RPC in `0019`, spirit of migration `0011`                                                |
+| ✅ `analytics_events` extended with AI cost/latency fields                                                             | `ai_usage` ledger + `log_ai_usage` RPC in `0019` (model, tokens, est cost, latency)                                                   |
+| ✅ Privacy Policy amendment                                                                                            | `docs/legal/privacy-policy.md`: discloses Anthropic (Claude API), zero-retention terms                                                |
 
-**Exit criteria:** one inert vision-model edge function deployed and callable; pgvector
-enabled with a tested similarity-search RPC stub; privacy policy updated and merged.
+**Exit criteria:** one inert vision-model edge function deployed and callable _(⏳ pending
+human deploy: `ai-health` + `0019` are ready in the repo, not applied to the live project)_;
+pgvector enabled with a tested similarity-search RPC stub _(⏳ `match_embeddings` written,
+tested after deploy)_; ✅ privacy policy updated.
 **Agent:** `ai-infra-agent`
 
 ---
