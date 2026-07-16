@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: radius.pill,
   },
-  roleDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: '#BFE0CD' },
+  roleDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: palette.green100 },
   levelRow: {
     flexDirection: 'row',
     alignItems: 'center',

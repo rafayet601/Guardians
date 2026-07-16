@@ -1,4 +1,4 @@
-import type { Region } from 'react-native-maps';
+import type { Region } from '@/components/PlatformMap';
 
 const METERS_PER_DEG_LAT = 111_320;
 

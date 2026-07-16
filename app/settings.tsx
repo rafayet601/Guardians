@@ -219,6 +219,27 @@ export default function SettingsScreen() {
           </Text>
         </PressableScale>
       </Animated.View>
+
+      <Animated.View entering={enter(7)} style={styles.legalSection}>
+        <PressableScale
+          onPress={() => router.push('/privacy' as any)}
+          style={styles.legalRow}
+          hitSlop={8}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy Policy"
+        >
+          <Text variant="bodyStrong">Privacy Policy</Text>
+        </PressableScale>
+        <PressableScale
+          onPress={() => router.push('/terms' as any)}
+          style={styles.legalRow}
+          hitSlop={8}
+          accessibilityRole="link"
+          accessibilityLabel="Terms of Service"
+        >
+          <Text variant="bodyStrong">Terms of Service</Text>
+        </PressableScale>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -243,4 +264,6 @@ const styles = StyleSheet.create({
   save: { marginTop: spacing.sm },
   signOut: { marginTop: spacing.xs },
   deleteLink: { marginTop: spacing.lg, paddingVertical: spacing.sm },
+  legalSection: { gap: spacing.sm, marginTop: spacing.lg },
+  legalRow: { paddingVertical: spacing.sm },
 });

@@ -12,7 +12,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, spacing } from '@/theme';
 
-const schema = z.object({ email: z.string().email('Enter a valid email') });
+const schema = z.object({ email: z.string().trim().email('Enter a valid email') });
 type FormValues = z.infer<typeof schema>;
 
 export default function ForgotPasswordScreen() {

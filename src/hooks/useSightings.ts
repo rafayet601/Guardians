@@ -10,6 +10,7 @@ import {
   getSighting,
   getUpdates,
   postComment,
+  updateSightingDescription,
   updateStatus,
   type CreateSightingInput,
   type NearbyParams,
@@ -17,6 +18,7 @@ import {
 import { notifyUrgentSighting } from '@/api/push';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import type { CatStatus } from '@/types/models';
 
@@ -85,10 +87,19 @@ export function useCreateSighting() {
   return useMutation({
     mutationFn: async (input: CreateSightingInput & { photoUrls?: string[] }) => {
       const sighting = await createSighting(input);
-      if (input.photoUrls?.length && user) {
-        await Promise.all(input.photoUrls.map((url) => addPhoto(sighting.id, url, user.id)));
+      try {
+        if (input.photoUrls?.length && user) {
+          await Promise.all(input.photoUrls.map((url) => addPhoto(sighting.id, url, user.id)));
+        }
+        return sighting;
+      } catch (err) {
+        try {
+          await supabase.from('sightings').delete().eq('id', sighting.id);
+        } catch (rollbackErr) {
+          console.error('Failed to rollback sighting after photo error:', rollbackErr);
+        }
+        throw err;
       }
-      return sighting;
     },
     onSuccess: (s) => {
       invalidate(s.id);
@@ -119,6 +130,20 @@ export function useUpdateStatus() {
       invalidate(s.id);
       if (s.status === 'safe') track('rescue_completed', { id: s.id });
     },
+  });
+}
+
+/**
+ * Save an (edited) listing description — used to persist the reviewed AI
+ * adoption-listing draft via the existing update path. Invalidates the sighting
+ * so the detail view reflects the new copy.
+ */
+export function useUpdateDescription() {
+  const invalidate = useInvalidateSightings();
+  return useMutation({
+    mutationFn: (vars: { id: string; description: string }) =>
+      updateSightingDescription(vars.id, vars.description),
+    onSuccess: (s) => invalidate(s.id),
   });
 }
 

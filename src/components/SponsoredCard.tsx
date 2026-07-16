@@ -11,7 +11,7 @@ import { confirmAsync, notify } from '@/lib/dialog';
 import { colors, palette, radius, shadow, spacing } from '@/theme';
 import type { PlacementSlot, SponsoredPlacement } from '@/types/models';
 
-const AD_GRADIENT = [palette.amber100, '#FFF6E9'] as const;
+const AD_GRADIENT = [palette.amber100, colors.surface] as const;
 
 /**
  * A direct-sold brand placement. Renders the highest-priority active placement

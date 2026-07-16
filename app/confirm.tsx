@@ -17,9 +17,15 @@ export default function ConfirmScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const ok = url ? await sessionFromUrl(url) : false;
-      if (!active) return;
-      router.replace(ok ? '/' : '/welcome');
+      try {
+        const ok = url ? await sessionFromUrl(url) : false;
+        if (!active) return;
+        router.replace(ok ? '/' : '/welcome');
+      } catch (err) {
+        console.error('Failed to parse confirmation URL:', err);
+        if (!active) return;
+        router.replace('/welcome');
+      }
     })();
     return () => {
       active = false;

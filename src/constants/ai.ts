@@ -17,10 +17,16 @@ export const AI_ENABLED = env.aiEnabled;
 
 /** Per-feature gates. Extend as AI-M1+ features land; keep them behind AI_ENABLED. */
 export const AI_FEATURES = {
-  /** Photo → report autofill (AI-M1 #1). */
   reportAutofill: AI_ENABLED,
-  /** Adoption profile writer (AI-M1 #13). */
   adoptionCopy: AI_ENABLED,
+  photoModeration: AI_ENABLED,
+  textModeration: AI_ENABLED,
+  modCopilot: AI_ENABLED,
+  fraudSignals: AI_ENABLED,
+  reid: AI_ENABLED,
+  lostCatReunion: AI_ENABLED,
+  journeyTimeline: AI_ENABLED,
+  rescueCopilot: AI_ENABLED,
 } as const;
 
 export type AiFeature = keyof typeof AI_FEATURES;

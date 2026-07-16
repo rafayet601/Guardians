@@ -51,11 +51,14 @@ export function NearbySheet({ sightings, coords, selectedId, onSelect }: NearbyS
   // than using a layout `entering` prop, which would fight this drag transform
   // and leave the sheet stuck fully-expanded over the map.
   useEffect(() => {
-    translateY.value = expandedH; // start just below the screen…
-    translateY.value = withSpring(collapsedY, SPRING); // …then rise to the peek
-    // run once on mount
+    translateY.value = expandedH;
+    translateY.value = withSpring(collapsedY, SPRING);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    translateY.value = Math.min(minimizedY, Math.max(0, translateY.value));
+  }, [collapsedY, minimizedY, translateY]);
 
   // Selecting a pin lifts the sheet so its row is visible.
   useEffect(() => {

@@ -12,24 +12,28 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { PressableScale } from '@/components/PressableScale';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
+import { AI_FEATURES } from '@/constants/ai';
 import { CLAIM_TO_RESCUE_TOTAL } from '@/constants/points';
 import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
 import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
+import { useAiAdoptionCopy } from '@/hooks/useAiAdoptionCopy';
 import { useBlockUser, useReportContent } from '@/hooks/useModeration';
 import {
   useClaimSighting,
   usePostComment,
   useSighting,
   useSightingUpdates,
+  useUpdateDescription,
   useUpdateStatus,
 } from '@/hooks/useSightings';
 import { confirmAsync, notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, radius, spacing } from '@/theme';
+import { colors, motion, palette, radius, spacing } from '@/theme';
 import type { CatStatus, SightingUpdate } from '@/types/models';
 import { regionForRadius } from '@/utils/geo';
 import { timeAgo } from '@/utils/format';
@@ -57,6 +61,7 @@ export default function SightingDetailScreen() {
   const isOwner = !!user && user.id === sighting.reporter_id;
   const isClaimer = !!user && user.id === sighting.claimed_by;
   const canManage = isOwner || isClaimer;
+  const canDraftListing = AI_FEATURES.adoptionCopy && sighting.status === 'available' && canManage;
   const meta = STATUS_META[sighting.status];
   const temp = TEMPERAMENT_META[sighting.temperament];
   const heroPhoto = sighting.photos?.[0]?.url;
@@ -247,16 +252,16 @@ export default function SightingDetailScreen() {
                 provider={MAP_PROVIDER}
                 style={[styles.map, { pointerEvents: 'none' }]}
                 initialRegion={regionForRadius(
-                  sighting.lat,
-                  sighting.lng,
+                  sighting.lat ?? 0,
+                  sighting.lng ?? 0,
                   sighting.is_precise ? 500 : 700,
                 )}
               >
                 {sighting.is_precise ? (
-                  <Marker coordinate={{ latitude: sighting.lat, longitude: sighting.lng }} />
+                  <Marker coordinate={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }} />
                 ) : (
                   <Circle
-                    center={{ latitude: sighting.lat, longitude: sighting.lng }}
+                    center={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }}
                     radius={160}
                     strokeColor={colors.primary}
                     strokeWidth={2}
@@ -382,6 +387,21 @@ export default function SightingDetailScreen() {
             </Animated.View>
           ) : null}
 
+          {/* ✨ AI adoption-listing draft (AI-M1 #13). Hidden unless the feature
+              flag is on, the cat is ready to adopt, and the viewer is the
+              reporter/assigned guardian. Produces an EDITABLE draft from the
+              sighting's real timeline — never auto-published. */}
+          {canDraftListing ? (
+            <Animated.View
+              entering={FadeInDown.delay(5.5 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)}
+            >
+              <AdoptionDraftCard sightingId={sighting.id} canSave={isOwner} />
+            </Animated.View>
+          ) : null}
+
           {/* Timeline */}
           <Animated.View
             entering={FadeInDown.delay(6 * motion.stagger)
@@ -441,6 +461,93 @@ export default function SightingDetailScreen() {
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * Adoption-listing draft affordance (AI-M1 #13). Tapping "Draft adoption
+ * listing" asks the `ai-adoption-copy` Edge Function to write a warm,
+ * community-voiced draft from the sighting's real timeline. The draft lands in
+ * an editable field; the reporter reviews, tweaks, and saves it as the listing
+ * description via the existing update path. Never auto-published — the guardian
+ * (non-reporter) can generate/edit a draft but only the reporter can save.
+ */
+function AdoptionDraftCard({ sightingId, canSave }: { sightingId: string; canSave: boolean }) {
+  const draftCopy = useAiAdoptionCopy();
+  const saveDescription = useUpdateDescription();
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const onGenerate = async () => {
+    try {
+      const { draft } = await draftCopy.mutateAsync(sightingId);
+      setText(draft);
+      setOpen(true);
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      }
+    } catch (e) {
+      notify('Draft unavailable', errMsg(e));
+    }
+  };
+
+  const onSave = () => {
+    const body = text.trim();
+    if (!body) return;
+    saveDescription.mutate(
+      { id: sightingId, description: body },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          notify('Listing updated ✨', 'Your adoption listing has been saved.');
+        },
+        onError: (e) => notify('Could not save', errMsg(e)),
+      },
+    );
+  };
+
+  return (
+    <Card style={styles.draftCard}>
+      <View style={styles.draftHead}>
+        <Text variant="bodyStrong">✨ Draft the adoption listing</Text>
+        <Text variant="small" muted>
+          We&apos;ll write a warm first draft from this cat&apos;s rescue story — you review and
+          edit every word before it&apos;s saved.
+        </Text>
+      </View>
+
+      <PressableScale onPress={onGenerate} disabled={draftCopy.isPending} style={styles.draftBtn}>
+        <Ionicons name="sparkles" size={16} color={colors.primary} />
+        <Text variant="smallStrong" color={colors.primary}>
+          {draftCopy.isPending
+            ? 'Writing a draft…'
+            : open
+              ? 'Rewrite draft'
+              : 'Draft adoption listing'}
+        </Text>
+      </PressableScale>
+
+      {open ? (
+        <>
+          <Input value={text} onChangeText={setText} multiline style={styles.draftInput} />
+          <Text variant="caption" muted>
+            AI-drafted from this cat&apos;s real timeline — please review and edit before saving.
+          </Text>
+          {canSave ? (
+            <Button
+              title="Save as listing"
+              fullWidth
+              loading={saveDescription.isPending}
+              onPress={onSave}
+            />
+          ) : (
+            <Text variant="small" muted>
+              You can copy this draft to share — only the reporter can save it to the listing.
+            </Text>
+          )}
+        </>
+      ) : null}
+    </Card>
   );
 }
 
@@ -527,7 +634,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: '#F6E2BC',
+    borderColor: palette.amber100,
   },
   rewardIcon: {
     width: 32,
@@ -539,6 +646,21 @@ const styles = StyleSheet.create({
   },
   rewardSub: { marginTop: 1 },
   applicantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  draftCard: { gap: spacing.md, marginTop: spacing.sm },
+  draftHead: { gap: spacing.xs },
+  draftBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  draftInput: { minHeight: 120 },
   commentRow: {
     flexDirection: 'row',
     gap: spacing.sm,

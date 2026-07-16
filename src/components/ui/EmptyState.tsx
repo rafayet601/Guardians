@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
 import { spacing } from '@/theme';
 import { Button } from './Button';
@@ -20,8 +20,9 @@ export function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
+  const reduced = useReducedMotion() ?? false;
   return (
-    <Animated.View entering={FadeInUp.duration(420)} style={styles.wrap}>
+    <Animated.View entering={reduced ? FadeInUp.duration(0) : FadeInUp.duration(420)} style={styles.wrap}>
       <Text style={styles.icon}>{icon}</Text>
       <Text variant="heading" center>
         {title}

@@ -51,8 +51,10 @@ export interface Sighting {
   reporter_id: string | null;
   title: string | null;
   description: string | null;
-  lat: number;
-  lng: number;
+  /** Undefined on list/feed reads where coordinates are omitted for privacy. */
+  lat?: number;
+  /** Undefined on list/feed reads where coordinates are omitted for privacy. */
+  lng?: number;
   address: string | null;
   status: CatStatus;
   temperament: CatTemperament;

@@ -44,9 +44,15 @@ export default function ResetPasswordScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const ok = url ? await sessionFromUrl(url) : false;
-      if (!active) return;
-      setStatus(ok || session ? 'ready' : 'invalid');
+      try {
+        const ok = url ? await sessionFromUrl(url) : false;
+        if (!active) return;
+        setStatus(ok || session ? 'ready' : 'invalid');
+      } catch (err) {
+        console.error('Failed to parse reset URL:', err);
+        if (!active) return;
+        setStatus('invalid');
+      }
     })();
     return () => {
       active = false;

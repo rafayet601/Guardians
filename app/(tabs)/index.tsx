@@ -73,8 +73,8 @@ export default function MapScreen() {
 
   const params = useMemo(
     () => ({
-      lat: region.latitude,
-      lng: region.longitude,
+      lat: Math.round(region.latitude * 1000) / 1000,
+      lng: Math.round(region.longitude * 1000) / 1000,
       radiusM: radiusFromRegion(region),
       statuses: FILTERS.find((f) => f.key === filter)?.statuses,
     }),
