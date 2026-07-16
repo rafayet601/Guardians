@@ -16,19 +16,49 @@ import {
 import { redeemReward } from '@/api/rewards';
 import { upsertPushToken } from '@/api/push';
 import { getAdoptionDraft, getReportAutofill } from '@/api/ai';
+import { getMyProfile } from '@/api/profiles';
+import { getLeaderboard } from '@/api/gamification';
+import { reportContent, moderateContent } from '@/api/moderation';
+
+const mockChain = {
+  select: jest.fn(),
+  eq: jest.fn(),
+  neq: jest.fn(),
+  order: jest.fn(),
+  limit: jest.fn(),
+  in: jest.fn(),
+  lt: jest.fn(),
+  single: jest.fn(),
+  insert: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+};
+Object.values(mockChain).forEach((fn) => fn.mockReturnThis());
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { rpc: jest.fn(), functions: { invoke: jest.fn() } },
+  supabase: {
+    rpc: jest.fn(),
+    functions: { invoke: jest.fn() },
+    from: jest.fn(() => mockChain),
+    auth: { getUser: jest.fn() },
+  },
 }));
 
 const rpc = supabase.rpc as unknown as jest.Mock;
 const invoke = supabase.functions.invoke as unknown as jest.Mock;
+const from = supabase.from as unknown as jest.Mock;
+const getUser = supabase.auth.getUser as unknown as jest.Mock;
 
 beforeEach(() => {
   rpc.mockReset();
   rpc.mockResolvedValue({ data: {}, error: null });
   invoke.mockReset();
   invoke.mockResolvedValue({ data: {}, error: null });
+  from.mockReset();
+  from.mockImplementation(() => mockChain);
+  Object.values(mockChain).forEach((fn) => fn.mockReset().mockReturnThis());
+  getUser.mockReset();
+  getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
 });
 
 describe('API client → RPC argument mapping', () => {
@@ -105,6 +135,24 @@ describe('API client → RPC argument mapping', () => {
     rpc.mockResolvedValue({ data: null, error: new Error('boom') });
     await expect(claimSighting('s1')).rejects.toThrow('boom');
   });
+
+  it('reportContent → report_content', async () => {
+    await reportContent('sighting', 's1', 'spam');
+    expect(rpc).toHaveBeenCalledWith('report_content', {
+      p_type: 'sighting',
+      p_id: 's1',
+      p_reason: 'spam',
+    });
+  });
+
+  it('moderateContent → moderate_content', async () => {
+    await moderateContent('comment', 'c1', true);
+    expect(rpc).toHaveBeenCalledWith('moderate_content', {
+      p_type: 'comment',
+      p_id: 'c1',
+      p_hide: true,
+    });
+  });
 });
 
 describe('API client → Edge Function invocation', () => {
@@ -171,5 +219,33 @@ describe('API client → Edge Function invocation', () => {
   it('getAdoptionDraft propagates Edge Function errors (e.g. rate limit)', async () => {
     invoke.mockResolvedValue({ data: null, error: new Error('rate_limited') });
     await expect(getAdoptionDraft('s1')).rejects.toThrow('rate_limited');
+  });
+});
+
+describe('API client → table queries', () => {
+  it('getMyProfile → profiles table for the current user', async () => {
+    const profile = { id: 'u1', username: 'alice' };
+    mockChain.single.mockResolvedValueOnce({ data: profile, error: null });
+    const result = await getMyProfile();
+    expect(from).toHaveBeenCalledWith('profiles');
+    expect(mockChain.select).toHaveBeenCalled();
+    expect(mockChain.eq).toHaveBeenCalledWith('id', 'u1');
+    expect(mockChain.single).toHaveBeenCalled();
+    expect(result).toEqual(profile);
+  });
+
+  it('getLeaderboard → profiles table ordered by points desc', async () => {
+    const rows = [{ id: 'u1', points: 100 }, { id: 'u2', points: 50 }];
+    mockChain.limit.mockResolvedValueOnce({ data: rows, error: null });
+    const result = await getLeaderboard();
+    expect(from).toHaveBeenCalledWith('profiles');
+    expect(mockChain.select).toHaveBeenCalled();
+    expect(mockChain.order).toHaveBeenCalledWith('points', { ascending: false });
+    expect(mockChain.order).toHaveBeenCalledWith('rescues_count', { ascending: false });
+    expect(mockChain.limit).toHaveBeenCalledWith(50);
+    expect(result).toEqual([
+      { id: 'u1', points: 100, rank: 1 },
+      { id: 'u2', points: 50, rank: 2 },
+    ]);
   });
 });

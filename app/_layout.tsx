@@ -103,6 +103,14 @@ function RootNavigator() {
         options={{ headerShown: true, title: 'Settings', headerTintColor: colors.primary }}
       />
       <Stack.Screen
+        name="privacy"
+        options={{ headerShown: true, title: 'Privacy Policy', headerTintColor: colors.primary }}
+      />
+      <Stack.Screen
+        name="terms"
+        options={{ headerShown: true, title: 'Terms of Service', headerTintColor: colors.primary }}
+      />
+      <Stack.Screen
         name="moderation"
         options={{ headerShown: true, title: 'Moderation', headerTintColor: colors.primary }}
       />

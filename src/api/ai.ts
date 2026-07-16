@@ -1,6 +1,20 @@
 import { supabase } from '@/lib/supabase';
 import type { CatTemperament } from '@/types/models';
-import type { AdoptionDraft, ReportAutofillInput, ReportAutofillSuggestion } from '@/types/ai';
+import type {
+  AdoptionDraft,
+  CreateLostCatInput,
+  LostCat,
+  LostCatMatch,
+  ModCopilotInput,
+  ModCopilotSummary,
+  ModeratePhotoInput,
+  ModerateTextInput,
+  ModerationResult,
+  ReidCandidate,
+  ReportAutofillInput,
+  ReportAutofillSuggestion,
+  SightingLink,
+} from '@/types/ai';
 
 const TEMPERAMENTS: readonly CatTemperament[] = ['friendly', 'shy', 'feral', 'unknown'];
 
@@ -70,4 +84,131 @@ function normalize(raw: RawSuggestion): ReportAutofillSuggestion {
     temperament,
     isInjured: raw.is_injured === true,
   };
+}
+
+export async function moderatePhoto(input: ModeratePhotoInput): Promise<ModerationResult> {
+  const { data, error } = await supabase.functions.invoke<ModerationResult>('ai-moderate-photo', {
+    body: input,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No moderation result returned.');
+  return data;
+}
+
+export async function moderateText(input: ModerateTextInput): Promise<ModerationResult> {
+  const { data, error } = await supabase.functions.invoke<ModerationResult>('ai-moderate-text', {
+    body: input,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No moderation result returned.');
+  return data;
+}
+
+export async function getModCopilotSummary(input: ModCopilotInput): Promise<ModCopilotSummary> {
+  const { data, error } = await supabase.functions.invoke<ModCopilotSummary>('ai-mod-copilot', {
+    body: input,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No copilot summary returned.');
+  return data;
+}
+
+export async function getReidCandidates(sightingId: string): Promise<ReidCandidate[]> {
+  const { data, error } = await supabase.functions.invoke<ReidCandidate[]>('ai-reid', {
+    body: { sighting_id: sightingId },
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function confirmSightingLink(linkId: string): Promise<SightingLink> {
+  const { data, error } = await supabase.functions.invoke<SightingLink>('ai-reid', {
+    body: { link_id: linkId, action: 'confirm' },
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No link returned.');
+  return data;
+}
+
+export async function rejectSightingLink(linkId: string): Promise<SightingLink> {
+  const { data, error } = await supabase.functions.invoke<SightingLink>('ai-reid', {
+    body: { link_id: linkId, action: 'reject' },
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No link returned.');
+  return data;
+}
+
+export async function getSightingLinks(sightingId: string): Promise<SightingLink[]> {
+  const { data, error } = await supabase.functions.invoke<SightingLink[]>('ai-reid', {
+    body: { sighting_id: sightingId, action: 'list' },
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createLostCat(input: CreateLostCatInput): Promise<LostCat> {
+  const { data, error } = await supabase.functions.invoke<LostCat>('ai-lost-match', {
+    body: { ...input, action: 'create' },
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No lost cat returned.');
+  return data;
+}
+
+export async function getMyLostCats(): Promise<LostCat[]> {
+  const { data, error } = await supabase.functions.invoke<LostCat[]>('ai-lost-match', {
+    body: { action: 'list_mine' },
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getLostCat(id: string): Promise<LostCat> {
+  const { data, error } = await supabase.functions.invoke<LostCat>('ai-lost-match', {
+    body: { id, action: 'get' },
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No lost cat returned.');
+  return data;
+}
+
+export async function getLostCatMatches(lostCatId: string): Promise<LostCatMatch[]> {
+  const { data, error } = await supabase.functions.invoke<LostCatMatch[]>('ai-lost-match', {
+    body: { lost_cat_id: lostCatId, action: 'list_matches' },
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function confirmLostCatMatch(matchId: string): Promise<LostCatMatch> {
+  const { data, error } = await supabase.functions.invoke<LostCatMatch>('ai-lost-match', {
+    body: { match_id: matchId, action: 'confirm_match' },
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No match returned.');
+  return data;
+}
+
+export async function rejectLostCatMatch(matchId: string): Promise<LostCatMatch> {
+  const { data, error } = await supabase.functions.invoke<LostCatMatch>('ai-lost-match', {
+    body: { match_id: matchId, action: 'reject_match' },
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No match returned.');
+  return data;
+}
+
+export async function triggerLostCatMatch(lostCatId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('ai-lost-match', {
+    body: { lost_cat_id: lostCatId, action: 'trigger_match' },
+  });
+  if (error) throw error;
+}
+
+export async function triggerSightingLostMatch(sightingId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('ai-lost-match', {
+    body: { sighting_id: sightingId, action: 'trigger_sighting_match' },
+  });
+  if (error) throw error;
 }

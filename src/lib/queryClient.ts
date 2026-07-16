@@ -42,4 +42,9 @@ export const queryKeys = {
   placements: (slot: string) => ['rewards', 'placements', slot] as const,
   isModerator: (id?: string) => ['moderator', id] as const,
   moderationQueue: ['moderation', 'queue'] as const,
+  lostCats: ['lost-cats'] as const,
+  lostCat: (id: string) => ['lost-cat', id] as const,
+  lostCatMatches: (id: string) => ['lost-cat-matches', id] as const,
+  reidCandidates: (id: string) => ['reid-candidates', id] as const,
+  journeyTimeline: (id: string) => ['journey-timeline', id] as const,
 };

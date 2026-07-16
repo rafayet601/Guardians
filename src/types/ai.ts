@@ -36,6 +36,96 @@ export interface ReportAutofillInput {
  * existing sighting-description update path; it is never auto-published.
  */
 export interface AdoptionDraft {
-  /** The suggested listing body text — plain text, ready to edit. */
   draft: string;
+}
+
+export type ModerationVerdict = 'safe' | 'borderline' | 'violation';
+
+export interface ModerationResult {
+  verdict: ModerationVerdict;
+  categories: string[];
+  applied: boolean;
+}
+
+export interface ModeratePhotoInput {
+  imageBase64: string;
+  mediaType?: string;
+  target: { type: 'sighting_photo'; id: string };
+}
+
+export interface ModerateTextInput {
+  type: 'comment';
+  id: string;
+  text: string;
+}
+
+export type ModerationTargetType = 'sighting' | 'comment' | 'profile' | 'photo';
+
+export interface ModCopilotInput {
+  targetType: ModerationTargetType;
+  targetId: string;
+}
+
+export interface ModCopilotSummary {
+  recommendedAction: 'hide' | 'dismiss' | 'review';
+  summary: string;
+  userHistory: string;
+}
+
+export type LostCatStatus = 'open' | 'matched' | 'closed';
+
+export interface LostCat {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  photoUrl: string | null;
+  lastSeenLat: number;
+  lastSeenLng: number;
+  lastSeenAt: string | null;
+  status: LostCatStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLostCatInput {
+  title?: string;
+  description?: string;
+  photoUrl?: string;
+  lat: number;
+  lng: number;
+  lastSeenAt?: string;
+}
+
+export interface LostCatMatch {
+  id: string;
+  lost_cat_id: string;
+  sighting_id: string;
+  confidence: number;
+  status: 'suggested' | 'confirmed' | 'rejected';
+  created_at: string;
+  sightingTitle?: string | null;
+  sightingThumbnailUrl?: string | null;
+  distanceM?: number;
+  sightingCreatedAt?: string;
+  createdAt?: string;
+}
+
+export interface ReidCandidate {
+  linkId: string;
+  sightingId: string;
+  linkedSightingId: string;
+  confidence: number;
+  status: 'suggested' | 'confirmed' | 'rejected';
+  title?: string | null;
+  thumbnailUrl?: string | null;
+  distanceM?: number;
+}
+
+export interface SightingLink {
+  id: string;
+  sightingId: string;
+  linkedSightingId: string;
+  confidence: number;
+  status: 'suggested' | 'confirmed' | 'rejected';
 }

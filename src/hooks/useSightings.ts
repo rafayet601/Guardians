@@ -18,6 +18,7 @@ import {
 import { notifyUrgentSighting } from '@/api/push';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import type { CatStatus } from '@/types/models';
 
@@ -86,10 +87,19 @@ export function useCreateSighting() {
   return useMutation({
     mutationFn: async (input: CreateSightingInput & { photoUrls?: string[] }) => {
       const sighting = await createSighting(input);
-      if (input.photoUrls?.length && user) {
-        await Promise.all(input.photoUrls.map((url) => addPhoto(sighting.id, url, user.id)));
+      try {
+        if (input.photoUrls?.length && user) {
+          await Promise.all(input.photoUrls.map((url) => addPhoto(sighting.id, url, user.id)));
+        }
+        return sighting;
+      } catch (err) {
+        try {
+          await supabase.from('sightings').delete().eq('id', sighting.id);
+        } catch (rollbackErr) {
+          console.error('Failed to rollback sighting after photo error:', rollbackErr);
+        }
+        throw err;
       }
-      return sighting;
     },
     onSuccess: (s) => {
       invalidate(s.id);

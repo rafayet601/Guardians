@@ -33,7 +33,7 @@ import {
 import { confirmAsync, notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, radius, spacing } from '@/theme';
+import { colors, motion, palette, radius, spacing } from '@/theme';
 import type { CatStatus, SightingUpdate } from '@/types/models';
 import { regionForRadius } from '@/utils/geo';
 import { timeAgo } from '@/utils/format';
@@ -252,16 +252,16 @@ export default function SightingDetailScreen() {
                 provider={MAP_PROVIDER}
                 style={[styles.map, { pointerEvents: 'none' }]}
                 initialRegion={regionForRadius(
-                  sighting.lat,
-                  sighting.lng,
+                  sighting.lat ?? 0,
+                  sighting.lng ?? 0,
                   sighting.is_precise ? 500 : 700,
                 )}
               >
                 {sighting.is_precise ? (
-                  <Marker coordinate={{ latitude: sighting.lat, longitude: sighting.lng }} />
+                  <Marker coordinate={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }} />
                 ) : (
                   <Circle
-                    center={{ latitude: sighting.lat, longitude: sighting.lng }}
+                    center={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }}
                     radius={160}
                     strokeColor={colors.primary}
                     strokeWidth={2}
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: '#F6E2BC',
+    borderColor: palette.amber100,
   },
   rewardIcon: {
     width: 32,
