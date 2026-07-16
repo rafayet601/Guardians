@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '@/components/PressableScale';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, Loading, Text } from '@/components/ui';
+import { AI_FEATURES } from '@/constants/ai';
 import { useAllBadges, useUserBadges } from '@/hooks/useGamification';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsModerator } from '@/hooks/useModeration';
@@ -142,6 +143,27 @@ export default function ProfileScreen() {
                 MODERATION
               </Text>
               <Text variant="bodyStrong">🛡️ Review reported content</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Animated.View>
+      ) : null}
+
+      {/* 🐾 Lost-cat reunification (AI-M4 #5) — entry point to the "I lost my
+          cat" post + matches screen. Hidden until the flag is on. */}
+      {AI_FEATURES.lostCatReunion ? (
+        <Animated.View
+          entering={FadeInDown.delay(2.5 * motion.stagger)
+            .duration(motion.enter)
+            .springify()
+            .damping(motion.damping)}
+        >
+          <Card onPress={() => router.push('/lost-cat')} style={styles.kibbleCard}>
+            <View style={styles.kibbleInfo}>
+              <Text variant="caption" muted>
+                LOST YOUR CAT?
+              </Text>
+              <Text variant="bodyStrong">🐾 Post them — we&apos;ll watch every sighting</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Card>

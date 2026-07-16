@@ -37,7 +37,7 @@ export function ReidSuggestions({
   canManage: boolean;
 }): ReactNode {
   const reduced = useReducedMotion() ?? false;
-  const { data: candidates, isLoading, isError } = useReidCandidates(sightingId);
+  const { data: candidates, isLoading, isError } = useReidCandidates(sightingId, canManage);
   const confirm = useConfirmSightingLink(sightingId);
   const reject = useRejectSightingLink(sightingId);
 

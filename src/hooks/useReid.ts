@@ -19,11 +19,15 @@ import type { ReidCandidate, SightingLink } from '@/types/ai';
  * function caches the embedding so repeated calls within the stale window are
  * cheap DB-only queries.
  */
-export function useReidCandidates(sightingId: string) {
+export function useReidCandidates(sightingId: string, canManage: boolean) {
   return useQuery<ReidCandidate[], Error>({
     queryKey: queryKeys.reidCandidates(sightingId),
     queryFn: () => getReidCandidates(sightingId),
-    enabled: !!sightingId && AI_FEATURES.reid,
+    // Gated on canManage: the ai-reid edge function 403s everyone except the
+    // reporter/guardian, so firing it for other viewers is guaranteed failure
+    // noise (3 invocations per view with the default retry) for a component
+    // that renders null in that state anyway.
+    enabled: !!sightingId && canManage && AI_FEATURES.reid,
     staleTime: 60_000,
   });
 }
@@ -40,6 +44,9 @@ export function useConfirmSightingLink(sightingId: string) {
     onSuccess: (_result, linkId) => {
       track('ai_reid_link_confirmed', { sightingId, linkId });
       qc.invalidateQueries({ queryKey: queryKeys.reidCandidates(sightingId) });
+      // A newly confirmed link changes the journey of every sighting in the
+      // chain — invalidate the whole family, not just this sighting's key.
+      qc.invalidateQueries({ queryKey: ['ai', 'journey'] });
     },
   });
 }
@@ -56,6 +63,8 @@ export function useRejectSightingLink(sightingId: string) {
     onSuccess: (_result, linkId) => {
       track('ai_reid_link_rejected', { sightingId, linkId });
       qc.invalidateQueries({ queryKey: queryKeys.reidCandidates(sightingId) });
+      // Rejecting a previously confirmed link removes a journey stop.
+      qc.invalidateQueries({ queryKey: ['ai', 'journey'] });
     },
   });
 }

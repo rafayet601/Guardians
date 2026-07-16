@@ -30,9 +30,15 @@ import { formatDistance, timeAgo } from '@/utils/format';
  * never claims to be the rescue pin. NEVER imports react-native-maps directly
  * — uses `@/components/PlatformMap`.
  */
-export function JourneyTimeline({ sightingId }: { sightingId: string }): ReactNode {
+export function JourneyTimeline({
+  sightingId,
+  canManage,
+}: {
+  sightingId: string;
+  canManage: boolean;
+}): ReactNode {
   const reduced = useReducedMotion() ?? false;
-  const { data, isLoading, isError } = useJourneyTimeline(sightingId);
+  const { data, isLoading, isError } = useJourneyTimeline(sightingId, canManage);
 
   if (!AI_FEATURES.journeyTimeline) return null;
   if (isLoading) return <Loading label="Mapping this cat's journey…" />;
