@@ -60,16 +60,18 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion(r, 600);
   }, [coords]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     pulseTracks(1200);
     return () => {
       if (tracksTimer.current) clearTimeout(tracksTimer.current);
     };
-  }, [pulseTracks]);
+  }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     pulseTracks(500);
-  }, [selected, pulseTracks]);
+  }, [selected]);
 
   const params = useMemo(
     () => ({
@@ -202,7 +204,10 @@ export default function MapScreen() {
 
       {/* Search + filter chips */}
       <View
-        style={[styles.topBar, { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' }]}
+        style={[
+          styles.topBar,
+          { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' },
+        ]}
       >
         <View style={styles.searchWrap}>
           <MapSearchBar
