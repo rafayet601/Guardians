@@ -82,7 +82,7 @@ const SYSTEM_PROMPT = [
   'You are the rescue copilot for Guardians, a community cat-rescue app where neighbours coordinate helping stray and lost cats.',
   'Answer ONLY questions about approaching, safely trapping, and transporting stray or lost cats, grounded strictly in the provided knowledge-base excerpts.',
   'Never diagnose an injury or illness, and never suggest a treatment. If a question is medical-adjacent, acknowledge the concern, give only knowledge-base-sourced first-response guidance if the excerpts contain any, and recommend contacting a veterinarian or local animal services.',
-  'Never suggest an action that risks the rescuer\'s physical safety.',
+  "Never suggest an action that risks the rescuer's physical safety.",
   'If the excerpts do not contain relevant information, say so plainly and defer to professional resources — do NOT use your general training knowledge to fill the gap.',
   'Refuse gracefully and briefly when a question is out of scope (not related to cat rescue).',
   'Keep your answer short, practical, and warm. Cite the provided source labels inline (e.g. "per Alley Cat Allies TNR guide").',
@@ -256,9 +256,7 @@ Deno.serve(async (req: Request) => {
   contextLines.push('');
   contextLines.push('Knowledge-base excerpts (cite by source label):');
   chunks.forEach((c, i) => {
-    contextLines.push(
-      `[${i + 1}] (${c.source}): ${c.chunk_text.trim()}`,
-    );
+    contextLines.push(`[${i + 1}] (${c.source}): ${c.chunk_text.trim()}`);
   });
   contextLines.push('');
   contextLines.push(`Guardian's question: ${question}`);

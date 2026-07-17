@@ -23,7 +23,11 @@ type Filter = 'all' | 'needs_help' | 'available';
 
 const FILTERS: { key: Filter; label: string; statuses?: CatStatus[] }[] = [
   { key: 'all', label: 'All cats' },
-  { key: 'needs_help', label: '🆘 Needs help', statuses: ['spotted', 'claimed', 'in_rescue'] },
+  {
+    key: 'needs_help',
+    label: '🆘 Needs help',
+    statuses: ['spotted', 'claimed', 'in_rescue'],
+  },
   { key: 'available', label: '🏠 Adoptable', statuses: ['available'] },
 ];
 
@@ -204,10 +208,8 @@ export default function MapScreen() {
 
       {/* Search + filter chips */}
       <View
-        style={[
-          styles.topBar,
-          { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' },
-        ]}
+        style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}
+        pointerEvents="box-none"
       >
         <View style={styles.searchWrap}>
           <MapSearchBar

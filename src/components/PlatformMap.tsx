@@ -10,8 +10,12 @@ import { env } from '@/lib/env';
 
 export const MAP_PROVIDER =
   Platform.OS === 'android'
-    ? (env.googleMapsAndroidKey ? PROVIDER_GOOGLE : PROVIDER_DEFAULT)
-    : (env.googleMapsIosKey ? PROVIDER_GOOGLE : PROVIDER_DEFAULT);
+    ? env.googleMapsAndroidKey
+      ? PROVIDER_GOOGLE
+      : PROVIDER_DEFAULT
+    : env.googleMapsIosKey
+      ? PROVIDER_GOOGLE
+      : PROVIDER_DEFAULT;
 
 export const MapView = RNMapView;
 export const Marker = RNMarker;

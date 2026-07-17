@@ -5,11 +5,7 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 
 import { Button, Card, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
-import {
-  useConfirmSightingLink,
-  useReidCandidates,
-  useRejectSightingLink,
-} from '@/hooks/useReid';
+import { useConfirmSightingLink, useReidCandidates, useRejectSightingLink } from '@/hooks/useReid';
 import { confirmAsync } from '@/lib/dialog';
 import { colors, motion, radius, spacing } from '@/theme';
 
@@ -37,7 +33,7 @@ export function ReidSuggestions({
   canManage: boolean;
 }): ReactNode {
   const reduced = useReducedMotion() ?? false;
-  const { data: candidates, isLoading, isError } = useReidCandidates(sightingId);
+  const { data: candidates, isLoading, isError } = useReidCandidates(sightingId, canManage);
   const confirm = useConfirmSightingLink(sightingId);
   const reject = useRejectSightingLink(sightingId);
 
@@ -68,10 +64,14 @@ export function ReidSuggestions({
 
   return (
     <Animated.View
-      entering={reduced ? FadeInDown.duration(0) : FadeInDown.delay(4.5 * motion.stagger)
-        .duration(motion.enter)
-        .springify()
-        .damping(motion.damping)}
+      entering={
+        reduced
+          ? FadeInDown.duration(0)
+          : FadeInDown.delay(4.5 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)
+      }
     >
       <Card style={styles.card}>
         <View style={styles.head}>
@@ -94,7 +94,8 @@ export function ReidSuggestions({
                 {c.title || 'Cat sighting'}
               </Text>
               <Text variant="small" muted>
-                ≈{Math.round(c.confidence * 100)}% similar{c.distanceM != null ? ` · ${formatDistance(c.distanceM)}` : ''}
+                ≈{Math.round(c.confidence * 100)}% similar
+                {c.distanceM != null ? ` · ${formatDistance(c.distanceM)}` : ''}
               </Text>
             </View>
             {canManage && c.linkId ? (

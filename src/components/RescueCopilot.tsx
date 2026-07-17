@@ -56,10 +56,14 @@ export function RescueCopilot({
 
   return (
     <Animated.View
-      entering={reduced ? FadeInDown.duration(0) : FadeInDown.delay(5 * motion.stagger)
-        .duration(motion.enter)
-        .springify()
-        .damping(motion.damping)}
+      entering={
+        reduced
+          ? FadeInDown.duration(0)
+          : FadeInDown.delay(5 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)
+      }
     >
       <Card style={styles.card}>
         <View style={styles.head}>

@@ -37,7 +37,7 @@ export interface JourneyTimelineResult {
  * fail (e.g. a linked sighting deleted between the link and now) are dropped
  * rather than failing the whole query — a partial journey is still useful.
  */
-export function useJourneyTimeline(sightingId?: string) {
+export function useJourneyTimeline(sightingId?: string, canManage = false) {
   return useQuery<JourneyTimelineResult, Error>({
     queryKey: queryKeys.journeyTimeline(sightingId ?? ''),
     queryFn: async (): Promise<JourneyTimelineResult> => {
@@ -68,6 +68,10 @@ export function useJourneyTimeline(sightingId?: string) {
       stops.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       return { stops, hasJourney: stops.length >= 2 };
     },
-    enabled: !!sightingId && AI_FEATURES.journeyTimeline,
+    // Gated on canManage: get_sighting_links (0023) raises for everyone except
+    // the sighting's reporter/guardian, so running the query for other viewers
+    // is guaranteed failure noise. If journeys ever become community-visible,
+    // relax the RPC first, then this gate.
+    enabled: !!sightingId && canManage && AI_FEATURES.journeyTimeline,
   });
 }

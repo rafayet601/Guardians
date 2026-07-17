@@ -13,7 +13,10 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { PressableScale } from '@/components/PressableScale';
+import { JourneyTimeline } from '@/components/JourneyTimeline';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
+import { ReidSuggestions } from '@/components/ReidSuggestions';
+import { RescueCopilot } from '@/components/RescueCopilot';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
@@ -258,7 +261,9 @@ export default function SightingDetailScreen() {
                 )}
               >
                 {sighting.is_precise ? (
-                  <Marker coordinate={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }} />
+                  <Marker
+                    coordinate={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }}
+                  />
                 ) : (
                   <Circle
                     center={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }}
@@ -276,6 +281,12 @@ export default function SightingDetailScreen() {
               </Text>
             ) : null}
           </Animated.View>
+
+          {/* 🐈 Possible duplicates (AI-M3 #4). Only the reporter/guardian sees
+              (and can act on) re-ID suggestions — the query is disabled for
+              everyone else, matching the edge function's access rule. Never
+              auto-merges; each candidate is confirmed/rejected by a human. */}
+          <ReidSuggestions sightingId={sighting.id} canManage={canManage} />
 
           {/* Actions */}
           <Animated.View
@@ -345,6 +356,17 @@ export default function SightingDetailScreen() {
               )
             ) : null}
           </Animated.View>
+
+          {/* 🗺️ Journey timeline (AI-M4 #6): shown once ≥2 sightings are
+              confirmed-linked as the same cat. Reporter/guardian only — the
+              get_sighting_links RPC restricts links to them. */}
+          <JourneyTimeline sightingId={sighting.id} canManage={canManage} />
+
+          {/* 🧭 Rescue copilot (AI-M5 #7): RAG-grounded trapping/transport
+              guidance for the assigned guardian only (server re-checks
+              claimed_by). Defers rather than guessing when the KB has no
+              close match; never veterinary advice. */}
+          <RescueCopilot sightingId={sighting.id} isClaimer={isClaimer} />
 
           {/* Adoption applicants (for the lister) */}
           {sighting.status === 'available' && canManage ? (

@@ -13,9 +13,9 @@ export default function PrivacyScreen() {
 
       <Text variant="body" style={styles.para}>
         Guardians (&quot;we&quot;, &quot;us&quot;, the &quot;app&quot;) helps a community rescue
-        feral and lost cats by letting people report sightings on a map, claim and complete
-        rescues, and place cats in adoptive homes. This policy explains what we collect, why, and
-        who we share it with.
+        feral and lost cats by letting people report sightings on a map, claim and complete rescues,
+        and place cats in adoptive homes. This policy explains what we collect, why, and who we
+        share it with.
       </Text>
 
       <Text variant="heading" style={styles.h2}>
@@ -40,10 +40,7 @@ export default function PrivacyScreen() {
       </Bullet>
       <Bullet>
         <Text variant="bodyStrong">Content you write</Text>
-        <Text variant="body">
-          {' '}
-          — report titles/descriptions, rescue updates, comments.
-        </Text>
+        <Text variant="body"> — report titles/descriptions, rescue updates, comments.</Text>
       </Bullet>
       <Bullet>
         <Text variant="bodyStrong">Usage/diagnostic data</Text>
@@ -59,8 +56,8 @@ export default function PrivacyScreen() {
       </Text>
       <Text variant="body" style={styles.para}>
         We use your data to run the core service (map, rescues, adoptions, gamification), to send
-        the notifications you opt into, to keep the community safe (moderation and abuse prevention),
-        and to understand and improve how the app is used.
+        the notifications you opt into, to keep the community safe (moderation and abuse
+        prevention), and to understand and improve how the app is used.
       </Text>
 
       <Text variant="heading" style={styles.h2}>
@@ -88,10 +85,10 @@ export default function PrivacyScreen() {
       <Text variant="body" style={styles.para}>
         Some features use AI to make suggestions. When you use them, relevant cat photos and report
         text are sent to Anthropic&apos;s Claude API and Voyage AI. This processing happens
-        server-side only — the AI never runs on your device and no AI key is stored in the app.
-        Data is processed under zero-retention commercial terms and is never used to train AI
-        models. AI output is always a suggestion you review and confirm — it never auto-submits a
-        report or takes any irreversible action.
+        server-side only — the AI never runs on your device and no AI key is stored in the app. Data
+        is processed under zero-retention commercial terms and is never used to train AI models. AI
+        output is always a suggestion you review and confirm — it never auto-submits a report or
+        takes any irreversible action.
       </Text>
 
       <Text variant="heading" style={styles.h2}>
@@ -99,8 +96,8 @@ export default function PrivacyScreen() {
       </Text>
       <Text variant="body" style={styles.para}>
         You can delete your account from within the app, which permanently removes your account and
-        associated data. You can opt out of urgent-help notifications at any time. You may contact us
-        to exercise applicable data rights.
+        associated data. You can opt out of urgent-help notifications at any time. You may contact
+        us to exercise applicable data rights.
       </Text>
 
       <Text variant="heading" style={styles.h2}>

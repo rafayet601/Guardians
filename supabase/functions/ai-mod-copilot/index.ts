@@ -270,12 +270,12 @@ Deno.serve(async (req: Request) => {
   // UNAVAILABLE rather than letting zeros read as a clean record.
   const historyUnavailable = Boolean(
     ownSightings.error ||
-      ownComments.error ||
-      openOnSightings.error ||
-      openOnComments.error ||
-      hiddenSightings.error ||
-      hiddenComments.error ||
-      blocks.error,
+    ownComments.error ||
+    openOnSightings.error ||
+    openOnComments.error ||
+    hiddenSightings.error ||
+    hiddenComments.error ||
+    blocks.error,
   );
   if (pastCases.error) {
     console.error('[ai-mod-copilot] past-cases read failed:', pastCases.error.message);

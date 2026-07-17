@@ -20,10 +20,9 @@ import type { AskCopilotInput, RescueCopilotAnswer, RescueCopilotSource } from '
  * is edited by a parallel agent and is intentionally untouched here.
  */
 export async function askRescueCopilot(input: AskCopilotInput): Promise<RescueCopilotAnswer> {
-  const { data, error } = await supabase.functions.invoke<RawCopilotResponse>(
-    'ai-rescue-copilot',
-    { body: { sighting_id: input.sightingId, question: input.question } },
-  );
+  const { data, error } = await supabase.functions.invoke<RawCopilotResponse>('ai-rescue-copilot', {
+    body: { sighting_id: input.sightingId, question: input.question },
+  });
   if (error) throw error;
 
   const answer = typeof data?.answer === 'string' ? data.answer.trim() : '';

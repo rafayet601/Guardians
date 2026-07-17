@@ -29,7 +29,12 @@
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
-import { embedTexts, isVoyageConfigured, VOYAGE_3, VOYAGE_USD_PER_TOKEN } from '../_shared/voyage.ts';
+import {
+  embedTexts,
+  isVoyageConfigured,
+  VOYAGE_3,
+  VOYAGE_USD_PER_TOKEN,
+} from '../_shared/voyage.ts';
 import { downloadCatPhoto } from '../_shared/storage.ts';
 
 const FEATURE = 'reid';
@@ -177,7 +182,10 @@ Deno.serve(async (req: Request) => {
     }
     if (!allowed) {
       return json(
-        { error: 'rate_limited', message: 'Too many re-ID checks this hour. Please try again later.' },
+        {
+          error: 'rate_limited',
+          message: 'Too many re-ID checks this hour. Please try again later.',
+        },
         429,
       );
     }
