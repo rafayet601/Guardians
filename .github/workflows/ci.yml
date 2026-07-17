@@ -30,7 +30,14 @@ jobs:
         run: npm run lint
 
       - name: Format check
-        run: npm run format:check
+        run: |
+          npm run format:check || {
+            echo "::group::prettier diff (linux)"
+            npx prettier --write . >/dev/null 2>&1
+            git --no-pager diff
+            echo "::endgroup::"
+            exit 1
+          }
 
       - name: Typecheck (app)
         run: npm run typecheck
