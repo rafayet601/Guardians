@@ -50,17 +50,21 @@ export function JourneyTimeline({
 
   return (
     <Animated.View
-      entering={reduced ? FadeInDown.duration(0) : FadeInDown.delay(4.5 * motion.stagger)
-        .duration(motion.enter)
-        .springify()
-        .damping(motion.damping)}
+      entering={
+        reduced
+          ? FadeInDown.duration(0)
+          : FadeInDown.delay(4.5 * motion.stagger)
+              .duration(motion.enter)
+              .springify()
+              .damping(motion.damping)
+      }
     >
       <Card style={styles.card}>
         <View style={styles.head}>
           <Text variant="bodyStrong">🗺️ This cat&apos;s journey</Text>
           <Text variant="small" muted>
-            {stops.length} linked sightings over {timeAgo(stops[0].createdAt)} — same cat,
-            confirmed by the community.
+            {stops.length} linked sightings over {timeAgo(stops[0].createdAt)} — same cat, confirmed
+            by the community.
           </Text>
         </View>
 
@@ -75,7 +79,13 @@ export function JourneyTimeline({
               <Marker
                 key={stop.sightingId}
                 coordinate={{ latitude: stop.lat, longitude: stop.lng } as LatLng}
-                pinColor={i === 0 ? colors.primary : i === stops.length - 1 ? colors.accent : colors.primaryLight}
+                pinColor={
+                  i === 0
+                    ? colors.primary
+                    : i === stops.length - 1
+                      ? colors.accent
+                      : colors.primaryLight
+                }
               />
             ))}
           </MapView>
@@ -84,14 +94,20 @@ export function JourneyTimeline({
         <View style={styles.list}>
           {stops.map((stop, i) => {
             const prev = i > 0 ? stops[i - 1] : null;
-            const gapM = prev ? distanceMeters({ lat: prev.lat, lng: prev.lng }, { lat: stop.lat, lng: stop.lng }) : 0;
+            const gapM = prev
+              ? distanceMeters({ lat: prev.lat, lng: prev.lng }, { lat: stop.lat, lng: stop.lng })
+              : 0;
             return (
               <Animated.View
                 key={stop.sightingId}
-                entering={reduced ? FadeInDown.duration(0) : FadeInDown.delay(Math.min(i, 6) * motion.stagger)
-                  .duration(motion.enter)
-                  .springify()
-                  .damping(motion.damping)}
+                entering={
+                  reduced
+                    ? FadeInDown.duration(0)
+                    : FadeInDown.delay(Math.min(i, 6) * motion.stagger)
+                        .duration(motion.enter)
+                        .springify()
+                        .damping(motion.damping)
+                }
                 style={styles.row}
               >
                 <View style={styles.stepCol}>
@@ -105,7 +121,11 @@ export function JourneyTimeline({
                 <View style={styles.rowBody}>
                   <View style={styles.rowHead}>
                     {stop.thumbnailUrl ? (
-                      <Image source={{ uri: stop.thumbnailUrl }} style={styles.thumb} contentFit="cover" />
+                      <Image
+                        source={{ uri: stop.thumbnailUrl }}
+                        style={styles.thumb}
+                        contentFit="cover"
+                      />
                     ) : (
                       <View style={[styles.thumb, styles.thumbFallback]}>
                         <Text variant="caption">🐱</Text>

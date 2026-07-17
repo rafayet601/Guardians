@@ -44,7 +44,10 @@ export default function TermsScreen() {
       <Text variant="body" style={styles.para}>
         We have zero tolerance for objectionable content or abusive users. You agree not to:
       </Text>
-      <Bullet>post content that is unlawful, harassing, hateful, sexually explicit, violent, or depicts animal cruelty</Bullet>
+      <Bullet>
+        post content that is unlawful, harassing, hateful, sexually explicit, violent, or depicts
+        animal cruelty
+      </Bullet>
       <Bullet>post false reports, spam, or content you don&apos;t have the right to share</Bullet>
       <Bullet>harass, stalk, or endanger any person or animal</Bullet>
       <Bullet>attempt to locate a person&apos;s home or identity from rescue data</Bullet>
@@ -70,11 +73,11 @@ export default function TermsScreen() {
       </Text>
       <Text variant="body" style={styles.para}>
         Some features use AI to make suggestions — for example prefilling a report from a photo,
-        drafting an adoption listing, flagging content for human moderator review, or suggesting that
-        two sightings may show the same cat. AI output is a suggestion, not a fact or professional
-        advice: you review and confirm before anything is posted, a human moderator makes all final
-        moderation decisions, and nothing in the app provides veterinary or medical advice — always
-        contact a qualified professional for an animal&apos;s health.
+        drafting an adoption listing, flagging content for human moderator review, or suggesting
+        that two sightings may show the same cat. AI output is a suggestion, not a fact or
+        professional advice: you review and confirm before anything is posted, a human moderator
+        makes all final moderation decisions, and nothing in the app provides veterinary or medical
+        advice — always contact a qualified professional for an animal&apos;s health.
       </Text>
 
       <Text variant="heading" style={styles.h2}>

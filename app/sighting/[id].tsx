@@ -261,7 +261,9 @@ export default function SightingDetailScreen() {
                 )}
               >
                 {sighting.is_precise ? (
-                  <Marker coordinate={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }} />
+                  <Marker
+                    coordinate={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }}
+                  />
                 ) : (
                   <Circle
                     center={{ latitude: sighting.lat ?? 0, longitude: sighting.lng ?? 0 }}

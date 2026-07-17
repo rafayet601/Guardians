@@ -78,7 +78,10 @@ interface EmbeddingRow {
 // documents (duplicate rows), re-embed already-paid chunks, or strand chunks
 // past the cap that would never get embedded at all.
 async function selectAll<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+  page: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
 ): Promise<{ rows: T[]; errorMessage: string | null }> {
   const PAGE = 1000;
   const rows: T[] = [];
@@ -275,9 +278,7 @@ Deno.serve(async (req: Request) => {
       const vec = embeddings[j];
       if (!Array.isArray(vec) || vec.length !== 1024) {
         console.error(
-          `[ai-kb-ingest] expected 1024-dim, got ${
-            Array.isArray(vec) ? vec.length : 'non-array'
-          }`,
+          `[ai-kb-ingest] expected 1024-dim, got ${Array.isArray(vec) ? vec.length : 'non-array'}`,
         );
         await logUsage(); // the batch was already paid for
         return json({ error: 'Embedding had unexpected dimensionality.' }, 500);

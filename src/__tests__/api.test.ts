@@ -235,7 +235,10 @@ describe('API client → table queries', () => {
   });
 
   it('getLeaderboard → profiles table ordered by points desc', async () => {
-    const rows = [{ id: 'u1', points: 100 }, { id: 'u2', points: 50 }];
+    const rows = [
+      { id: 'u1', points: 100 },
+      { id: 'u2', points: 50 },
+    ];
     mockChain.limit.mockResolvedValueOnce({ data: rows, error: null });
     const result = await getLeaderboard();
     expect(from).toHaveBeenCalledWith('profiles');

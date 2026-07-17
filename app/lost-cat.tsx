@@ -27,11 +27,12 @@ import { colors, motion, radius, spacing } from '@/theme';
 import { formatDistance, timeAgo } from '@/utils/format';
 import type { LostCat, LostCatMatch, LostCatStatus } from '@/types/ai';
 
-const STATUS_META: Record<LostCatStatus, { label: string; icon: string; fg: string; bg: string }> = {
-  open: { label: 'Open', icon: '🔍', fg: colors.primary, bg: colors.primarySoft },
-  matched: { label: 'Matched', icon: '🎯', fg: colors.accentDark, bg: colors.accentSoft },
-  closed: { label: 'Home', icon: '🏠', fg: colors.textSecondary, bg: colors.divider },
-};
+const STATUS_META: Record<LostCatStatus, { label: string; icon: string; fg: string; bg: string }> =
+  {
+    open: { label: 'Open', icon: '🔍', fg: colors.primary, bg: colors.primarySoft },
+    matched: { label: 'Matched', icon: '🎯', fg: colors.accentDark, bg: colors.accentSoft },
+    closed: { label: 'Home', icon: '🏠', fg: colors.textSecondary, bg: colors.divider },
+  };
 
 export default function LostCatScreen() {
   const router = useRouter();
@@ -156,7 +157,9 @@ function LostCatForm() {
         base64: photo.base64,
       });
       const parsed = lastSeenAtText.trim() ? new Date(lastSeenAtText) : new Date();
-      const lastSeenAt = Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+      const lastSeenAt = Number.isNaN(parsed.getTime())
+        ? new Date().toISOString()
+        : parsed.toISOString();
       const foldedDescription = [locationNotes.trim(), description.trim()]
         .filter(Boolean)
         .join(locationNotes.trim() && description.trim() ? ' · ' : '');
@@ -350,7 +353,12 @@ function LostCatPostCard({ post }: { post: LostCat }) {
           <Text variant="small" muted>
             Last seen {post.lastSeenAt ? timeAgo(post.lastSeenAt) : 'unknown'}
           </Text>
-          <Pill label={`${meta.icon} ${meta.label}`} fg={meta.fg} bg={meta.bg} style={styles.postPill} />
+          <Pill
+            label={`${meta.icon} ${meta.label}`}
+            fg={meta.fg}
+            bg={meta.bg}
+            style={styles.postPill}
+          />
         </View>
       </View>
 
@@ -397,7 +405,7 @@ function LostCatMatchRow({ match, lostCatId }: { match: LostCatMatch; lostCatId:
     });
     if (!ok) return;
     confirm.mutate(match.id, {
-      onSuccess: () => notify("Match confirmed 🎉", "We'll help you connect with the reporter."),
+      onSuccess: () => notify('Match confirmed 🎉', "We'll help you connect with the reporter."),
       onError: (e) => notify('Could not confirm', getErrorMessage(e, 'Please try again.')),
     });
   };
@@ -420,12 +428,20 @@ function LostCatMatchRow({ match, lostCatId }: { match: LostCatMatch; lostCatId:
     typeof match.distanceM === 'number' && match.distanceM > 0
       ? ` · ${formatDistance(match.distanceM)}`
       : '';
-  const when = match.sightingCreatedAt ? timeAgo(match.sightingCreatedAt) : match.createdAt ? timeAgo(match.createdAt) : '';
+  const when = match.sightingCreatedAt
+    ? timeAgo(match.sightingCreatedAt)
+    : match.createdAt
+      ? timeAgo(match.createdAt)
+      : '';
 
   return (
     <View style={styles.matchRow}>
       {match.sightingThumbnailUrl ? (
-        <Image source={{ uri: match.sightingThumbnailUrl }} style={styles.matchThumb} contentFit="cover" />
+        <Image
+          source={{ uri: match.sightingThumbnailUrl }}
+          style={styles.matchThumb}
+          contentFit="cover"
+        />
       ) : (
         <View style={[styles.matchThumb, styles.thumbFallback]}>
           <Text variant="body">🐱</Text>
@@ -439,9 +455,19 @@ function LostCatMatchRow({ match, lostCatId }: { match: LostCatMatch; lostCatId:
           ~{pct}% match{distanceLabel} · {when}
         </Text>
         {match.status === 'confirmed' ? (
-          <Pill label="✓ Confirmed" fg={colors.primary} bg={colors.primarySoft} style={styles.matchPill} />
+          <Pill
+            label="✓ Confirmed"
+            fg={colors.primary}
+            bg={colors.primarySoft}
+            style={styles.matchPill}
+          />
         ) : match.status === 'rejected' ? (
-          <Pill label="Not them" fg={colors.textMuted} bg={colors.divider} style={styles.matchPill} />
+          <Pill
+            label="Not them"
+            fg={colors.textMuted}
+            bg={colors.divider}
+            style={styles.matchPill}
+          />
         ) : (
           <View style={styles.matchActions}>
             <Button

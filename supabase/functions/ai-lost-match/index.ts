@@ -48,7 +48,12 @@
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
-import { embedTexts, isVoyageConfigured, VOYAGE_3, VOYAGE_USD_PER_TOKEN } from '../_shared/voyage.ts';
+import {
+  embedTexts,
+  isVoyageConfigured,
+  VOYAGE_3,
+  VOYAGE_USD_PER_TOKEN,
+} from '../_shared/voyage.ts';
 import { downloadCatPhoto } from '../_shared/storage.ts';
 
 const FEATURE = 'lost_cat_match';
@@ -191,7 +196,10 @@ Deno.serve(async (req: Request) => {
         try {
           embedResult = await computeEmbeddingForPhoto(admin, lc.photo_url);
         } catch (e) {
-          console.error('[ai-lost-match] lost_cat embed failed:', e instanceof Error ? e.message : e);
+          console.error(
+            '[ai-lost-match] lost_cat embed failed:',
+            e instanceof Error ? e.message : e,
+          );
           return json({ error: 'Could not compute the lost-cat photo embedding.' }, 502);
         }
         await storeEmbedding(admin, 'lost_cat', lostCatId, 'lost_cat_photo', embedResult.embedding);
@@ -270,10 +278,19 @@ Deno.serve(async (req: Request) => {
         try {
           embedResult = await computeEmbeddingForPhoto(admin, photoUrl);
         } catch (e) {
-          console.error('[ai-lost-match] sighting embed failed:', e instanceof Error ? e.message : e);
+          console.error(
+            '[ai-lost-match] sighting embed failed:',
+            e instanceof Error ? e.message : e,
+          );
           return json({ error: 'Could not compute the sighting photo embedding.' }, 502);
         }
-        await storeEmbedding(admin, 'sighting', sightingId, 'sighting_photo', embedResult.embedding);
+        await storeEmbedding(
+          admin,
+          'sighting',
+          sightingId,
+          'sighting_photo',
+          embedResult.embedding,
+        );
         modelCalled = true;
       }
       // No photo → no embedding → find_lost_cats_for_sighting returns nothing,
@@ -423,10 +440,7 @@ async function storeEmbedding(
 }
 
 /** First sighting photo URL (oldest first), or null when the sighting has none. */
-async function firstSightingPhotoUrl(
-  admin: any,
-  sightingId: string,
-): Promise<string | null> {
+async function firstSightingPhotoUrl(admin: any, sightingId: string): Promise<string | null> {
   const { data: photo } = await admin
     .from('sighting_photos')
     .select('url')
@@ -438,9 +452,7 @@ async function firstSightingPhotoUrl(
 }
 
 /** Rate-limit check (per-user, per-feature/hour). True when under the cap. */
-async function checkRateLimit(
-  caller: any,
-): Promise<boolean> {
+async function checkRateLimit(caller: any): Promise<boolean> {
   const { data: allowed, error } = await caller.rpc('check_ai_rate_limit', {
     p_feature: FEATURE,
     p_max_per_hour: MAX_PER_HOUR,
@@ -594,10 +606,7 @@ async function pushToOwner(
 }
 
 /** Record the model call in the usage ledger (best-effort — never fail). */
-async function logUsage(
-  caller: any,
-  r: EmbedResult,
-): Promise<void> {
+async function logUsage(caller: any, r: EmbedResult): Promise<void> {
   const estCost =
     r.voyageTokens * VOYAGE_USD_PER_TOKEN +
     r.claudeInputTokens * HAIKU_INPUT_USD_PER_TOKEN +

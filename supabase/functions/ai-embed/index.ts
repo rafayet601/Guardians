@@ -44,7 +44,12 @@
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
-import { embedTexts, isVoyageConfigured, VOYAGE_3, VOYAGE_USD_PER_TOKEN } from '../_shared/voyage.ts';
+import {
+  embedTexts,
+  isVoyageConfigured,
+  VOYAGE_3,
+  VOYAGE_USD_PER_TOKEN,
+} from '../_shared/voyage.ts';
 
 const FEATURE = 'embed';
 // Embedding is cheap and is a prerequisite for several features (re-ID,
@@ -237,7 +242,10 @@ Deno.serve(async (req: Request) => {
       embedding = embeddings[0];
       voyageTokens = usage.total_tokens;
     } catch (e) {
-      console.error('[ai-embed] voyage image-caption call failed:', e instanceof Error ? e.message : e);
+      console.error(
+        '[ai-embed] voyage image-caption call failed:',
+        e instanceof Error ? e.message : e,
+      );
       await logUsage(); // the caption call was already paid for
       return json({ error: 'Embedding failed.' }, 502);
     }
