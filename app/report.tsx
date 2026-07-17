@@ -63,9 +63,10 @@ export default function ReportScreen() {
   const [autofilled, setAutofilled] = useState(false);
 
   // default the marker to the user's location once available
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (coords && !marker) setMarker({ latitude: coords.lat, longitude: coords.lng });
-  }, [coords, marker]);
+  }, [coords]);
 
   const pickFrom = async (mode: PhotoSource) => {
     if (photos.length >= MAX_PHOTOS) return;
@@ -79,7 +80,11 @@ export default function ReportScreen() {
     }
     const result =
       mode === 'camera'
-        ? await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: true, base64: true })
+        ? await ImagePicker.launchCameraAsync({
+            quality: 0.6,
+            allowsEditing: true,
+            base64: true,
+          })
         : await ImagePicker.launchImageLibraryAsync({
             quality: 0.6,
             allowsEditing: true,

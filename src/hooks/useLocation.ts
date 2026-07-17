@@ -38,9 +38,10 @@ export function useCurrentLocation() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     void request();
-  }, [request]);
+  }, []);
 
   return { coords, status, request };
 }

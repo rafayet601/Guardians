@@ -27,6 +27,7 @@ export default function SettingsScreen() {
   const [wantsToAdopt, setWantsToAdopt] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!profile) return;
     setUsername(profile.username);

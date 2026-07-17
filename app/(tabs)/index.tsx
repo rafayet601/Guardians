@@ -64,16 +64,18 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion(r, 600);
   }, [coords]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     pulseTracks(1200);
     return () => {
       if (tracksTimer.current) clearTimeout(tracksTimer.current);
     };
-  }, [pulseTracks]);
+  }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     pulseTracks(500);
-  }, [selected, pulseTracks]);
+  }, [selected]);
 
   const params = useMemo(
     () => ({
