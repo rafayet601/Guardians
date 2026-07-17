@@ -206,7 +206,8 @@ export default function MapScreen() {
 
       {/* Search + filter chips */}
       <View
-        style={[styles.topBar, { paddingTop: insets.top + spacing.sm, pointerEvents: 'box-none' }]}
+        style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}
+        pointerEvents="box-none"
       >
         <View style={styles.searchWrap}>
           <MapSearchBar
