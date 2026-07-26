@@ -118,5 +118,35 @@ begin
     raise exception 'DRIFT: % public table(s) have RLS disabled', v;
   end if;
 
+  -- ── 8. Storage: no bucket-wide listing, but owners keep a SELECT path (0028)
+  -- A SELECT policy on storage.objects that does not reference auth.uid() is
+  -- bucket-wide, which lets ANY caller enumerate every file.
+  select count(*) into v from pg_policies
+  where schemaname='storage' and tablename='objects' and cmd='SELECT'
+    and qual !~ 'auth\.uid\(\)';
+  if v > 0 then
+    raise exception 'DRIFT: % storage SELECT policy/policies allow bucket-wide file listing', v;
+  end if;
+
+  -- ...and the inverse: removing ALL SELECT policies breaks owner delete/update,
+  -- because the Storage API resolves the row before mutating it.
+  select count(*) into v from pg_policies
+  where schemaname='storage' and tablename='objects' and cmd='SELECT' and qual ~ 'owner';
+  if v = 0 then
+    raise exception 'DRIFT: no owner-scoped SELECT on storage.objects — owners cannot delete/update their own files';
+  end if;
+
+  -- ── 9. Rewards: exactly one permissive read policy per table (0028) ───────
+  select count(*) into v from (
+    select tablename from pg_policies
+    where schemaname='public'
+      and tablename in ('reward_brands','reward_offers','sponsored_placements')
+      and permissive='PERMISSIVE' and cmd in ('SELECT','ALL')
+    group by tablename having count(*) > 1
+  ) x;
+  if v > 0 then
+    raise exception 'DRIFT: % rewards table(s) have overlapping permissive SELECT policies', v;
+  end if;
+
   raise notice 'schema_assertions: OK — all invariants hold.';
 end $$;
