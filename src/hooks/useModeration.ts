@@ -3,13 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   blockUser,
   checkIsModerator,
+  getBlockedUsers,
   getModerationQueue,
   moderateContent,
   reportContent,
+  unblockUser,
 } from '@/api/moderation';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuth } from '@/providers/AuthProvider';
 import type { ModerationTarget } from '@/types/models';
+
+/** Local key (queryKeys in lib/queryClient is shared; prefix-invalidation still matches). */
+const blockedUsersKey = (id?: string) => ['moderation', 'blocked-users', id] as const;
 
 export function useIsModerator() {
   const { user } = useAuth();
@@ -33,6 +38,27 @@ export function useBlockUser() {
   return useMutation({
     mutationFn: (blockedId: string) => blockUser(blockedId),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sighting'] });
+      qc.invalidateQueries({ queryKey: ['moderation', 'blocked-users'] });
+    },
+  });
+}
+
+export function useBlockedUsers() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: blockedUsersKey(user?.id),
+    queryFn: getBlockedUsers,
+    enabled: !!user,
+  });
+}
+
+export function useUnblockUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (blockedId: string) => unblockUser(blockedId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['moderation', 'blocked-users'] });
       qc.invalidateQueries({ queryKey: ['sighting'] });
     },
   });

@@ -27,12 +27,12 @@ The product and **security core is strong** — RLS on every table, all sensitiv
 
 ### Legal & Privacy
 
-| Task                                                                                                                                                                                                                   | Sev     | Effort |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
-| Write **Privacy Policy + Terms/EULA** (collects precise location + photos + account); host; link from `app/settings.tsx` + both store listings. EULA must include a zero-tolerance objectionable-content clause (UGC). | blocker | M      |
-| Add **in-app account deletion**: a `delete-account` Edge Function (service_role) that deletes the `auth.users` row (cascades to profile + all data) + a Settings UI action with confirm. **Confirmed missing today.**  | blocker | M      |
-| Complete **App Store Privacy Labels** + **Play Data Safety** (location, photos, account, identifiers).                                                                                                                 | blocker | S      |
-| Surface the existing **block-user** action in the sighting/profile UI and document the 24h moderation-response process (Apple Guideline 1.2). Backend already exists.                                                  | high    | S      |
+| Task                                                                                                                                                                                                                         | Sev     | Effort |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
+| Write **Privacy Policy + Terms/EULA** (collects precise location + photos + account); host; link from `app/settings.tsx` + both store listings. EULA must include a zero-tolerance objectionable-content clause (UGC).       | blocker | M      |
+| Add **in-app account deletion**: a `delete-account` Edge Function (service_role) that deletes the `auth.users` row (cascades to profile + all data) + a Settings UI action with confirm. **Confirmed missing today.**        | blocker | M      |
+| Complete **App Store Privacy Labels** + **Play Data Safety** (location, photos, account, identifiers).                                                                                                                       | blocker | S      |
+| ~~Surface the existing **block-user** action in the sighting/profile UI~~ — done (`app/blocked-users.tsx`, sighting detail block action, Settings link). Document the 24h moderation-response process (Apple Guideline 1.2). | high    | S      |
 
 ### Secrets, Keys & Release Pipeline
 
@@ -59,14 +59,14 @@ The product and **security core is strong** — RLS on every table, all sensitiv
 
 **Goal:** when production breaks, you find out and can debug + roll back. **~1–2 weeks, overlaps M0.**
 
-| Task                                                                                                                                                                                    | Sev    | Effort | Notes                                                                                                                |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ | -------------------------------------------------------------------------------------------------------------------- |
-| Install **`@sentry/react-native`** + Expo plugin; `Sentry.init` in `initObservability`.                                                                                                 | high   | M      | Façade already feeds `captureError` (ErrorBoundary, global handler, React Query `onError`) — just needs the backend. |
-| **Source-map / Hermes symbol upload** in the EAS prod build.                                                                                                                            | high   | M      | Depends on Sentry. Otherwise stacks are unsymbolicated.                                                              |
-| Harden **`send-push`**: log non-OK Expo responses + `tokens_near` errors; handle Expo **receipts**; reap **DeviceNotRegistered** tokens; remove the empty `catch` in `src/api/push.ts`. | medium | M      | Safety-critical feature fails silently today.                                                                        |
-| Wire **`track()` → analytics** (e.g. PostHog).                                                                                                                                          | medium | M      | 4 funnel events already emitted, currently discarded.                                                                |
-| Add **`expo-updates`** + `runtimeVersion` + channel mapping for OTA rollback.                                                                                                           | medium | M      | No hot-fix path today.                                                                                               |
-| 1 **Sentry alert rule** + a Supabase/edge **uptime check**; "who gets paged" note.                                                                                                      | medium | S      |                                                                                                                      |
+| Task                                                                                                                                                                                                                                                                                                                           | Sev    | Effort | Notes                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ------ | ------------------------------------------------------------ |
+| ~~Install **`@sentry/react-native`** + Expo plugin; `Sentry.init` in `initObservability`.~~ Done — `npx expo install @sentry/react-native@7.11`, conditional plugin in `app.config.ts`, `observability.ts` wired, `.env.example` has DSN/Sentry vars.                                                                          | high   | M      | Needs real DSN + SENTRY_ORG/PROJECT + EAS auth token secret. |
+| **Source-map / Hermes symbol upload** in the EAS prod build.                                                                                                                                                                                                                                                                   | high   | M      | Depends on Sentry. Otherwise stacks are unsymbolicated.      |
+| ~~Harden **`send-push`**: log non-OK Expo responses + `tokens_near` errors; handle Expo **receipts**; reap **DeviceNotRegistered** tokens; remove the empty `catch` in `src/api/push.ts`.~~ Done — send-push dual-auth (JWT + webhook secret), logging, ticket inspection, token reaping, deprecation note in client push API. | medium | M      |                                                              |
+| Wire **`track()` → analytics** (e.g. PostHog).                                                                                                                                                                                                                                                                                 | medium | M      | 4 funnel events already emitted, currently discarded.        |
+| Add **`expo-updates`** + `runtimeVersion` + channel mapping for OTA rollback.                                                                                                                                                                                                                                                  | medium | M      | No hot-fix path today.                                       |
+| 1 **Sentry alert rule** + a Supabase/edge **uptime check**; "who gets paged" note.                                                                                                                                                                                                                                             | medium | S      |                                                              |
 
 **Exit:** a forced test crash appears **symbolicated** in Sentry from a release build; push failures log/alert; funnel events land in analytics; an OTA update reaches the preview channel.
 
@@ -76,15 +76,15 @@ The product and **security core is strong** — RLS on every table, all sensitiv
 
 **Goal:** changes can't silently break the funnel, the security invariants, or the bundle. **~1–2 weeks.**
 
-| Task                                                                                                                                                                              | Sev    | Effort |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ |
-| Add **ESLint + `eslint-config-expo`** (+ Prettier); `lint` script; CI lint step; enable `react-hooks/exhaustive-deps`.                                                            | high   | M      |
-| **API-client tests**: mock `@/lib/supabase`, assert each of the 12 RPC wrappers sends correctly-named args (catches drift vs migrations).                                         | high   | L      |
-| **pgTAP RLS/RPC suite** (owner-vs-stranger coordinates, direct score/status UPDATE denied, `redeem_reward` lock/cooldown, `is_moderator` gate); run via `supabase db test` in CI. | high   | M      |
-| Broaden `testMatch` to `.tsx` + `tsconfig.test.json` include; add 2–3 RNTL screen tests.                                                                                          | medium | M      |
-| `deno check` + lint + 1 unit test for `send-push` (currently excluded from typecheck).                                                                                            | medium | S      |
-| One **Maestro E2E** happy-path (sign-up → report → claim → rescue → adopt), **or** delete the false `.maestro/` reference in `jest.config.js`.                                    | medium | M      |
-| Add **`expo export` bundle job** + scoped coverage gate to CI.                                                                                                                    | medium | M      |
+| Task                                                                                                                                                                                                | Sev    | Effort |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ |
+| ~~Add **ESLint + `eslint-config-expo`** (+ Prettier); `lint` script; CI lint step.~~ Done. `react-hooks/exhaustive-deps` not yet enabled — defer to a focused lint cleanup PR.                      | high   | M      |
+| **API-client tests**: mock `@/lib/supabase`, assert each of the 12 RPC wrappers sends correctly-named args (catches drift vs migrations).                                                           | high   | L      |
+| ~~**pgTAP RLS/RPC suite**: 114 tests across 9 suites (location privacy, write guards, redeem guard, lifecycle, moderation, AI KB, lost cat, re-id, push ranking); `supabase db test` in CI.~~ Done. | high   | M      |
+| Broaden `testMatch` to `.tsx` + `tsconfig.test.json` include; add 2–3 RNTL screen tests.                                                                                                            | medium | M      |
+| ~~`deno check` + lint + 1 unit test for `send-push`.~~ Done — CI widened to `*/index.ts` + full `deno lint`; send-push unit test added.                                                             | medium | S      |
+| One **Maestro E2E** happy-path (sign-up → report → claim → rescue → adopt), **or** delete the false `.maestro/` reference in `jest.config.js`.                                                      | medium | M      |
+| Add **`expo export` bundle job** + scoped coverage gate to CI.                                                                                                                                      | medium | M      |
 
 **Exit:** every PR runs lint + typecheck + unit + API + pgTAP + bundle; one green E2E flow.
 
@@ -94,12 +94,12 @@ The product and **security core is strong** — RLS on every table, all sensitiv
 
 **Goal:** ready to scale and pass an accessibility bar. **~1–2 weeks.**
 
-| Task                                                                                                 | Sev    | Effort |
-| ---------------------------------------------------------------------------------------------------- | ------ | ------ |
-| **Image resizing/thumbnails** via Supabase image transforms / CDN; cap upload size.                  | medium | M      |
-| **Reduce-motion** support for Reanimated entrances; a11y sweep (labels/contrast/≥44pt/dynamic type). | medium | M      |
-| Tune React Query `staleTime`/`gcTime`/refetch; remove dead `src/utils/placeholder.ts`.               | low    | S      |
-| Resolve `userInterfaceStyle: 'automatic'` vs light-only theme (ship a dark theme or pin light).      | low    | S      |
+| Task                                                                                                                                                                | Sev    | Effort |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ |
+| **Image resizing/thumbnails** via Supabase image transforms / CDN; cap upload size.                                                                                 | medium | M      |
+| ~~**Reduce-motion** support for Reanimated entrances; a11y sweep (labels/roles/state).~~ Done — ~70 animations gated across 20+ files; 31+ a11y labels/roles added. | medium | M      |
+| Tune React Query `staleTime`/`gcTime`/refetch (placeholder.ts still in use — not dead).                                                                             | low    | S      |
+| Resolve `userInterfaceStyle: 'automatic'` vs light-only theme (ship a dark theme or pin light).                                                                     | low    | S      |
 
 **Exit:** images served resized; reduce-motion respected; a11y pass on core flows.
 

@@ -14,11 +14,11 @@ import {
   updateStatus,
 } from '@/api/sightings';
 import { redeemReward } from '@/api/rewards';
-import { upsertPushToken } from '@/api/push';
+import { setPushEnabled, upsertPushToken } from '@/api/push';
 import { getAdoptionDraft, getReportAutofill } from '@/api/ai';
 import { getMyProfile } from '@/api/profiles';
 import { getLeaderboard } from '@/api/gamification';
-import { reportContent, moderateContent } from '@/api/moderation';
+import { reportContent, moderateContent, getBlockedUsers } from '@/api/moderation';
 
 const mockChain = {
   select: jest.fn(),
@@ -129,6 +129,11 @@ describe('API client → RPC argument mapping', () => {
       p_lat: 1,
       p_lng: 2,
     });
+  });
+
+  it('setPushEnabled → set_push_enabled', async () => {
+    await setPushEnabled(false);
+    expect(rpc).toHaveBeenCalledWith('set_push_enabled', { p_enabled: false });
   });
 
   it('propagates RPC errors', async () => {
@@ -249,6 +254,33 @@ describe('API client → table queries', () => {
     expect(result).toEqual([
       { id: 'u1', points: 100, rank: 1 },
       { id: 'u2', points: 50, rank: 2 },
+    ]);
+  });
+
+  it('getBlockedUsers → user_blocks joined to the blocked profile', async () => {
+    const rows = [
+      {
+        blocked_id: 'u2',
+        created_at: '2026-01-01T00:00:00Z',
+        blocked: { id: 'u2', username: 'bob', full_name: 'Bob B', avatar_url: null },
+      },
+    ];
+    mockChain.order.mockResolvedValueOnce({ data: rows, error: null });
+    const result = await getBlockedUsers();
+    expect(from).toHaveBeenCalledWith('user_blocks');
+    expect(mockChain.select).toHaveBeenCalledWith(
+      expect.stringContaining('profiles!user_blocks_blocked_id_fkey'),
+    );
+    expect(mockChain.eq).toHaveBeenCalledWith('blocker_id', 'u1');
+    expect(mockChain.order).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(result).toEqual([
+      {
+        blocked_id: 'u2',
+        blocked_at: '2026-01-01T00:00:00Z',
+        username: 'bob',
+        full_name: 'Bob B',
+        avatar_url: null,
+      },
     ]);
   });
 });

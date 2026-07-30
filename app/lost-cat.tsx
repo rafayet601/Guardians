@@ -2,13 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { uploadCatPhoto } from '@/api/storage';
+import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { Button, Card, EmptyState, Input, Loading, Pill, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
@@ -20,8 +22,14 @@ import {
   useRejectLostCatMatch,
 } from '@/hooks/useLostCat';
 import { useCurrentLocation } from '@/hooks/useLocation';
-import { choosePhotoSource, confirmAsync, notify } from '@/lib/dialog';
+import { choosePhotoSource, confirmAsync, notify, type PhotoSource } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  hasPrimerBeenShown,
+  markPrimerShown,
+  trackPermissionResult,
+  type PermissionKind,
+} from '@/lib/permissions';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, radius, spacing } from '@/theme';
 import { formatDistance, timeAgo } from '@/utils/format';
@@ -82,6 +90,9 @@ function Header({ onBack }: { onBack: () => void }) {
 
 // ── "I lost my cat" form ───────────────────────────────────────────────────
 
+const kindForSource = (source: PhotoSource): PermissionKind =>
+  source === 'camera' ? 'camera' : 'mediaLibrary';
+
 function LostCatForm() {
   const { user } = useAuth();
   const { coords, status, request } = useCurrentLocation();
@@ -101,18 +112,50 @@ function LostCatForm() {
   const [description, setDescription] = useState('');
   const [lastSeenAtText, setLastSeenAtText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
+  const [photoPrimerSource, setPhotoPrimerSource] = useState<PhotoSource | null>(null);
 
-  const pickPhoto = async () => {
-    const source = await choosePhotoSource();
-    if (!source) return;
-    const perm =
-      source === 'camera'
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      notify('Permission needed', `Please allow ${source} access to add a photo.`);
-      return;
-    }
+  // Prime once before the OS location prompt (P1-1). Requesting when the
+  // permission is already decided is prompt-free, so returning users keep
+  // auto-fill and previously-denied users keep the existing denied-state UI.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (!active) return;
+      if (perm.granted || !perm.canAskAgain) {
+        void request();
+        return;
+      }
+      const shown = await hasPrimerBeenShown('location');
+      if (active && !shown) setLocationPrimerVisible(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [request]);
+
+  const allowLocationPrimer = async () => {
+    setLocationPrimerVisible(false);
+    await markPrimerShown('location');
+    const next = await request();
+    trackPermissionResult('location', next ? 'granted' : 'denied');
+  };
+
+  const dismissLocationPrimer = async () => {
+    setLocationPrimerVisible(false);
+    await markPrimerShown('location');
+    trackPermissionResult('location', 'dismissed');
+  };
+
+  // Explicit "Use my location" tap — the button itself is the user's ask, so
+  // the OS request fires directly (the mount primer has already run by then).
+  const useMyLocation = async () => {
+    const next = await request();
+    trackPermissionResult('location', next ? 'granted' : 'denied');
+  };
+
+  const launchPicker = async (source: PhotoSource) => {
     const result =
       source === 'camera'
         ? await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: true, base64: true })
@@ -122,6 +165,57 @@ function LostCatForm() {
             base64: true,
           });
     if (!result.canceled && result.assets[0]) setPhoto(result.assets[0]);
+  };
+
+  // OS request + outcome tracking. Only called when a real OS decision is
+  // pending, so already-granted launches stay out of the funnel.
+  const requestPhotoPermission = async (source: PhotoSource): Promise<boolean> => {
+    const kind = kindForSource(source);
+    const perm =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    trackPermissionResult(kind, perm.granted ? 'granted' : 'denied');
+    if (!perm.granted) {
+      notify('Permission needed', `Please allow ${source} access to add a photo.`);
+      return false;
+    }
+    return true;
+  };
+
+  const pickPhoto = async () => {
+    const source = await choosePhotoSource();
+    if (!source) return;
+    const kind = kindForSource(source);
+    const existing =
+      source === 'camera'
+        ? await ImagePicker.getCameraPermissionsAsync()
+        : await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (existing.granted) {
+      await launchPicker(source); // already granted — no prompt, no funnel event
+      return;
+    }
+    if (existing.canAskAgain && !(await hasPrimerBeenShown(kind))) {
+      setPhotoPrimerSource(source); // prime once; "Continue" resumes the flow
+      return;
+    }
+    if (await requestPhotoPermission(source)) await launchPicker(source);
+  };
+
+  const allowPhotoPrimer = async () => {
+    const source = photoPrimerSource;
+    setPhotoPrimerSource(null);
+    if (!source) return;
+    await markPrimerShown(kindForSource(source));
+    if (await requestPhotoPermission(source)) await launchPicker(source);
+  };
+
+  const dismissPhotoPrimer = async () => {
+    const source = photoPrimerSource;
+    setPhotoPrimerSource(null);
+    if (!source) return;
+    await markPrimerShown(kindForSource(source));
+    trackPermissionResult(kindForSource(source), 'dismissed');
   };
 
   const submit = async () => {
@@ -191,100 +285,116 @@ function LostCatForm() {
   };
 
   return (
-    <Animated.View entering={entrance(0)} style={styles.section}>
-      <Text variant="subheading">Tell us about your cat</Text>
-      <Text variant="small" muted>
-        Every cat deserves to get home. Tell us about your cat and we&apos;ll watch every new
-        sighting for a match.
-      </Text>
+    <>
+      <Animated.View entering={entrance(0)} style={styles.section}>
+        <Text variant="subheading">Tell us about your cat</Text>
+        <Text variant="small" muted>
+          Every cat deserves to get home. Tell us about your cat and we&apos;ll watch every new
+          sighting for a match.
+        </Text>
 
-      {/* Photo picker */}
-      <PressableScale onPress={pickPhoto} style={styles.photoPicker} scaleTo={0.98}>
-        {photo ? (
-          <Image source={{ uri: photo.uri }} style={styles.photoPreview} contentFit="cover" />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Ionicons name="camera" size={28} color={colors.primary} />
-            <Text variant="smallStrong" color={colors.primary}>
-              Add a photo of your cat
-            </Text>
-            <Text variant="caption" muted>
-              We use it to match against new sightings
-            </Text>
-          </View>
-        )}
-      </PressableScale>
-      {photo ? (
-        <Pressable onPress={() => setPhoto(null)} hitSlop={8} style={styles.photoRemoveRow}>
-          <Text variant="small" color={colors.danger}>
-            Remove photo
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {/* Last-seen location */}
-      <View style={styles.locationBox}>
-        <View style={styles.locationHead}>
-          <Text variant="smallStrong" color={colors.textSecondary}>
-            Last seen near
-          </Text>
-          {coords ? (
-            <Pill label="📍 Using your location" fg={colors.primary} bg={colors.primarySoft} />
+        {/* Photo picker */}
+        <PressableScale onPress={pickPhoto} style={styles.photoPicker} scaleTo={0.98}>
+          {photo ? (
+            <Image source={{ uri: photo.uri }} style={styles.photoPreview} contentFit="cover" />
           ) : (
-            <PressableScale onPress={() => request()} style={styles.retryBtn}>
+            <View style={styles.photoPlaceholder}>
+              <Ionicons name="camera" size={28} color={colors.primary} />
               <Text variant="smallStrong" color={colors.primary}>
-                Use my location
+                Add a photo of your cat
               </Text>
-            </PressableScale>
+              <Text variant="caption" muted>
+                We use it to match against new sightings
+              </Text>
+            </View>
           )}
-        </View>
-        {status === 'denied' ? (
-          <Text variant="small" color={colors.danger}>
-            Location permission denied — we need it to know where to search.
-          </Text>
+        </PressableScale>
+        {photo ? (
+          <Pressable onPress={() => setPhoto(null)} hitSlop={8} style={styles.photoRemoveRow}>
+            <Text variant="small" color={colors.danger}>
+              Remove photo
+            </Text>
+          </Pressable>
         ) : null}
+
+        {/* Last-seen location */}
+        <View style={styles.locationBox}>
+          <View style={styles.locationHead}>
+            <Text variant="smallStrong" color={colors.textSecondary}>
+              Last seen near
+            </Text>
+            {coords ? (
+              <Pill label="📍 Using your location" fg={colors.primary} bg={colors.primarySoft} />
+            ) : (
+              <PressableScale onPress={useMyLocation} style={styles.retryBtn}>
+                <Text variant="smallStrong" color={colors.primary}>
+                  Use my location
+                </Text>
+              </PressableScale>
+            )}
+          </View>
+          {status === 'denied' ? (
+            <Text variant="small" color={colors.danger}>
+              Location permission denied — we need it to know where to search.
+            </Text>
+          ) : null}
+          <Input
+            label="Landmark / cross-street notes (optional)"
+            placeholder="e.g. near the corner store on Elm St"
+            value={locationNotes}
+            onChangeText={setLocationNotes}
+          />
+        </View>
+
+        {/* Last-seen time */}
         <Input
-          label="Landmark / cross-street notes (optional)"
-          placeholder="e.g. near the corner store on Elm St"
-          value={locationNotes}
-          onChangeText={setLocationNotes}
+          label="When did you last see them? (optional)"
+          placeholder="e.g. 2024-03-15 18:00 — defaults to now"
+          value={lastSeenAtText}
+          onChangeText={setLastSeenAtText}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
-      </View>
 
-      {/* Last-seen time */}
-      <Input
-        label="When did you last see them? (optional)"
-        placeholder="e.g. 2024-03-15 18:00 — defaults to now"
-        value={lastSeenAtText}
-        onChangeText={setLastSeenAtText}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
+        {/* Title + description */}
+        <Input
+          label="Cat's name or nickname (optional)"
+          placeholder="e.g. Miso"
+          value={title}
+          onChangeText={setTitle}
+        />
+        <Input
+          label="Description (optional)"
+          placeholder="Color, markings, collar, temperament — anything that helps us recognize them"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
 
-      {/* Title + description */}
-      <Input
-        label="Cat's name or nickname (optional)"
-        placeholder="e.g. Miso"
-        value={title}
-        onChangeText={setTitle}
-      />
-      <Input
-        label="Description (optional)"
-        placeholder="Color, markings, collar, temperament — anything that helps us recognize them"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-      />
+        <Button
+          title="Post and start watching"
+          size="lg"
+          fullWidth
+          loading={submitting}
+          onPress={submit}
+          style={styles.submit}
+        />
+      </Animated.View>
 
-      <Button
-        title="Post and start watching"
-        size="lg"
-        fullWidth
-        loading={submitting}
-        onPress={submit}
-        style={styles.submit}
+      {/* One-time permission primers (P1-1) */}
+      <PermissionPrimer
+        visible={locationPrimerVisible}
+        kind="location"
+        onAllow={allowLocationPrimer}
+        onDismiss={dismissLocationPrimer}
       />
-    </Animated.View>
+      <PermissionPrimer
+        visible={photoPrimerSource !== null}
+        kind={photoPrimerSource ? kindForSource(photoPrimerSource) : 'camera'}
+        onAllow={allowPhotoPrimer}
+        onDismiss={dismissPhotoPrimer}
+      />
+    </>
   );
 }
 

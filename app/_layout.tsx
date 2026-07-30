@@ -11,12 +11,14 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { env } from '@/lib/env';
 import { initObservability } from '@/lib/observability';
-import { registerForPush } from '@/lib/push';
+import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
+import { getPushOptIn, registerForPush, setPushOptIn } from '@/lib/push';
 import { AppProviders } from '@/providers/AppProviders';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors } from '@/theme';
@@ -28,6 +30,7 @@ function RootNavigator() {
   const { session, initializing } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [pushPrimerVisible, setPushPrimerVisible] = useState(false);
 
   const [fontsLoaded, fontError] = useFonts({
     'Nunito-Bold': Nunito_700Bold,
@@ -66,10 +69,39 @@ function RootNavigator() {
     }
   }, [session, initializing, segments, router, fontsReady]);
 
-  // Register this device for push once signed in (best-effort).
+  // Push is strictly opt-in (P1-1): prime once, then honor the stored choice.
+  // Returning opted-in users re-register silently on session (token refresh).
   useEffect(() => {
-    if (session && env.isConfigured) void registerForPush();
+    if (!session || !env.isConfigured) return;
+    let active = true;
+    (async () => {
+      const shown = await hasPrimerBeenShown('notifications');
+      if (!active) return;
+      if (shown) {
+        if (await getPushOptIn()) void registerForPush();
+        return;
+      }
+      setPushPrimerVisible(true);
+    })();
+    return () => {
+      active = false;
+    };
   }, [session]);
+
+  const allowPushPrimer = async () => {
+    setPushPrimerVisible(false);
+    await markPrimerShown('notifications');
+    await setPushOptIn(true);
+    const token = await registerForPush();
+    trackPermissionResult('notifications', token ? 'granted' : 'denied');
+  };
+
+  const dismissPushPrimer = async () => {
+    setPushPrimerVisible(false);
+    await markPrimerShown('notifications');
+    await setPushOptIn(false);
+    trackPermissionResult('notifications', 'dismissed');
+  };
 
   // Tapping a push notification deep-links to the relevant sighting.
   useEffect(() => {
@@ -84,51 +116,69 @@ function RootNavigator() {
   if (!fontsReady) return null;
 
   return (
-    <Stack
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
-    >
-      <Stack.Screen name="report" options={{ presentation: 'modal' }} />
-      <Stack.Screen
-        name="sighting/[id]"
-        options={{
-          headerShown: true,
-          headerTitle: '',
-          headerTransparent: true,
-          headerTintColor: colors.primary,
-          headerBackTitle: 'Back',
-        }}
+    <>
+      <Stack
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+      >
+        <Stack.Screen name="report" options={{ presentation: 'modal' }} />
+        <Stack.Screen
+          name="sighting/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: '',
+            headerTransparent: true,
+            headerTintColor: colors.primary,
+            headerBackTitle: 'Back',
+          }}
+        />
+        <Stack.Screen
+          name="settings"
+          options={{ headerShown: true, title: 'Settings', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="privacy"
+          options={{ headerShown: true, title: 'Privacy Policy', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="terms"
+          options={{
+            headerShown: true,
+            title: 'Terms of Service',
+            headerTintColor: colors.primary,
+          }}
+        />
+        <Stack.Screen
+          name="moderation"
+          options={{ headerShown: true, title: 'Moderation', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="blocked-users"
+          options={{ headerShown: true, title: 'Blocked users', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="rewards/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: '',
+            headerTransparent: true,
+            headerTintColor: colors.primary,
+            headerBackTitle: 'Back',
+          }}
+        />
+        <Stack.Screen
+          name="rewards/redemptions"
+          options={{ headerShown: true, title: 'My rewards', headerTintColor: colors.primary }}
+        />
+      </Stack>
+
+      {/* One-time notifications primer — push is opt-in (P1-1) */}
+      <PermissionPrimer
+        visible={pushPrimerVisible}
+        kind="notifications"
+        onAllow={allowPushPrimer}
+        onDismiss={dismissPushPrimer}
       />
-      <Stack.Screen
-        name="settings"
-        options={{ headerShown: true, title: 'Settings', headerTintColor: colors.primary }}
-      />
-      <Stack.Screen
-        name="privacy"
-        options={{ headerShown: true, title: 'Privacy Policy', headerTintColor: colors.primary }}
-      />
-      <Stack.Screen
-        name="terms"
-        options={{ headerShown: true, title: 'Terms of Service', headerTintColor: colors.primary }}
-      />
-      <Stack.Screen
-        name="moderation"
-        options={{ headerShown: true, title: 'Moderation', headerTintColor: colors.primary }}
-      />
-      <Stack.Screen
-        name="rewards/[id]"
-        options={{
-          headerShown: true,
-          headerTitle: '',
-          headerTransparent: true,
-          headerTintColor: colors.primary,
-          headerBackTitle: 'Back',
-        }}
-      />
-      <Stack.Screen
-        name="rewards/redemptions"
-        options={{ headerShown: true, title: 'My rewards', headerTintColor: colors.primary }}
-      />
-    </Stack>
+    </>
   );
 }
 

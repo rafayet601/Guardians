@@ -8,12 +8,14 @@
 --   * a user with strong rescue history scores >= a user with none (formula
 --     direction sanity — the whole point of ranking);
 --   * the reporter is excluded (matches tokens_near);
+--   * the `push_enabled` master opt-out (0029) excludes a recipient here too,
+--     and the set still matches tokens_near exactly (0030 drift guard);
 --   * the grant is service_role-only — public/anon/authenticated cannot execute.
 --
 -- Run with:  supabase test db
 
 begin;
-select plan(12);
+select plan(14);
 
 -- ── Fixtures: a reporter + two guardians near an urgent sighting ─────────────
 --   reporter  : excluded from recipients (matches tokens_near). Has a token
@@ -126,6 +128,29 @@ select is(
     where r.user_id = '33333333-3333-3333-3333-333333333333'),
   true,
   'strong rescue history scores >= none');
+
+-- ══ Master push opt-out (0029 + 0030): push_enabled excludes a recipient ═════
+-- 0029 added the `push_enabled` master switch and taught tokens_near to honor
+-- it; 0030 mirrors that filter here. The "same set, never fewer" contract means
+-- ranking must never drop someone the geo/opt-in filters admit — it does NOT
+-- mean ignoring an explicit opt-out. Runs last (except the data-independent
+-- grant checks) because it mutates the fixture set.
+update public.device_push_tokens
+   set push_enabled = false
+ where token = 'tok_newbie';
+
+select set_eq(
+  $$select token from public.rank_push_recipients('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ranked')$$,
+  $$select 'tok_strong'::text$$,
+  'a push_enabled=false recipient is excluded from ranking');
+
+-- The drift guard proper: after the opt-out, the ranked recipient set must
+-- STILL equal tokens_near's for the same point / radius / reporter. This is the
+-- assertion that would have caught 0029 updating tokens_near alone.
+select set_eq(
+  $$select token from public.rank_push_recipients('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'control')$$,
+  $$select token from public.tokens_near(40.0, -73.0, 8000, '11111111-1111-1111-1111-111111111111'::uuid)$$,
+  'rank_push_recipients matches tokens_near exactly (opt-out honored by both)');
 
 -- ══ Grant surface: service_role only (like ai_moderate_content 0020) ═════════
 select ok(

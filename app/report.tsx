@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -13,10 +14,11 @@ import {
   Switch,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapView, Marker, MAP_PROVIDER, type LatLng } from '@/components/PlatformMap';
+import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { uploadCatPhoto } from '@/api/storage';
 import { Button, Input, Text } from '@/components/ui';
@@ -24,6 +26,12 @@ import { AI_FEATURES } from '@/constants/ai';
 import { TEMPERAMENT_META } from '@/constants/status';
 import { choosePhotoSource, notify, type PhotoSource } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  hasPrimerBeenShown,
+  markPrimerShown,
+  trackPermissionResult,
+  type PermissionKind,
+} from '@/lib/permissions';
 import { useAiAutofill } from '@/hooks/useAiAutofill';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
@@ -32,20 +40,17 @@ import { colors, motion, radius, spacing } from '@/theme';
 import type { CatTemperament } from '@/types/models';
 import { DEFAULT_REGION, regionForRadius } from '@/utils/geo';
 
-const entrance = (i: number) =>
-  FadeInDown.delay(i * motion.stagger)
-    .duration(motion.enter)
-    .springify()
-    .damping(motion.damping);
-
 const TEMPERAMENTS = Object.keys(TEMPERAMENT_META) as CatTemperament[];
 const MAX_PHOTOS = 4;
+
+const kindForSource = (source: PhotoSource): PermissionKind =>
+  source === 'camera' ? 'camera' : 'mediaLibrary';
 
 export default function ReportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { coords } = useCurrentLocation();
+  const { coords, request } = useCurrentLocation();
   const createSighting = useCreateSighting();
   const autofill = useAiAutofill();
 
@@ -61,6 +66,16 @@ export default function ReportScreen() {
   // True once an autofill suggestion has prefilled the form, so we can subtly
   // label the fields as AI-suggested-but-editable until the user posts.
   const [autofilled, setAutofilled] = useState(false);
+  const reduced = useReducedMotion() ?? false;
+  const entrance = (i: number) => {
+    if (reduced) return FadeInDown.duration(0);
+    return FadeInDown.delay(i * motion.stagger)
+      .duration(motion.enter)
+      .springify()
+      .damping(motion.damping);
+  };
+  const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
+  const [photoPrimerSource, setPhotoPrimerSource] = useState<PhotoSource | null>(null);
 
   // default the marker to the user's location once available
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,16 +83,40 @@ export default function ReportScreen() {
     if (coords && !marker) setMarker({ latitude: coords.lat, longitude: coords.lng });
   }, [coords]);
 
-  const pickFrom = async (mode: PhotoSource) => {
-    if (photos.length >= MAX_PHOTOS) return;
-    const perm =
-      mode === 'camera'
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      notify('Permission needed', `Please allow ${mode} access to add a photo.`);
-      return;
-    }
+  // Prime once before the OS location prompt (P1-1). Requesting when the
+  // permission is already decided is prompt-free, so returning users keep
+  // the location default and previously-denied users just keep the manual pin.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (!active) return;
+      if (perm.granted || !perm.canAskAgain) {
+        void request();
+        return;
+      }
+      const shown = await hasPrimerBeenShown('location');
+      if (active && !shown) setLocationPrimerVisible(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [request]);
+
+  const allowLocationPrimer = async () => {
+    setLocationPrimerVisible(false);
+    await markPrimerShown('location');
+    const next = await request();
+    trackPermissionResult('location', next ? 'granted' : 'denied');
+  };
+
+  const dismissLocationPrimer = async () => {
+    setLocationPrimerVisible(false);
+    await markPrimerShown('location');
+    trackPermissionResult('location', 'dismissed');
+  };
+
+  const launchPicker = async (mode: PhotoSource) => {
     const result =
       mode === 'camera'
         ? await ImagePicker.launchCameraAsync({
@@ -93,6 +132,56 @@ export default function ReportScreen() {
     if (!result.canceled && result.assets[0]) {
       setPhotos((p) => [...p, result.assets[0]]);
     }
+  };
+
+  // OS request + outcome tracking. Only called when a real OS decision is
+  // pending, so already-granted launches stay out of the funnel.
+  const requestPhotoPermission = async (mode: PhotoSource): Promise<boolean> => {
+    const kind = kindForSource(mode);
+    const perm =
+      mode === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    trackPermissionResult(kind, perm.granted ? 'granted' : 'denied');
+    if (!perm.granted) {
+      notify('Permission needed', `Please allow ${mode} access to add a photo.`);
+      return false;
+    }
+    return true;
+  };
+
+  const pickFrom = async (mode: PhotoSource) => {
+    if (photos.length >= MAX_PHOTOS) return;
+    const kind = kindForSource(mode);
+    const existing =
+      mode === 'camera'
+        ? await ImagePicker.getCameraPermissionsAsync()
+        : await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (existing.granted) {
+      await launchPicker(mode); // already granted — no prompt, no funnel event
+      return;
+    }
+    if (existing.canAskAgain && !(await hasPrimerBeenShown(kind))) {
+      setPhotoPrimerSource(mode); // prime once; "Continue" resumes the flow
+      return;
+    }
+    if (await requestPhotoPermission(mode)) await launchPicker(mode);
+  };
+
+  const allowPhotoPrimer = async () => {
+    const mode = photoPrimerSource;
+    setPhotoPrimerSource(null);
+    if (!mode) return;
+    await markPrimerShown(kindForSource(mode));
+    if (await requestPhotoPermission(mode)) await launchPicker(mode);
+  };
+
+  const dismissPhotoPrimer = async () => {
+    const mode = photoPrimerSource;
+    setPhotoPrimerSource(null);
+    if (!mode) return;
+    await markPrimerShown(kindForSource(mode));
+    trackPermissionResult(kindForSource(mode), 'dismissed');
   };
 
   const addPhoto = async () => {
@@ -179,7 +268,12 @@ export default function ReportScreen() {
     <View style={[styles.flex, { paddingTop: insets.top }]}>
       <View style={styles.modalHeader}>
         <Text variant="heading">Report a cat</Text>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Ionicons name="close" size={26} color={colors.textSecondary} />
         </Pressable>
       </View>
@@ -209,13 +303,20 @@ export default function ReportScreen() {
                     style={styles.photoRemove}
                     onPress={() => setPhotos((arr) => arr.filter((_, idx) => idx !== i))}
                     hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove photo"
                   >
                     <Ionicons name="close-circle" size={22} color={colors.white} />
                   </Pressable>
                 </View>
               ))}
               {photos.length < MAX_PHOTOS ? (
-                <Pressable style={styles.addPhoto} onPress={addPhoto}>
+                <Pressable
+                  style={styles.addPhoto}
+                  onPress={addPhoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add photo"
+                >
                   <Ionicons name="camera" size={26} color={colors.primary} />
                   <Text variant="caption" color={colors.primary}>
                     ADD
@@ -230,6 +331,8 @@ export default function ReportScreen() {
                   onPress={runAutofill}
                   disabled={autofill.isPending}
                   style={styles.autofillBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Autofill from photo"
                 >
                   <Ionicons name="sparkles" size={16} color={colors.primary} />
                   <Text variant="smallStrong" color={colors.primary}>
@@ -309,6 +412,9 @@ export default function ReportScreen() {
                     key={t}
                     onPress={() => setTemperament(t)}
                     style={[styles.tempChip, active && styles.tempChipActive]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={meta.label}
                   >
                     <Text variant="smallStrong" color={active ? colors.white : colors.text}>
                       {meta.icon} {meta.label}
@@ -341,6 +447,20 @@ export default function ReportScreen() {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* One-time permission primers (P1-1) */}
+      <PermissionPrimer
+        visible={locationPrimerVisible}
+        kind="location"
+        onAllow={allowLocationPrimer}
+        onDismiss={dismissLocationPrimer}
+      />
+      <PermissionPrimer
+        visible={photoPrimerSource !== null}
+        kind={photoPrimerSource ? kindForSource(photoPrimerSource) : 'camera'}
+        onAllow={allowPhotoPrimer}
+        onDismiss={dismissPhotoPrimer}
+      />
     </View>
   );
 }
@@ -362,6 +482,9 @@ function ToggleRow({
         onValueChange={onChange}
         trackColor={{ true: colors.primaryLight, false: colors.border }}
         thumbColor={colors.white}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: value }}
+        accessibilityLabel={label}
       />
     </View>
   );

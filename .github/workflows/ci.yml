@@ -56,6 +56,25 @@ jobs:
           deno-version: v2.x
       - name: Type-check & lint edge functions
         working-directory: supabase/functions
+        # Glob covers every function (incl. future ones); _shared/* is
+        # type-checked transitively via imports and linted by the bare
+        # `deno lint` over the whole tree.
         run: |
-          deno check send-push/index.ts delete-account/index.ts ai-health/index.ts
-          deno lint send-push/index.ts delete-account/index.ts ai-health/index.ts _shared/anthropic.ts
+          deno check */index.ts
+          deno lint
+
+  db-tests:
+    name: pgTAP database tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Starts just the Postgres container (migrations from supabase/migrations
+      # apply on boot), then runs every pgTAP suite in supabase/tests. Fails
+      # the build if any RLS/RPC/security invariant regresses.
+      - name: Start local database
+        run: supabase db start
+      - name: Run pgTAP tests
+        run: supabase db test

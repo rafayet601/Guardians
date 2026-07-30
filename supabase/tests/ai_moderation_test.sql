@@ -28,11 +28,11 @@ insert into public.profiles (id, username) values
   ('11111111-1111-1111-1111-111111111111', 'reporter')
   on conflict do nothing;
 
-insert into public.sightings (id, reporter_id, lat, lng, location, status)
+-- lat/lng are GENERATED from location (0001) — insert the geography only.
+insert into public.sightings (id, reporter_id, location, status)
 values (
   '22222222-2222-2222-2222-222222222222',
   '11111111-1111-1111-1111-111111111111',
-  40.0, -73.0,
   st_setsrid(st_makepoint(-73.0, 40.0), 4326)::geography,
   'spotted'
 );
@@ -118,10 +118,9 @@ select throws_ok(
 -- ── Burst fixture: 5 more sightings for the reporter (6 total, ≥ threshold 5).
 -- Inserted BEFORE simulating a session so auth.uid() is null and the 0011
 -- anti-flood trigger no-ops (it only limits a caller's own rows).
-insert into public.sightings (reporter_id, lat, lng, location, status)
+insert into public.sightings (reporter_id, location, status)
 select
   '11111111-1111-1111-1111-111111111111',
-  40.0, -73.0,
   st_setsrid(st_makepoint(-73.0, 40.0), 4326)::geography,
   'spotted'
 from generate_series(1, 5);

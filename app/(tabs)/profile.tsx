@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
@@ -37,6 +37,7 @@ export default function ProfileScreen() {
   const { data: sightings = [] } = useMySightings();
   const { data: isModerator } = useIsModerator();
 
+  const reduced = useReducedMotion() ?? false;
   if (isLoading || !profile) return <Loading label="Loading your profile…" />;
 
   const earnedIds = new Set(earned.map((b) => b.badge_id));
@@ -54,7 +55,11 @@ export default function ProfileScreen() {
     >
       {/* Identity banner */}
       <Animated.View
-        entering={FadeInDown.delay(0).duration(motion.enter).springify().damping(motion.damping)}
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(0).duration(motion.enter).springify().damping(motion.damping)
+        }
       >
         <LinearGradient
           colors={[palette.green500, palette.green700]}
@@ -66,7 +71,13 @@ export default function ProfileScreen() {
             <Text variant="overline" color="rgba(255,255,255,0.78)">
               Profile
             </Text>
-            <PressableScale onPress={() => router.push('/settings')} hitSlop={10} scaleTo={0.88}>
+            <PressableScale
+              onPress={() => router.push('/settings')}
+              hitSlop={10}
+              scaleTo={0.88}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="Settings"
+            >
               <Ionicons name="settings-outline" size={22} color={colors.white} />
             </PressableScale>
           </View>
@@ -110,10 +121,14 @@ export default function ProfileScreen() {
 
       {/* Kibble wallet */}
       <Animated.View
-        entering={FadeInDown.delay(2 * motion.stagger)
-          .duration(motion.enter)
-          .springify()
-          .damping(motion.damping)}
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(2 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
       >
         <Card style={styles.kibbleCard}>
           <View style={styles.kibbleInfo}>
@@ -132,10 +147,14 @@ export default function ProfileScreen() {
       {/* Moderation (moderators/admins only) */}
       {isModerator ? (
         <Animated.View
-          entering={FadeInDown.delay(2 * motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(2 * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
         >
           <Card onPress={() => router.push('/moderation')} style={styles.kibbleCard}>
             <View style={styles.kibbleInfo}>
@@ -153,10 +172,14 @@ export default function ProfileScreen() {
           cat" post + matches screen. Hidden until the flag is on. */}
       {AI_FEATURES.lostCatReunion ? (
         <Animated.View
-          entering={FadeInDown.delay(2.5 * motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(2.5 * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
         >
           <Card onPress={() => router.push('/lost-cat')} style={styles.kibbleCard}>
             <View style={styles.kibbleInfo}>
@@ -172,10 +195,14 @@ export default function ProfileScreen() {
 
       {/* Stats */}
       <Animated.View
-        entering={FadeInDown.delay(3 * motion.stagger)
-          .duration(motion.enter)
-          .springify()
-          .damping(motion.damping)}
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(3 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
         style={styles.statsRow}
       >
         <Stat label="Reports" value={profile.reports_count} icon="👀" />
@@ -185,10 +212,14 @@ export default function ProfileScreen() {
 
       {/* Badges */}
       <Animated.View
-        entering={FadeInDown.delay(4 * motion.stagger)
-          .duration(motion.enter)
-          .springify()
-          .damping(motion.damping)}
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(4 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
       >
         <Text variant="heading" style={styles.sectionTitle}>
           Badges
@@ -199,10 +230,14 @@ export default function ProfileScreen() {
             return (
               <Animated.View
                 key={b.id}
-                entering={ZoomIn.delay(Math.min(i, 8) * (motion.stagger / 2))
-                  .duration(motion.enter)
-                  .springify()
-                  .damping(motion.damping)}
+                entering={
+                  reduced
+                    ? undefined
+                    : ZoomIn.delay(Math.min(i, 8) * (motion.stagger / 2))
+                        .duration(motion.enter)
+                        .springify()
+                        .damping(motion.damping)
+                }
                 style={[styles.badge, !has && styles.badgeLocked]}
               >
                 <Text style={[styles.badgeIcon, !has && styles.badgeIconLocked]}>{b.icon}</Text>
@@ -222,10 +257,14 @@ export default function ProfileScreen() {
 
       {/* My sightings */}
       <Animated.View
-        entering={FadeInDown.delay(5 * motion.stagger)
-          .duration(motion.enter)
-          .springify()
-          .damping(motion.damping)}
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(5 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
       >
         <Text variant="heading" style={styles.sectionTitle}>
           My reports ({sightings.length})

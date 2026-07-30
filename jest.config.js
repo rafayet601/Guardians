@@ -14,6 +14,6 @@ module.exports = {
   collectCoverageFrom: ['src/api/**/*.ts', 'src/utils/**/*.ts', 'src/constants/**/*.ts'],
   // jest-expo's default plus the extra ESM/native packages our pure modules pull in.
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|date-fns|@supabase/.*|@react-native-async-storage/.*))',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|@sentry/.*|native-base|react-native-svg|date-fns|@supabase/.*|@react-native-async-storage/.*))',
   ],
 };

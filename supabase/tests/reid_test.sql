@@ -72,13 +72,13 @@ with v as (
   select ('[' || array_to_string(array_fill(0.1::float8, ARRAY[1024]), ',') || ']')::vector(1024) as vec
 )
 insert into public.embeddings (owner_type, owner_id, kind, embedding)
-select 'sighting', id, 'sighting_photo', v.vec from v
+select 'sighting', t.id::uuid, 'sighting_photo', v.vec from v
 cross join (values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   ('cccccccc-cccc-cccc-cccc-cccccccccccc'),
   ('dddddddd-dddd-dddd-dddd-dddddddddddd')
-) as t(id::uuid);
+) as t(id);
 
 with v as (
   select ('[' || array_to_string(
@@ -182,6 +182,7 @@ select throws_ok(
             'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
             0.9, 'suggested')$$,
   '23505',
+  'duplicate key value violates unique constraint "sighting_links_pair_uniq"',
   'unique-pair index prevents a duplicate suggestion for the same pair');
 
 -- ── Grant surface: anon cannot; authenticated can ─────────────────────────────

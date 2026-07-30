@@ -9,6 +9,25 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
  *
  * See .env.example for the full list of variables.
  */
+
+// Sentry crash reporting. The config plugin uploads Hermes sourcemaps and
+// debug symbols during EAS builds (needs SENTRY_AUTH_TOKEN set as an EAS
+// secret). Only wired once the Sentry project exists (org/project slugs), so
+// dev/local builds stay inert. `url` is omitted — we use sentry.io, which is
+// the default (it is only needed for self-hosted instances).
+const sentryPlugin: NonNullable<ExpoConfig['plugins']> =
+  process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+    ? [
+        [
+          '@sentry/react-native/expo',
+          {
+            organization: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+          },
+        ],
+      ]
+    : [];
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Guardians',
@@ -101,6 +120,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         color: '#0E7C66',
       },
     ],
+    ...sentryPlugin,
   ],
   experiments: {
     typedRoutes: true,

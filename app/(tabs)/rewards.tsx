@@ -9,6 +9,7 @@ import Animated, {
   FadeInDown,
   interpolate,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -117,10 +118,16 @@ function WalletHero({
   onMyRewards: () => void;
 }) {
   const shown = useCountUp(balance);
+  const reduced = useReducedMotion() ?? false;
   const shimmer = useSharedValue(0);
   const bob = useSharedValue(0);
 
   useEffect(() => {
+    if (reduced) {
+      shimmer.value = 0.5;
+      bob.value = 0.5;
+      return;
+    }
     shimmer.value = withRepeat(
       withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
       -1,
@@ -131,7 +138,7 @@ function WalletHero({
       -1,
       true,
     );
-  }, [shimmer, bob]);
+  }, [reduced, shimmer, bob]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
     transform: [
@@ -148,7 +155,7 @@ function WalletHero({
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(520).springify().damping(15)}
+      entering={reduced ? undefined : FadeInDown.duration(520).springify().damping(15)}
       style={styles.heroShadow}
     >
       <View style={styles.hero}>
@@ -175,7 +182,13 @@ function WalletHero({
             <Text variant="caption" color={colors.primarySoft}>
               YOUR KIBBLE
             </Text>
-            <PressableScale onPress={onMyRewards} style={styles.myRewards} scaleTo={0.92}>
+            <PressableScale
+              onPress={onMyRewards}
+              style={styles.myRewards}
+              scaleTo={0.92}
+              accessibilityRole="button"
+              accessibilityLabel="My redeemed rewards"
+            >
               <Ionicons name="ticket-outline" size={14} color={colors.white} />
               <Text variant="caption" color={colors.white}>
                 MY REWARDS
@@ -208,14 +221,24 @@ function OfferRow({
   eligibility: { ok: boolean; reason?: string };
   onPress: () => void;
 }) {
+  const reduced = useReducedMotion() ?? false;
   return (
     <Animated.View
-      entering={FadeInDown.delay(60 + index * 55)
-        .duration(440)
-        .springify()
-        .damping(16)}
+      entering={
+        reduced
+          ? undefined
+          : FadeInDown.delay(60 + index * 55)
+              .duration(440)
+              .springify()
+              .damping(16)
+      }
     >
-      <PressableScale onPress={onPress} style={styles.offer}>
+      <PressableScale
+        onPress={onPress}
+        style={styles.offer}
+        accessibilityRole="link"
+        accessibilityLabel={`View reward: ${offer.title}`}
+      >
         <View style={[styles.thumb, !eligibility.ok && styles.dim]}>
           {offer.image_url ? (
             <Image source={{ uri: offer.image_url }} style={styles.thumbImg} contentFit="cover" />

@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
 import { Button, Input, Screen, Text } from '@/components/ui';
@@ -21,6 +21,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
+  const reduced = useReducedMotion() ?? false;
   const {
     control,
     handleSubmit,
@@ -44,10 +45,14 @@ export default function SignInScreen() {
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View
-          entering={FadeInDown.delay(0 * motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(0 * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
           style={styles.header}
         >
           <Text style={styles.logo}>🐾</Text>
@@ -59,10 +64,14 @@ export default function SignInScreen() {
 
         <View style={styles.form}>
           <Animated.View
-            entering={FadeInDown.delay(1 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(1 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Controller
               control={control}
@@ -83,10 +92,14 @@ export default function SignInScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.delay(2 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(2 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Controller
               control={control}
@@ -113,10 +126,14 @@ export default function SignInScreen() {
           ) : null}
 
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(3 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Button
               title="Sign in"
@@ -130,21 +147,33 @@ export default function SignInScreen() {
         </View>
 
         <Animated.View
-          entering={FadeInDown.delay(4 * motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(4 * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
         >
           <Pressable
             onPress={() => router.push('/forgot-password')}
             style={styles.forgot}
             hitSlop={8}
+            accessibilityRole="link"
+            accessibilityLabel="Forgot your password"
           >
             <Text variant="smallStrong" color={colors.primary} center>
               Forgot your password?
             </Text>
           </Pressable>
-          <Pressable onPress={() => router.replace('/sign-up')} style={styles.switch} hitSlop={8}>
+          <Pressable
+            onPress={() => router.replace('/sign-up')}
+            style={styles.switch}
+            hitSlop={8}
+            accessibilityRole="link"
+            accessibilityLabel="Create an account"
+          >
             <Text variant="body" muted center>
               New here?{' '}
               <Text variant="bodyStrong" color={colors.primary}>

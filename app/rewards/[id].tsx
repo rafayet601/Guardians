@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn, useReducedMotion } from 'react-native-reanimated';
 
 import { checkEligibility } from '@/api/rewards';
 import { RewardBurst } from '@/components/RewardBurst';
@@ -39,6 +39,7 @@ export default function OfferDetailScreen() {
   const { data: earned = [] } = useUserBadges(profile?.id);
   const redeem = useRedeemReward();
 
+  const reduced = useReducedMotion() ?? false;
   const [redeemed, setRedeemed] = useState<RewardRedemption | null>(null);
 
   if (isLoading) return <Loading label="Loading…" />;
@@ -92,7 +93,9 @@ export default function OfferDetailScreen() {
       )}
 
       <Animated.View
-        entering={FadeInDown.duration(460).springify().damping(16)}
+        entering={
+          reduced ? FadeInDown.duration(0) : FadeInDown.duration(460).springify().damping(16)
+        }
         style={styles.body}
       >
         <Text variant="caption" muted>
@@ -131,7 +134,7 @@ export default function OfferDetailScreen() {
 
         {redeemed ? (
           <Animated.View
-            entering={ZoomIn.springify().damping(12).stiffness(150)}
+            entering={reduced ? undefined : ZoomIn.springify().damping(12).stiffness(150)}
             style={styles.ticketWrap}
           >
             <RewardBurst />

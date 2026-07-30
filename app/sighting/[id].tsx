@@ -11,7 +11,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { PressableScale } from '@/components/PressableScale';
 import { JourneyTimeline } from '@/components/JourneyTimeline';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
@@ -57,6 +57,7 @@ export default function SightingDetailScreen() {
   const report = useReportContent();
   const block = useBlockUser();
 
+  const reduced = useReducedMotion() ?? false;
   const [comment, setComment] = useState('');
 
   if (isLoading || !sighting) return <Loading label="Loading…" />;
@@ -163,7 +164,7 @@ export default function SightingDetailScreen() {
     >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Hero */}
-        <Animated.View entering={FadeIn.duration(motion.enter)}>
+        <Animated.View entering={reduced ? FadeIn.duration(0) : FadeIn.duration(motion.enter)}>
           {heroPhoto ? (
             <Image source={{ uri: heroPhoto }} style={styles.hero} contentFit="cover" />
           ) : (
@@ -176,10 +177,14 @@ export default function SightingDetailScreen() {
         <View style={styles.body}>
           {/* Title + status + summary */}
           <Animated.View
-            entering={FadeInDown.delay(0 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? FadeInDown.duration(0)
+                : FadeInDown.delay(0 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
             style={styles.headBlock}
           >
             <View style={styles.titleRow}>
@@ -207,10 +212,14 @@ export default function SightingDetailScreen() {
           {/* Description */}
           {sighting.description ? (
             <Animated.View
-              entering={FadeInDown.delay(1 * motion.stagger)
-                .duration(motion.enter)
-                .springify()
-                .damping(motion.damping)}
+              entering={
+                reduced
+                  ? FadeInDown.duration(0)
+                  : FadeInDown.delay(1 * motion.stagger)
+                      .duration(motion.enter)
+                      .springify()
+                      .damping(motion.damping)
+              }
             >
               <Card style={styles.section}>
                 <Text variant="body">{sighting.description}</Text>
@@ -221,10 +230,14 @@ export default function SightingDetailScreen() {
           {/* Reporter */}
           {sighting.reporter ? (
             <Animated.View
-              entering={FadeInDown.delay(2 * motion.stagger)
-                .duration(motion.enter)
-                .springify()
-                .damping(motion.damping)}
+              entering={
+                reduced
+                  ? FadeInDown.duration(0)
+                  : FadeInDown.delay(2 * motion.stagger)
+                      .duration(motion.enter)
+                      .springify()
+                      .damping(motion.damping)
+              }
               style={styles.reporterRow}
             >
               <Avatar
@@ -245,10 +258,14 @@ export default function SightingDetailScreen() {
           {/* Map — exact pin for the rescue coordinators, an approximate area
               for everyone else (privacy; see get_sighting_detail RPC). */}
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? FadeInDown.duration(0)
+                : FadeInDown.delay(3 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <View style={styles.mapWrap}>
               <MapView
@@ -290,10 +307,14 @@ export default function SightingDetailScreen() {
 
           {/* Actions */}
           <Animated.View
-            entering={FadeInDown.delay(4 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? FadeInDown.duration(0)
+                : FadeInDown.delay(4 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
             style={styles.actions}
           >
             {sighting.status === 'spotted' ? (
@@ -371,10 +392,14 @@ export default function SightingDetailScreen() {
           {/* Adoption applicants (for the lister) */}
           {sighting.status === 'available' && canManage ? (
             <Animated.View
-              entering={FadeInDown.delay(5 * motion.stagger)
-                .duration(motion.enter)
-                .springify()
-                .damping(motion.damping)}
+              entering={
+                reduced
+                  ? FadeInDown.duration(0)
+                  : FadeInDown.delay(5 * motion.stagger)
+                      .duration(motion.enter)
+                      .springify()
+                      .damping(motion.damping)
+              }
               style={styles.section}
             >
               <Text variant="heading">Adoption requests ({interests.length})</Text>
@@ -415,10 +440,14 @@ export default function SightingDetailScreen() {
               sighting's real timeline — never auto-published. */}
           {canDraftListing ? (
             <Animated.View
-              entering={FadeInDown.delay(5.5 * motion.stagger)
-                .duration(motion.enter)
-                .springify()
-                .damping(motion.damping)}
+              entering={
+                reduced
+                  ? FadeInDown.duration(0)
+                  : FadeInDown.delay(5.5 * motion.stagger)
+                      .duration(motion.enter)
+                      .springify()
+                      .damping(motion.damping)
+              }
             >
               <AdoptionDraftCard sightingId={sighting.id} canSave={isOwner} />
             </Animated.View>
@@ -426,20 +455,28 @@ export default function SightingDetailScreen() {
 
           {/* Timeline */}
           <Animated.View
-            entering={FadeInDown.delay(6 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? FadeInDown.duration(0)
+                : FadeInDown.delay(6 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
             style={styles.section}
           >
             <Text variant="heading">Activity</Text>
             {updates.map((u, i) => (
               <Animated.View
                 key={u.id}
-                entering={FadeInDown.delay(Math.min(i, 8) * motion.stagger)
-                  .duration(motion.enter)
-                  .springify()
-                  .damping(motion.damping)}
+                entering={
+                  reduced
+                    ? FadeInDown.duration(0)
+                    : FadeInDown.delay(Math.min(i, 8) * motion.stagger)
+                        .duration(motion.enter)
+                        .springify()
+                        .damping(motion.damping)
+                }
               >
                 <TimelineItem update={u} />
               </Animated.View>
@@ -448,13 +485,25 @@ export default function SightingDetailScreen() {
 
           {!isOwner ? (
             <View style={styles.modRow}>
-              <Pressable onPress={onReportListing} hitSlop={8} style={styles.modAction}>
+              <Pressable
+                onPress={onReportListing}
+                hitSlop={8}
+                style={styles.modAction}
+                accessibilityRole="button"
+                accessibilityLabel="Report this listing"
+              >
                 <Text variant="small" color={colors.textMuted}>
                   ⚠️ Report this listing
                 </Text>
               </Pressable>
               {sighting.reporter_id ? (
-                <Pressable onPress={onBlockReporter} hitSlop={8} style={styles.modAction}>
+                <Pressable
+                  onPress={onBlockReporter}
+                  hitSlop={8}
+                  style={styles.modAction}
+                  accessibilityRole="button"
+                  accessibilityLabel="Block this user"
+                >
                   <Text variant="small" color={colors.textMuted}>
                     🚫 Block this user
                   </Text>
@@ -478,6 +527,9 @@ export default function SightingDetailScreen() {
           onPress={onComment}
           disabled={!comment.trim() || postComment.isPending}
           style={[styles.send, (!comment.trim() || postComment.isPending) && styles.sendDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel="Send comment"
+          accessibilityState={{ disabled: !comment.trim() || postComment.isPending }}
         >
           <Ionicons name="send" size={20} color={colors.white} />
         </Pressable>
@@ -538,7 +590,13 @@ function AdoptionDraftCard({ sightingId, canSave }: { sightingId: string; canSav
         </Text>
       </View>
 
-      <PressableScale onPress={onGenerate} disabled={draftCopy.isPending} style={styles.draftBtn}>
+      <PressableScale
+        onPress={onGenerate}
+        disabled={draftCopy.isPending}
+        style={styles.draftBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Draft adoption listing"
+      >
         <Ionicons name="sparkles" size={16} color={colors.primary} />
         <Text variant="smallStrong" color={colors.primary}>
           {draftCopy.isPending
