@@ -15,7 +15,6 @@ import {
   type CreateSightingInput,
   type NearbyParams,
 } from '@/api/sightings';
-import { notifyUrgentSighting } from '@/api/push';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
@@ -104,8 +103,8 @@ export function useCreateSighting() {
     onSuccess: (s) => {
       invalidate(s.id);
       track('report_created', { id: s.id, urgent: s.needs_urgent_help });
-      // Urgent reports ping nearby guardians via the send-push Edge Function.
-      if (s.needs_urgent_help) void notifyUrgentSighting(s.id);
+      // Urgent reports ping nearby guardians via a DB trigger (migration 0029)
+      // → send-push, so the alert still goes out if the app dies right after.
     },
   });
 }

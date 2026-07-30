@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
 import { Button, Input, Screen, Text } from '@/components/ui';
@@ -27,6 +27,7 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
+  const reduced = useReducedMotion() ?? false;
   const {
     control,
     handleSubmit,
@@ -58,7 +59,11 @@ export default function SignUpScreen() {
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View
-          entering={FadeInDown.duration(motion.enter).springify().damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.duration(motion.enter).springify().damping(motion.damping)
+          }
           style={styles.header}
         >
           <Text style={styles.logo}>🐾</Text>
@@ -70,10 +75,14 @@ export default function SignUpScreen() {
 
         <View style={styles.form}>
           <Animated.View
-            entering={FadeInDown.delay(1 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(1 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Controller
               control={control}
@@ -93,10 +102,14 @@ export default function SignUpScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.delay(2 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(2 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Controller
               control={control}
@@ -117,10 +130,14 @@ export default function SignUpScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.delay(3 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(3 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Controller
               control={control}
@@ -148,10 +165,14 @@ export default function SignUpScreen() {
           ) : null}
 
           <Animated.View
-            entering={FadeInDown.delay(4 * motion.stagger)
-              .duration(motion.enter)
-              .springify()
-              .damping(motion.damping)}
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(4 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
           >
             <Button
               title="Create account"
@@ -165,12 +186,22 @@ export default function SignUpScreen() {
         </View>
 
         <Animated.View
-          entering={FadeInDown.delay(5 * motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(5 * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
         >
-          <Pressable onPress={() => router.replace('/sign-in')} style={styles.switch} hitSlop={8}>
+          <Pressable
+            onPress={() => router.replace('/sign-in')}
+            style={styles.switch}
+            hitSlop={8}
+            accessibilityRole="link"
+            accessibilityLabel="Sign in"
+          >
             <Text variant="body" muted center>
               Already have an account?{' '}
               <Text variant="bodyStrong" color={colors.primary}>

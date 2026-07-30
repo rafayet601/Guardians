@@ -136,11 +136,14 @@ values ('ffffffff-ffff-ffff-ffff-ffffffffffff',
         'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
         0.95, 'suggested');
 
--- Count sighting_updates on the matched sighting BEFORE confirm.
+-- Count loop-closing sighting_updates on the matched sighting BEFORE confirm.
+-- (Every sighting insert already gets a 'Sighting reported' system update from
+-- the 0002 sightings_on_created trigger, so we filter to the confirm's body.)
 select is(
   (select count(*)::int from public.sighting_updates
-     where sighting_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid),
-  0, 'no sighting_updates exist for the matched sighting before confirm');
+     where sighting_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid
+       and body like '✅ Owner confirmed%'),
+  0, 'no lost-cat confirmation update exists for the matched sighting before confirm');
 
 -- Owner confirms → match 'confirmed', lost_cat 'matched', and a system
 -- sighting_update closes the loop for the reporter/guardian. Never auto-closes
@@ -155,8 +158,8 @@ select is(
 select is(
   (select count(*)::int from public.sighting_updates
      where sighting_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid
-       and type = 'system'),
-  1, 'confirm_lost_cat_match inserts one system sighting_update that closes the loop');
+       and type = 'system' and body like '✅ Owner confirmed%'),
+  1, 'confirm_lost_cat_match inserts exactly one loop-closing system sighting_update');
 
 -- ── reject_lost_cat_match: reversible (confirmed→rejected), never deletes ─────
 select public.reject_lost_cat_match('ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid);
@@ -190,6 +193,7 @@ select throws_ok(
             'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
             0.9, 'suggested')$$,
   '23505',
+  'duplicate key value violates unique constraint "lost_cat_matches_pair_uniq"',
   'unique (lost_cat_id, sighting_id) index prevents a duplicate suggestion');
 
 -- ── Grant surface: anon cannot; authenticated can ─────────────────────────────

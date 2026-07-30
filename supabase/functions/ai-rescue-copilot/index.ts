@@ -40,7 +40,7 @@
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, isAnthropicConfigured } from '../_shared/anthropic.ts';
-import { embedText, isVoyageConfigured, VOYAGE_USD_PER_TOKEN } from '../_shared/voyage.ts';
+import { embedTexts, isVoyageConfigured, VOYAGE_USD_PER_TOKEN } from '../_shared/voyage.ts';
 
 const FEATURE = 'rescue_copilot';
 // Per-user hourly ceiling (AI_ROADMAP: the one low-volume RAG copilot gets a
@@ -194,8 +194,12 @@ Deno.serve(async (req: Request) => {
   let queryEmbedding: number[];
   let voyageTokens = 0;
   try {
-    const result = await embedText(question, 'query');
-    queryEmbedding = result;
+    // embedTexts (not the embedText wrapper) so the real token count reaches the
+    // usage ledger — it feeds p_input and the Voyage line of the cost estimate
+    // below. Same pattern as ai-embed.
+    const { embeddings, usage } = await embedTexts([question], 'query');
+    queryEmbedding = embeddings[0];
+    voyageTokens = usage.total_tokens;
   } catch (e) {
     console.error(
       '[ai-rescue-copilot] voyage query embed failed:',
@@ -203,9 +207,6 @@ Deno.serve(async (req: Request) => {
     );
     return json({ error: 'Could not embed the question.' }, 502);
   }
-  // embedText does not surface token counts; we approximate the query tokens
-  // for the ledger as 0 — the dominant cost is the Claude call below, and the
-  // Voyage query is a single short text (a few dozen tokens at most).
 
   // ── Retrieve KB chunks via match_kb_chunks (called with the caller's JWT
   // so the RPC sees auth.uid() = the user; granted to authenticated in 0024).

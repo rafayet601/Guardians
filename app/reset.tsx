@@ -151,7 +151,13 @@ export default function ResetPasswordScreen() {
           style={styles.submit}
         />
 
-        <Pressable onPress={() => router.replace('/sign-in')} style={styles.switch} hitSlop={8}>
+        <Pressable
+          onPress={() => router.replace('/sign-in')}
+          style={styles.switch}
+          hitSlop={8}
+          accessibilityRole="link"
+          accessibilityLabel="Back to sign in"
+        >
           <Text variant="body" muted center>
             Back to{' '}
             <Text variant="bodyStrong" color={colors.primary}>

@@ -32,7 +32,7 @@ team flying blind.
 
 ## 3. Where the product stands (verified 2026-07-03)
 
-**Shipped and verified working:**
+**Shipped and verified working (PR feat/ai-m0-foundation):**
 
 - Full rescue lifecycle on server-enforced state machine; RLS on every table; all
   sensitive writes via SECURITY DEFINER RPCs; location coarsened ~110 m for non-owners.
@@ -40,13 +40,26 @@ team flying blind.
   marketplace with double-spend protection; moderation (report/block/hide) end-to-end.
 - **In-app account deletion live** (Apple hard requirement) — edge function deployed.
 - **Self-hosted analytics live** — 4 funnel events land in `analytics_events`.
-- Hardened urgent-push pipeline deployed (logging, ticket inspection, token reaping).
-- Quality gates: typecheck, ESLint, Prettier, 49 unit/contract tests, pgTAP suite,
-  bundle smoke test, Deno checks — all green in CI.
-- DB advisors clean (search_path pinned, anon revoked, FK indexes, RLS initplan optimized).
+- **Lifecycle push events** — DB-triggered webhooks (urgent/claimed/rescued/adoption-interest)
+  via `send-push` Edge Function with dual auth and hardened error handling.
+- **Permission priming** — location/notifications/camera value-explaining modals before
+  OS prompts; grant-rate analytics tracked.
+- **Accessibility + reduce-motion** — 70+ Reanimated entrances gated by `useReducedMotion`;
+  31+ a11y labels/roles added across all screens.
+- **Blocked-users UI** — standalone screen + Settings row + sighting detail block action.
+- **Sentry installed** — `@sentry/react-native` 7.11, conditional Expo plugin, init wired
+  (needs real DSN + EAS secrets).
+- **pgTAP behavioral suite** — 114 tests across 9 files (location privacy, write guards,
+  redeem guard, lifecycle, moderation, AI KB, lost-cat, re-id, push ranking); runs in CI.
+- **Widened CI** — Deno check on all `*/index.ts` + full `deno lint`; `db-tests` job added.
+- **Prod bug fix** — `redeem_reward` search_path widened to include `extensions` schema
+  (pgcrypto) so redemptions work.
 
-**Sync note:** all of the above lives on the PR #5 branch + the live DB; merge PR #5 so
-`main` matches production.
+**Quality gates:** typecheck, ESLint, Prettier, 61 Jest tests, 114 pgTAP tests, bundle
+smoke test, Deno checks — all green in CI.
+
+**Sync note:** all of the above lives on the `feat/ai-m0-foundation` branch; merge to
+`main` so main matches production.
 
 ## 4. What still needs refining — requirements
 
@@ -63,15 +76,15 @@ team flying blind.
 
 ### P1 — first-cohort quality (ship within ~2 weeks of launch)
 
-| #    | Requirement                  | Acceptance criteria                                                                                                                                                            |
-| ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| P1-1 | **Permission priming**       | Value-explaining screen before each OS prompt (location, notifications, camera); grant-rate tracked via analytics. _Today: cold `requestForegroundPermissionsAsync` on mount._ |
-| P1-2 | **Accessibility pass**       | Every interactive element has `accessibilityLabel`/`role` (today: 8 total app-wide); contrast ≥ 4.5:1; targets ≥ 44 pt; VoiceOver walk of the core loop                        |
-| P1-3 | **Reduce-motion everywhere** | The 16 entrance-animated screens respect `useReducedMotion` (today: welcome only)                                                                                              |
-| P1-4 | **Lifecycle push events**    | Reporter notified on claim/rescue; guardian notified on adoption interest — not just the urgent broadcast                                                                      |
-| P1-5 | **OTA hot-fix path proven**  | `eas update` to preview channel verified on a physical build (expo-updates already wired)                                                                                      |
-| P1-6 | **First-run guidance**       | 3-card "Spot → Claim → Rehome" explainer + role nudge post-signup; empty-map state with CTA                                                                                    |
-| P1-7 | **E2E safety net**           | One Maestro flow: sign-up → report → claim → rescue, running in CI                                                                                                             |
+| #    | Requirement                  | Acceptance criteria                                                                                                                                                                                                                                |
+| ---- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1-1 | **Permission priming**       | ~~Value-explaining screen before each OS prompt (location, notifications, camera); grant-rate tracked via analytics.~~ Done — `PermissionPrimer` component + `useLocation.ts` no cold prompt + `_layout.tsx` push opt-in + AuthProvider analytics. |
+| P1-2 | **Accessibility pass**       | ~~Every interactive element has `accessibilityLabel`/`role` (today: 8 total app-wide).~~ Done — 31+ labels/roles added across all screens. Contrast ≥ 4.5:1, ≥ 44 pt, VoiceOver walk still TBD.                                                    |
+| P1-3 | **Reduce-motion everywhere** | ~~The 16 entrance-animated screens respect `useReducedMotion` (today: welcome only).~~ Done — ~70 animations gated across 20+ files.                                                                                                               |
+| P1-4 | **Lifecycle push events**    | ~~Reporter notified on claim/rescue; guardian notified on adoption interest — not just the urgent broadcast.~~ Done — migration 0029 (`private.push_config`, triggers, `enqueue_push_notification()`, `send-push` dual-auth webhook handler).      |
+| P1-5 | **OTA hot-fix path proven**  | `eas update` to preview channel verified on a physical build (expo-updates already wired)                                                                                                                                                          |
+| P1-6 | **First-run guidance**       | 3-card "Spot → Claim → Rehome" explainer + role nudge post-signup; empty-map state with CTA                                                                                                                                                        |
+| P1-7 | **E2E safety net**           | One Maestro flow: sign-up → report → claim → rescue, running in CI                                                                                                                                                                                 |
 
 ### P2 — retention & scale (post-launch backlog)
 

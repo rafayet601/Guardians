@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Linking, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
 import { PressableScale } from '@/components/PressableScale';
 import { Text } from '@/components/ui';
@@ -54,13 +54,16 @@ function SponsoredCardView({
     }
   };
 
+  const reduced = useReducedMotion() ?? false;
   return (
-    <Animated.View entering={FadeIn.duration(420)} style={style}>
+    <Animated.View entering={reduced ? undefined : FadeIn.duration(420)} style={style}>
       <PressableScale
         onPress={onPress}
         disabled={!placement.cta_url}
         style={styles.card}
         scaleTo={0.985}
+        accessibilityRole="link"
+        accessibilityLabel={placement.title ?? 'Sponsored'}
       >
         <LinearGradient
           colors={AD_GRADIENT}

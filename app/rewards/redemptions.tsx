@@ -1,5 +1,5 @@
 import { FlatList, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { Card, EmptyState, Loading, Pill, Text } from '@/components/ui';
 import { useMyRedemptions } from '@/hooks/useRewards';
@@ -18,6 +18,8 @@ const STATUS_STYLE: Record<RewardRedemption['status'], { label: string; fg: stri
 
 export default function RedemptionsScreen() {
   const { data: redemptions, isLoading } = useMyRedemptions();
+
+  const reduced = useReducedMotion() ?? false;
 
   if (isLoading) return <Loading label="Loading your rewards…" />;
 
@@ -38,10 +40,14 @@ export default function RedemptionsScreen() {
         const status = STATUS_STYLE[item.status];
         return (
           <Animated.View
-            entering={FadeInDown.delay(index * 55)
-              .duration(420)
-              .springify()
-              .damping(16)}
+            entering={
+              reduced
+                ? FadeInDown.duration(0)
+                : FadeInDown.delay(index * 55)
+                    .duration(420)
+                    .springify()
+                    .damping(16)
+            }
           >
             <Card style={styles.row}>
               <View style={styles.rowTop}>

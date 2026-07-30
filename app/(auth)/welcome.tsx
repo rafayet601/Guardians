@@ -172,7 +172,11 @@ export default function WelcomeScreen() {
 
           <SafeAreaView edges={['top']} style={styles.heroSafe}>
             <Animated.View
-              entering={FadeInDown.duration(motion.enter).springify().damping(motion.damping)}
+              entering={
+                reduced
+                  ? undefined
+                  : FadeInDown.duration(motion.enter).springify().damping(motion.damping)
+              }
             >
               <Animated.View style={styles.emblemWrap}>
                 <Animated.View style={[styles.halo, haloStyle]} />
@@ -188,10 +192,14 @@ export default function WelcomeScreen() {
       {/* ── Content ── */}
       <SafeAreaView edges={['bottom']} style={styles.content}>
         <Animated.View
-          entering={FadeInDown.delay(motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
         >
           <Text variant="overline" color={colors.primary} style={styles.kicker}>
             Community Cat Rescue
@@ -205,10 +213,14 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(2 * motion.stagger)
-            .duration(motion.enter)
-            .springify()
-            .damping(motion.damping)}
+          entering={
+            reduced
+              ? undefined
+              : FadeInDown.delay(2 * motion.stagger)
+                  .duration(motion.enter)
+                  .springify()
+                  .damping(motion.damping)
+          }
           style={styles.actions}
         >
           <Button title="Get started" size="lg" fullWidth onPress={() => router.push('/sign-up')} />
@@ -223,6 +235,8 @@ export default function WelcomeScreen() {
             onPress={() => router.push('/sign-in')}
             style={styles.loginLink}
             hitSlop={8}
+            accessibilityRole="link"
+            accessibilityLabel="Log in"
           >
             <Text variant="smallStrong" muted center>
               Already a Guardian?{'  '}

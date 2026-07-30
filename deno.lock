@@ -1,0 +1,68 @@
+{
+  "version": "5",
+  "redirects": {
+    "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.110.2"
+  },
+  "remote": {
+    "https://esm.sh/@supabase/supabase-js@2.110.2": "a764256c977bc03fc703d7b0031ac3138137a49b9f831775fd7a7f42019f652d"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo-google-fonts/nunito@~0.4.2",
+        "npm:@expo-google-fonts/plus-jakarta-sans@~0.4.2",
+        "npm:@expo-google-fonts/space-mono@~0.4.2",
+        "npm:@expo/vector-icons@^15.0.2",
+        "npm:@hookform/resolvers@^5.4.0",
+        "npm:@react-native-async-storage/async-storage@2.2.0",
+        "npm:@react-native/jest-preset@~0.85.3",
+        "npm:@sentry/react-native@7.11",
+        "npm:@supabase/supabase-js@^2.108.2",
+        "npm:@tanstack/react-query@^5.101.0",
+        "npm:@types/jest@29.5.14",
+        "npm:@types/react@~19.2.2",
+        "npm:@types/supercluster@^7.1.3",
+        "npm:babel-preset-expo@56.0",
+        "npm:buffer@^6.0.3",
+        "npm:date-fns@^4.4.0",
+        "npm:eslint-config-expo@^56.0.4",
+        "npm:eslint@^9.39.4",
+        "npm:expo-constants@~56.0.18",
+        "npm:expo-device@~56.0.4",
+        "npm:expo-font@~56.0.7",
+        "npm:expo-haptics@~56.0.3",
+        "npm:expo-image-picker@~56.0.18",
+        "npm:expo-image@~56.0.11",
+        "npm:expo-linear-gradient@~56.0.4",
+        "npm:expo-linking@~56.0.14",
+        "npm:expo-location@~56.0.18",
+        "npm:expo-notifications@~56.0.18",
+        "npm:expo-router@~56.2.11",
+        "npm:expo-secure-store@~56.0.4",
+        "npm:expo-splash-screen@~56.0.10",
+        "npm:expo-status-bar@~56.0.4",
+        "npm:expo-system-ui@~56.0.5",
+        "npm:expo-updates@~56.0.19",
+        "npm:expo@~56.0.12",
+        "npm:jest-expo@^56.0.5",
+        "npm:jest@^29.7.0",
+        "npm:prettier@^3.8.5",
+        "npm:react-dom@19.2.3",
+        "npm:react-hook-form@^7.79.0",
+        "npm:react-native-gesture-handler@~2.31.1",
+        "npm:react-native-maps@1.27.2",
+        "npm:react-native-reanimated@4.3.1",
+        "npm:react-native-safe-area-context@5.7",
+        "npm:react-native-screens@4.25.2",
+        "npm:react-native-url-polyfill@3",
+        "npm:react-native-web@~0.21.2",
+        "npm:react-native-worklets@0.8.3",
+        "npm:react-native@0.85.3",
+        "npm:react@19.2.3",
+        "npm:supercluster@^8.0.1",
+        "npm:typescript@~6.0.3",
+        "npm:zod@^4.4.3"
+      ]
+    }
+  }
+}

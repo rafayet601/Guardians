@@ -56,6 +56,51 @@ export async function unblockUser(blockedId: string): Promise<void> {
   if (error) throw error;
 }
 
+export interface BlockedUser {
+  /** The blocked profile's id. */
+  blocked_id: string;
+  /** When the block was created (ISO timestamp). */
+  blocked_at: string;
+  username: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
+/** The caller's blocked users, newest first, joined to the blocked profile. */
+export async function getBlockedUsers(): Promise<BlockedUser[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error('Not authenticated');
+  const { data, error } = await supabase
+    .from('user_blocks')
+    .select(
+      'blocked_id, created_at, blocked:profiles!user_blocks_blocked_id_fkey(id, username, full_name, avatar_url)',
+    )
+    .eq('blocker_id', auth.user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  // user_blocks IS in the generated Database types, but the embedded profiles
+  // resource can't be statically resolved — same boundary cast sightings.ts
+  // uses for its embedded selects.
+  const rows = (data ?? []) as unknown as {
+    blocked_id: string;
+    created_at: string;
+    blocked: {
+      id: string;
+      username: string;
+      full_name: string | null;
+      avatar_url: string | null;
+    } | null;
+  }[];
+  return rows.map((r) => ({
+    blocked_id: r.blocked_id,
+    blocked_at: r.created_at,
+    username: r.blocked?.username ?? 'Unknown user',
+    full_name: r.blocked?.full_name ?? null,
+    avatar_url: r.blocked?.avatar_url ?? null,
+  }));
+}
+
 export interface ModerationQueueItem {
   target_type: ModerationTarget;
   target_id: string;

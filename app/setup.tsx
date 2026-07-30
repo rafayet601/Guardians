@@ -1,16 +1,18 @@
 import { StyleSheet } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { Card, Screen, Text } from '@/components/ui';
 import { colors, motion, spacing } from '@/theme';
 
-const stagger = (i: number) =>
-  FadeInDown.delay(i * motion.stagger)
-    .duration(motion.enter)
-    .springify()
-    .damping(motion.damping);
-
 export default function SetupScreen() {
+  const reduced = useReducedMotion() ?? false;
+  const stagger = (i: number) => {
+    if (reduced) return FadeInDown.duration(0);
+    return FadeInDown.delay(i * motion.stagger)
+      .duration(motion.enter)
+      .springify()
+      .damping(motion.damping);
+  };
   return (
     <Screen scroll>
       <Animated.View entering={stagger(0)} style={styles.header}>

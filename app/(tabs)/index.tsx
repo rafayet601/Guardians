@@ -3,18 +3,20 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
 
 import { MapSearchBar } from '@/components/MapSearchBar';
 import { NearbySheet } from '@/components/NearbySheet';
+import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { MapView, Marker, MAP_PROVIDER, type Region } from '@/components/PlatformMap';
 import { Text } from '@/components/ui';
 import { STATUS_META } from '@/constants/status';
 import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
+import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { CatStatus, NearbySighting } from '@/types/models';
 import { DEFAULT_REGION, radiusFromRegion, regionForRadius } from '@/utils/geo';
@@ -36,9 +38,11 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const mapRef = useRef<ComponentRef<typeof MapView>>(null);
-  const { coords } = useCurrentLocation();
+  const { coords, request } = useCurrentLocation();
 
+  const reduced = useReducedMotion() ?? false;
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
+  const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
   const [selected, setSelected] = useState<NearbySighting | null>(null);
   const [query, setQuery] = useState('');
@@ -63,6 +67,40 @@ export default function MapScreen() {
     setRegion(r);
     mapRef.current?.animateToRegion(r, 600);
   }, [coords]);
+
+  // Prime once before the OS location prompt (P1-1). Requesting when the
+  // permission is already decided is prompt-free, so returning users keep
+  // auto-centering and previously-denied users just stay on the default
+  // region (no OS re-prompt is possible anyway).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (!active) return;
+      if (perm.granted || !perm.canAskAgain) {
+        void request();
+        return;
+      }
+      const shown = await hasPrimerBeenShown('location');
+      if (active && !shown) setLocationPrimerVisible(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [request]);
+
+  const allowLocationPrimer = async () => {
+    setLocationPrimerVisible(false);
+    await markPrimerShown('location');
+    const next = await request();
+    trackPermissionResult('location', next ? 'granted' : 'denied');
+  };
+
+  const dismissLocationPrimer = async () => {
+    setLocationPrimerVisible(false);
+    await markPrimerShown('location');
+    trackPermissionResult('location', 'dismissed');
+  };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -248,7 +286,7 @@ export default function MapScreen() {
       {/* Updating pill */}
       {isFetching ? (
         <Animated.View
-          entering={FadeIn.duration(motion.enter)}
+          entering={reduced ? undefined : FadeIn.duration(motion.enter)}
           style={[styles.fetching, { top: insets.top + 108, pointerEvents: 'none' }]}
           accessibilityLiveRegion="polite"
         >
@@ -270,7 +308,7 @@ export default function MapScreen() {
 
       {/* Report pill — sits just above the sheet peek */}
       <Animated.View
-        entering={FadeInDown.delay(180).duration(520).springify().damping(12)}
+        entering={reduced ? undefined : FadeInDown.delay(180).duration(520).springify().damping(12)}
         style={[styles.reportWrap, { bottom: controlBottom }]}
       >
         <PressableScale
@@ -293,6 +331,14 @@ export default function MapScreen() {
         coords={coords}
         selectedId={selected?.id}
         onSelect={(id) => router.push(`/sighting/${id}`)}
+      />
+
+      {/* One-time location primer — the map works on the default region either way */}
+      <PermissionPrimer
+        visible={locationPrimerVisible}
+        kind="location"
+        onAllow={allowLocationPrimer}
+        onDismiss={dismissLocationPrimer}
       />
     </View>
   );

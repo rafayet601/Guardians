@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
@@ -32,6 +32,7 @@ const FILTERS: Filter[] = [
 export default function FeedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion() ?? false;
   const [filterKey, setFilterKey] = useState('all');
 
   const statuses = FILTERS.find((f) => f.key === filterKey)?.statuses;
@@ -42,7 +43,11 @@ export default function FeedScreen() {
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
       <Animated.View
-        entering={FadeInDown.duration(motion.enter).springify().damping(motion.damping)}
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.duration(motion.enter).springify().damping(motion.damping)
+        }
         style={styles.header}
       >
         <Text variant="title">Recent cats</Text>
@@ -60,7 +65,13 @@ export default function FeedScreen() {
         {FILTERS.map((item) => {
           const active = item.key === filterKey;
           return (
-            <PressableScale key={item.key} onPress={() => setFilterKey(item.key)}>
+            <PressableScale
+              key={item.key}
+              onPress={() => setFilterKey(item.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Filter: ${item.label}`}
+            >
               <View style={[styles.chip, active && styles.chipActive]}>
                 <Text variant="smallStrong" color={active ? colors.white : colors.text}>
                   {item.label}
@@ -106,14 +117,20 @@ export default function FeedScreen() {
               icon="🐾"
               title="No cats here yet"
               message="When cats are reported in this category they'll show up here."
+              actionLabel="Report a cat"
+              onAction={() => router.push('/report')}
             />
           }
           renderItem={({ item, index }) => (
             <Animated.View
-              entering={FadeInDown.delay(Math.min(index, 8) * motion.stagger)
-                .duration(motion.enter)
-                .springify()
-                .damping(motion.damping)}
+              entering={
+                reduced
+                  ? undefined
+                  : FadeInDown.delay(Math.min(index, 8) * motion.stagger)
+                      .duration(motion.enter)
+                      .springify()
+                      .damping(motion.damping)
+              }
             >
               <SightingCard
                 title={item.title}

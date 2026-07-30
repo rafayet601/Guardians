@@ -20,9 +20,11 @@ ordered roughly by priority.
 - [ ] Turn **email confirmation ON** and configure a real SMTP sender.
 - [x] Add a **password reset** flow + deep link. _(done — `app/(auth)/forgot-password.tsx`, `app/reset.tsx`, `src/lib/authLink.ts`)_
 - [ ] Enable **Point-in-Time Recovery / scheduled backups**.
-- [x] Add DB **rate limiting / abuse protection**. _(done at the DB layer — insert rate-limit triggers in migration 0011; gateway-level limits still TODO)_
-- [ ] Review every RLS policy against the [Supabase RLS test guide]; add
-      `pgTAP` tests for the policies in `supabase/migrations/0004_rls.sql`.
+- [x] **DB rate limiting / abuse protection** — insert rate-limit triggers in
+      migration 0011. _(gateway-level limits still TODO)_
+- [x] **pgTAP RLS + RPC behavioral tests** — 114 tests across 9 suites, including
+      location privacy, write guards, redeem guard, moderation, lifecycle, and AI KB.
+      Runs via `supabase db test` in CI. _(done — see `supabase/tests/`)_
 - [x] Add an **`is_moderator`** role + moderation policies. _(done — migration 0012; `app/moderation.tsx`)_
 
 ## 3. Safety, privacy & moderation ⚠️ important for this app
@@ -33,7 +35,9 @@ ordered roughly by priority.
       only to the reporter/assigned guardian via the `get_sighting_detail`
       SECURITY DEFINER RPC; everyone else sees an approximate circle. _(done — migration 0009)_
 - [x] **Report/flag + block-user backend** — `report_content`, `moderate_content`,
-      `blockUser`/`unblockUser`, and a moderation queue. _(done — migration 0012; surfacing the block-user action in the sighting UI is the remaining bit)_
+      `blockUser`/`unblockUser`, and a moderation queue. Block-user action is
+      surfaced in the sighting detail screen + Settings has a blocked-users list
+      with unblock. _(done — migration 0012; `app/blocked-users.tsx`; `app/sighting/[id].tsx`)_
 - [ ] Add **photo moderation** (e.g. AWS Rekognition / a moderation queue review step).
 - [ ] Write the **Privacy Policy** and **Terms** (you collect location + photos).
 - [ ] Fill out the App Store **Privacy Nutrition Labels** and Play **Data Safety**
@@ -43,10 +47,10 @@ ordered roughly by priority.
 
 - [x] **Push registration** — `registerForPush()` + the `upsert_push_token` RPC
       (stores a coarse home area). _(done — `src/lib/push.ts`, migration 0010)_
-- [x] **Urgent-sighting push fan-out** — `supabase/functions/send-push` +
-      service-role `tokens_near` RPC alerts nearby opted-in guardians. _(done;
-      currently client-triggered, and only urgent reports — moving to a DB webhook
-      and adding claimed/rescued notifications is on the roadmap)_
+- [x] **Lifecycle push events (DB webhook)** — `send-push` Edge Function now
+      receives DB-triggered webhooks for urgent (existing), claimed, rescued/safe,
+      and adoption-interest events. JWT + shared-secret dual auth; logging/ticket
+      inspection/token reaping. _(done — migration 0029; `supabase/functions/send-push` hardened)_
 
 ## 5. Maps & performance
 
@@ -57,11 +61,16 @@ ordered roughly by priority.
 
 ## 6. Quality & release engineering
 
-- [ ] Add **unit tests** (Jest + React Native Testing Library) and a couple of
-      **E2E flows** (Maestro or Detox): sign up → report → claim → adopt.
-- [ ] Add **error tracking** (Sentry) and basic **analytics**.
+- [x] **Unit & contract tests** — 61 Jest tests + 114 pgTAP behavioral tests, all
+      green in CI on every PR. _(done — Jest + `supabase db test` in CI)_
+- [ ] **E2E flows** (Maestro or Detox): sign up → report → claim → adopt.
+- [x] **Error tracking** — `@sentry/react-native` installed, init wired, DSN
+      placeholder in `.env.example`. _(done — needs real DSN + EAS secret)_
+- [x] **Self-hosted analytics** — 4 funnel events land in `analytics_events`.
+      _(done — migration 0028)_
 - [ ] Wire **EAS Build + Submit** and **`expo-updates`** OTA for JS-only fixes.
-- [ ] Pass an **accessibility** sweep (labels, contrast, dynamic type).
+- [x] **Accessibility sweep** — labels/roles on all interactive elements; reduce-motion
+      gates Reanimated entrances on every animated screen. _(done — Wave 3)_
 - [ ] Generate final **app icons, splash, store screenshots & copy**.
 
 ## 7. Nice-to-haves

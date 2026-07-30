@@ -2,6 +2,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+import { track } from '@/lib/observability';
 import { supabase } from '@/lib/supabase';
 
 interface SignUpParams {
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async signIn(email, password) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        track('sign_in'); // fire-and-forget funnel event
       },
       async signUp({ email, password, username, fullName }) {
         const { data, error } = await supabase.auth.signUp({
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         });
         if (error) throw error;
+        track('sign_up'); // fire-and-forget funnel event
         // When email confirmation is on, there's no active session yet.
         return { needsConfirmation: !data.session };
       },

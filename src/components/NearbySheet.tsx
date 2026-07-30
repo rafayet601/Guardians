@@ -1,9 +1,11 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
@@ -32,6 +34,7 @@ const MAX_ROWS = 25;
  * scrolls independently of the drag gesture.
  */
 export function NearbySheet({ sightings, coords, selectedId, onSelect }: NearbySheetProps) {
+  const router = useRouter();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -44,6 +47,7 @@ export function NearbySheet({ sightings, coords, selectedId, onSelect }: NearbyS
   const headerH = 60;
   const minimizedY = Math.max(collapsedY, expandedH - headerH - insets.bottom);
 
+  const reduced = useReducedMotion() ?? false;
   const translateY = useSharedValue(collapsedY);
   const startY = useSharedValue(collapsedY);
 
@@ -120,15 +124,21 @@ export function NearbySheet({ sightings, coords, selectedId, onSelect }: NearbyS
             icon="🐾"
             title="No cats spotted here yet"
             message="Pan the map or be the first to report one."
+            actionLabel="Report a cat"
+            onAction={() => router.push('/report')}
           />
         ) : (
           rows.map((s, i) => (
             <Animated.View
               key={s.id}
-              entering={FadeInDown.delay(Math.min(i, 6) * motion.stagger)
-                .duration(motion.enter)
-                .springify()
-                .damping(motion.damping)}
+              entering={
+                reduced
+                  ? FadeInDown.duration(0)
+                  : FadeInDown.delay(Math.min(i, 6) * motion.stagger)
+                      .duration(motion.enter)
+                      .springify()
+                      .damping(motion.damping)
+              }
               style={[styles.rowWrap, selectedId === s.id && styles.rowSelected]}
             >
               <SightingCard

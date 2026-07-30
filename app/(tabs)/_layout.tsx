@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
@@ -11,6 +11,7 @@ import { colors, fontFamily, radius, shadow, spacing } from '@/theme';
 export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion() ?? false;
   // The Map tab renders its own "+ Report" pill above the nearby sheet, so the
   // global FAB is shown only on the other four tabs (an allowlist, so it never
   // leaks onto the map or over a pushed modal/detail route).
@@ -70,7 +71,9 @@ export default function TabsLayout() {
           which renders its own Report pill above the nearby-sightings sheet. */}
       {showReportFab ? (
         <Animated.View
-          entering={FadeInDown.delay(180).duration(520).springify().damping(12)}
+          entering={
+            reduced ? undefined : FadeInDown.delay(180).duration(520).springify().damping(12)
+          }
           style={[styles.fabWrap, { bottom: spacing.lg + insets.bottom }]}
         >
           <PressableScale

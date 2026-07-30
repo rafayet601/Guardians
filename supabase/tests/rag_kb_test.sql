@@ -69,12 +69,19 @@ from (
 -- ── match_kb_chunks returns chunks ordered by ASCENDING distance ───────────
 -- Act as the authenticated user so auth.uid() is set inside the SECURITY
 -- DEFINER function (match_kb_chunks was granted to authenticated in 0024).
+-- set_config(..., true) is transaction-local, so this session persists across
+-- the set role/reset role pairs below.
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}',
+  true);
 set role authenticated;
 select is(
   (select array_agg(chunk_id order by distance)
      from public.match_kb_chunks(
-       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']')::vector
-         from generate_series(1, 1024) as g(i)),
+       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']'
+         from generate_series(1, 1024) as g(i))::vector,
        6
      )),
   array[
@@ -89,8 +96,8 @@ set role authenticated;
 select is(
   (select distance
      from public.match_kb_chunks(
-       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']')::vector
-         from generate_series(1, 1024) as g(i)),
+       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']'
+         from generate_series(1, 1024) as g(i))::vector,
        6
      )
      order by distance limit 1),
@@ -103,8 +110,8 @@ set role authenticated;
 select is(
   (select count(*)::int
      from public.match_kb_chunks(
-       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']')::vector
-         from generate_series(1, 1024) as g(i)),
+       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']'
+         from generate_series(1, 1024) as g(i))::vector,
        1
      )),
   1, 'p_limit = 1 returns exactly one chunk');
@@ -137,12 +144,12 @@ set role authenticated;
 select is(
   (select (title, source)::text
      from public.match_kb_chunks(
-       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']')::vector
-         from generate_series(1, 1024) as g(i)),
+       (select '[' || string_agg(CASE WHEN i = 1 THEN '1' ELSE '0' END, ',') || ']'
+         from generate_series(1, 1024) as g(i))::vector,
        6
      )
      where chunk_id = 'c0000000-0000-4000-8000-000000000001'),
-  '(Test card,Test source)',
+  '("Test card","Test source")',
   'match_kb_chunks joins the chunk to its document title and source');
 reset role;
 

@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/react-native';
+
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 import type { Json } from '@/types/database';
@@ -17,13 +19,10 @@ export function captureError(error: unknown, context?: Props): void {
   if (isDev) {
     console.error('[capture]', error, context ?? '');
   }
+  // No-op unless initObservability ran with a DSN (uncaptured events are
+  // dropped by Sentry when no client is bound).
   if (env.sentryDsn) {
-    try {
-      const Sentry = require('@sentry/react-native');
-      Sentry.captureException(error, { extra: context });
-    } catch {
-      // Sentry not installed; ignore
-    }
+    Sentry.captureException(error, { extra: context });
   }
 }
 
@@ -48,21 +47,16 @@ interface RNErrorUtils {
  * web has no `ErrorUtils`, so this is a guarded no-op there. Call once at boot.
  */
 export function initObservability(): void {
-  // Initialize the Sentry backend when a DSN is configured. Lazy `require` so
-  // the app builds/typechecks fine when @sentry/react-native isn't installed —
-  // installing the package + setting EXPO_PUBLIC_SENTRY_DSN is all that's needed
-  // to light this up (set release/dist per EAS build for symbolication).
+  // Initialize the Sentry backend when a DSN is configured. Without a DSN the
+  // whole façade stays a console-only no-op. The @sentry/react-native/expo
+  // config plugin (see app.config.ts) handles release/dist + Hermes sourcemap
+  // upload during EAS builds for symbolication.
   if (env.sentryDsn) {
-    try {
-      const Sentry = require('@sentry/react-native');
-      Sentry.init({
-        dsn: env.sentryDsn,
-        enableNativeCrashHandling: true,
-        tracesSampleRate: 0.2,
-      });
-    } catch {
-      // Package not installed yet — captureError stays a console-only sink.
-    }
+    Sentry.init({
+      dsn: env.sentryDsn,
+      enableNativeCrashHandling: true,
+      tracesSampleRate: 0.2,
+    });
   }
 
   const errorUtils = (globalThis as { ErrorUtils?: RNErrorUtils }).ErrorUtils;
