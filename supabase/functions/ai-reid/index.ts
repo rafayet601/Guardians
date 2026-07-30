@@ -327,8 +327,10 @@ Deno.serve(async (req: Request) => {
  * back to a lookup in both directions (the unique-pair index is unordered).
  */
 async function ensureSuggestedLink(
-  // deno-lint-ignore no-explicit-any -- supabase-js generics don't survive
-  // `ReturnType<typeof createClient>` under deno check; ai-lost-match does the same.
+  // supabase-js generics don't survive `ReturnType<typeof createClient>` under
+  // deno check; ai-lost-match does the same. The directive must sit on the line
+  // immediately above the annotation — a multi-line form does not attach.
+  // deno-lint-ignore no-explicit-any
   admin: any,
   sightingId: string,
   candidate: DuplicateCandidate,
