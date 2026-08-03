@@ -1,0 +1,12 @@
+# SPA fallback for the web build (Cloudflare Pages / Netlify syntax).
+#
+# `expo export --platform web` emits a SINGLE index.html — Expo Router resolves
+# every route client-side. Without this catch-all the host looks for a real file
+# at each path, so a refresh or a direct link to /settings, /report, /privacy or
+# /sighting/<id> returns 404. The 200 status rewrites (not redirects), so the
+# URL the user sees is preserved.
+#
+# Anything in public/ is copied verbatim to the root of dist/ on every build,
+# which is why this lives here rather than being written into dist/ after the
+# fact (expo export clears the output directory each run).
+/*    /index.html   200
