@@ -9,6 +9,9 @@ module.exports = {
   preset: 'jest-expo',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Side-effect CSS imports (the web map pulls in leaflet.css) are not
+    // JavaScript — stub them so Jest doesn't try to parse them.
+    '\\.css$': '<rootDir>/jest/styleMock.js',
   },
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}'],
   collectCoverageFrom: ['src/api/**/*.ts', 'src/utils/**/*.ts', 'src/constants/**/*.ts'],
