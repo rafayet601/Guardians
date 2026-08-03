@@ -48,7 +48,9 @@ const MAX_ZOOM = 19;
 export function zoomForRegion(region: Region, heightPx: number): number {
   const visibleMeters = Math.max(1e-6, region.latitudeDelta) * METERS_PER_DEG_LAT;
   const raw = Math.log2(
-    (Math.max(1, heightPx) * METERS_PER_PIXEL_AT_ZOOM_0 * Math.cos((region.latitude * Math.PI) / 180)) /
+    (Math.max(1, heightPx) *
+      METERS_PER_PIXEL_AT_ZOOM_0 *
+      Math.cos((region.latitude * Math.PI) / 180)) /
       visibleMeters,
   );
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, raw));
