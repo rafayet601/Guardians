@@ -39,7 +39,10 @@ ordered roughly by priority.
       surfaced in the sighting detail screen + Settings has a blocked-users list
       with unblock. _(done — migration 0012; `app/blocked-users.tsx`; `app/sighting/[id].tsx`)_
 - [ ] Add **photo moderation** (e.g. AWS Rekognition / a moderation queue review step).
-- [ ] Write the **Privacy Policy** and **Terms** (you collect location + photos).
+- [x] Write the **Privacy Policy** and **Terms** (you collect location + photos).
+      _(done — `docs/legal/privacy-policy.md`, `docs/legal/terms.md`, surfaced
+      in-app at `app/privacy.tsx` / `app/terms.tsx`. Still need a **public URL**
+      for the store listings — see §7.)_
 - [ ] Fill out the App Store **Privacy Nutrition Labels** and Play **Data Safety**
       form (location, photos, account data).
 
@@ -73,7 +76,49 @@ ordered roughly by priority.
       gates Reanimated entrances on every animated screen. _(done — Wave 3)_
 - [ ] Generate final **app icons, splash, store screenshots & copy**.
 
-## 7. Nice-to-haves
+## 7. Web deployment (static export)
+
+`expo export --platform web` produces a static SPA that any static host can
+serve for free. **Scope check first:** on web the live map is a placeholder
+(`src/components/PlatformMap.web.tsx`) and push is a no-op, so the web build is
+the app _minus_ its map. Its immediate value is a **public URL for the Privacy
+Policy and Terms** — both stores require one before submission — plus a demo
+link. Everything else (auth, feed, sighting detail, profiles, adoption,
+leaderboard, rewards, moderation) works.
+
+- [x] **SPA fallback** — `public/_redirects` (`/* /index.html 200`). The export
+      emits a single `index.html` and Expo Router resolves routes client-side, so
+      without a catch-all any refresh or direct link to `/settings`, `/privacy`,
+      `/sighting/<id>` 404s. Lives in `public/` because `expo export` clears
+      `dist/` on every run and copies `public/` to the export root.
+- [x] **Build script** — `npm run build:web` → `dist/` (~13 MB).
+- [ ] **Deploy.** Cloudflare Pages recommended: free tier has unlimited
+      bandwidth (Vercel/Netlify cap at 100 GB) and no commercial-use
+      restriction.
+
+      ```bash
+      EXPO_PUBLIC_SUPABASE_URL=... EXPO_PUBLIC_SUPABASE_ANON_KEY=... npm run build:web
+      npx wrangler pages deploy dist --project-name guardians
+      ```
+
+      Pass only those two vars. **Omit the Google Maps keys** — unused on web
+      (no map) and there's no reason to bake them into a public bundle. The
+      Supabase anon key is safe to ship; it's RLS-protected by design.
+
+- [ ] **Supabase Auth URL configuration** — easy to miss, silently breaks
+      sign-up. `AuthProvider` builds email links with
+      `Linking.createURL('/confirm')` and `Linking.createURL('/reset')`, which
+      resolve to the deployed origin at runtime. In Dashboard → Authentication →
+      URL Configuration set **Site URL** to the deployed origin and add
+      `<origin>/**` to **Redirect URLs**, or confirmation and reset emails will
+      be rejected.
+- [ ] **Turn email confirmation on before making the site public** (see §2) —
+      otherwise a public URL means open, unverified sign-up.
+
+Cost: **$0** (Cloudflare Pages free tier, 500 builds/month). A custom domain is
+optional at roughly $10/yr.
+
+## 8. Nice-to-haves
 
 - [ ] Dark mode (theme tokens are centralized in `src/theme`).
 - [ ] Social / Apple / Google sign-in.
