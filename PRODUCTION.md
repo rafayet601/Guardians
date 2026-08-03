@@ -78,6 +78,9 @@ ordered roughly by priority.
 
 ## 7. Web deployment (static export)
 
+> For the full launch runbook — costs, EAS builds, store accounts, sequencing —
+> see [`DEPLOY.md`](./DEPLOY.md). This section is the web target specifically.
+
 `expo export --platform web` produces a static SPA that any static host can
 serve for free. **Scope check first:** on web the live map is a placeholder
 (`src/components/PlatformMap.web.tsx`) and push is a no-op, so the web build is

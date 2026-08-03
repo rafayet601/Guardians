@@ -7,18 +7,18 @@
 
 ## Monthly cost (lean launch)
 
-| Service               | Tier                          | ~Cost                 | Why                                             |
-| --------------------- | ----------------------------- | --------------------- | ----------------------------------------------- |
-| **Apple Developer**   | Required for TestFlight/store | **$99/yr**            | Unavoidable for iOS                             |
-| **Google Play**       | One-time                      | **$25 once**          | Unavoidable for Play                            |
-| **Supabase**          | Free → Pro when live          | **$0 → $25/mo**       | Free for closed beta; **Pro for PITR/backups**  |
-| **EAS Build**         | Free tier / pay-as-you-go     | **$0–15/mo**          | Enough early                                    |
-| **Expo Push**         | Free                          | **$0**                | Already integrated                              |
-| **Sentry**            | Free (5k errors)              | **$0**                | Enough for first cohort                         |
-| **Google Maps**       | $200/mo free credit           | **$0** at small scale | Restrict keys hard                              |
-| **Cloudflare Pages**  | Free                          | **$0**                | Host Privacy/Terms + optional web               |
-| **SMTP (Resend)**     | Free tier                     | **$0**                | Auth emails (better than default Supabase mail) |
-| **Domain (optional)** | Any registrar                 | **~$10–15/yr**        | `guardians.app` / similar for legal URLs        |
+| Service               | Tier                                 | ~Cost                 | Why                                                                                                                                                                   |
+| --------------------- | ------------------------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Apple Developer**   | Required for TestFlight/store        | **$99/yr**            | Unavoidable for iOS                                                                                                                                                   |
+| **Google Play**       | One-time                             | **$25 once**          | Unavoidable for Play                                                                                                                                                  |
+| **Supabase**          | Free → Pro when live                 | **$0 → $25/mo**       | Free for closed beta; **Pro for PITR/backups**                                                                                                                        |
+| **EAS Build**         | Free tier / pay-as-you-go            | **$0–15/mo**          | Enough early                                                                                                                                                          |
+| **Expo Push**         | Free                                 | **$0**                | Already integrated                                                                                                                                                    |
+| **Sentry**            | Free (5k errors)                     | **$0**                | Enough for first cohort                                                                                                                                               |
+| **Google Maps**       | Free tier — **verify current terms** | **$0** at small scale | Restrict keys hard. Google replaced the old recurring $200/mo credit with per-SKU monthly free quotas in 2025; check the live pricing page before relying on a number |
+| **Cloudflare Pages**  | Free                                 | **$0**                | Host Privacy/Terms + optional web                                                                                                                                     |
+| **SMTP (Resend)**     | Free tier                            | **$0**                | Auth emails (better than default Supabase mail)                                                                                                                       |
+| **Domain (optional)** | Any registrar                        | **~$10–15/yr**        | `guardians.app` / similar for legal URLs                                                                                                                              |
 
 **Realistic first 90 days:** ~**$25–50/mo** + Apple $99/yr (if Supabase Pro +
 occasional EAS builds).
@@ -28,30 +28,40 @@ APIs, multi-region, Apple/Google sign-in.
 
 ---
 
-## Phase 0 — Git / prod parity (1 day)
+## Phase 0 — Git / prod parity
 
-Do this **before** any store build.
+**Status as of 2026-08-03: steps 1–3 are DONE.** Only steps 4–6 remain.
 
-1. **Merge PR #10** → `main` (`feat/code-side-gaps-complete`).
-2. **Apply missing migrations on the live Supabase project** (0027–0031 if not
-   already):
-   ```bash
-   supabase link --project-ref tiqizsjxqfscwbhyvumk
-   supabase db push
-   ```
-3. **Deploy edge functions:**
-   ```bash
-   supabase functions deploy send-push
-   supabase functions deploy delete-account
-   # + any ai-* you actually want live; keep EXPO_PUBLIC_AI_ENABLED=false until ready
-   ```
-4. **Set Supabase secrets:**
+1. ~~**Merge PR #10** → `main`.~~ **Done** — merged as `4406c01`.
+2. ~~**Apply migrations 0027–0031.**~~ **Done** — the live project
+   (`tiqizsjxqfscwbhyvumk`) is at `0031`; ledger has 19 rows. Verified by
+   fingerprinting live against a fresh local `supabase db reset` across columns,
+   functions (incl. `prosecdef`/`search_path`), policies, triggers, indexes,
+   extensions, RLS flags and enums — all categories match. **Zero drift.**
+
+   > ⚠️ **Do NOT run `supabase db push` on this project.** Migrations here are
+   > applied individually (MCP `apply_migration` / SQL editor), so the remote
+   > ledger's versions don't line up with the local `00NN_*.sql` filenames and a
+   > push can re-run an early base migration. That is exactly what caused the
+   > 2026-07-17 outage: re-running a base migration silently reverted the
+   > hardening in 0011/0012, `nearby_sightings` lost SECURITY DEFINER, and the
+   > live map returned `42501` for every signed-in user. Apply one migration at
+   > a time and re-run the advisors after.
+
+3. ~~**Deploy edge functions.**~~ **Done** — all 13 are ACTIVE. `send-push` is
+   **v2 with `verify_jwt: false`** (dual auth: webhook secret or caller JWT);
+   the other 12 remain v1 with `verify_jwt: true`. Redeploys must keep
+   `verify_jwt = false` for `send-push` — the CLI reads it from
+   `supabase/config.toml`, so `supabase functions deploy send-push` is correct.
+4. **Set Supabase secrets** (still pending — no MCP tool for secrets, use the
+   dashboard):
    ```bash
    supabase secrets set PUSH_WEBHOOK_SECRET=<long-random>
-   # optional later: ANTHROPIC_API_KEY=...
+   # optional later: ANTHROPIC_API_KEY=...  VOYAGE_API_KEY=...
    ```
 5. **Configure `private.push_config` in SQL Editor** (migration 0029 seeds
-   empty):
+   empty — both rows are still `''`, so every trigger currently logs a WARNING
+   and skips. Do this **after** step 4, or each POST 401s):
    ```sql
    update private.push_config
      set value = 'https://tiqizsjxqfscwbhyvumk.supabase.co/functions/v1/send-push'
@@ -228,35 +238,35 @@ permissions). Those need a new binary build.
 
 ## Phase 6 — Production attention list (do not skip)
 
-| Area                               | Risk if skipped        | What to do                                                                    |
-| ---------------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
-| **Email confirm OFF**              | Open spam signups      | ON + real SMTP before public URL/app                                          |
-| **Redirect URLs**                  | Auth emails fail       | Web origin + `guardians://**`                                                 |
-| **Maps key unrestricted**          | Bill shock / abuse     | Bundle ID + package + SHA-1                                                   |
-| **Android SHA-1 wrong**            | Blank map on release   | Use EAS credentials SHA-1 for release keystore                                |
-| **push_config empty**              | No lifecycle pushes    | Set URL + secret after deploy                                                 |
-| **`send-push` `verify_jwt=false`** | OK only with dual-auth | Keep webhook secret strong; never log it                                      |
-| **No backups**                     | Data loss              | Supabase Pro + PITR before GA                                                 |
-| **Sentry DSN missing**             | Blind crashes          | Set before TestFlight                                                         |
-| **AI enabled too early**           | Cost + liability       | Keep `EXPO_PUBLIC_AI_ENABLED=false` until secrets + policy OK                 |
-| **service_role leak**              | Full DB compromise     | Client only gets anon key                                                     |
-| **Photo size unlimited**           | Storage cost           | Cap uploads / later image transforms                                          |
-| **UGC policy**                     | App Store rejection    | Report/block + 24h response + account delete already in product — document it |
-| **main ≠ prod DB**                 | Drift bugs             | Merge PR #10 + `db push` so git matches live                                  |
-| **Legal URL only in-app**          | Store rejection        | Public hosted `/privacy` + `/terms`                                           |
+| Area                               | Risk if skipped        | What to do                                                                                    |
+| ---------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| **Email confirm OFF**              | Open spam signups      | ON + real SMTP before public URL/app                                                          |
+| **Redirect URLs**                  | Auth emails fail       | Web origin + `guardians://**`                                                                 |
+| **Maps key unrestricted**          | Bill shock / abuse     | Bundle ID + package + SHA-1                                                                   |
+| **Android SHA-1 wrong**            | Blank map on release   | Use EAS credentials SHA-1 for release keystore                                                |
+| **push_config empty**              | No lifecycle pushes    | Set URL + secret after deploy                                                                 |
+| **`send-push` `verify_jwt=false`** | OK only with dual-auth | Keep webhook secret strong; never log it                                                      |
+| **No backups**                     | Data loss              | Supabase Pro + PITR before GA                                                                 |
+| **Sentry DSN missing**             | Blind crashes          | Set before TestFlight                                                                         |
+| **AI enabled too early**           | Cost + liability       | Keep `EXPO_PUBLIC_AI_ENABLED=false` until secrets + policy OK                                 |
+| **service_role leak**              | Full DB compromise     | Client only gets anon key                                                                     |
+| **Photo size unlimited**           | Storage cost           | Cap uploads / later image transforms                                                          |
+| **UGC policy**                     | App Store rejection    | Report/block + 24h response + account delete already in product — document it                 |
+| **main ≠ prod DB**                 | Drift bugs             | ✅ Resolved — live is at 0031, fingerprint-verified zero drift. Never `db push` (see Phase 0) |
+| **Legal URL only in-app**          | Store rejection        | Public hosted `/privacy` + `/terms`                                                           |
 
 ---
 
 ## Recommended sequence (minimal calendar)
 
-| Day      | Work                                                                             |
-| -------- | -------------------------------------------------------------------------------- |
-| **1**    | Merge PR #10 · `db push` · deploy functions · push_config · SMTP + email confirm |
-| **1**    | Cloudflare Pages legal URLs · Auth redirect URLs                                 |
-| **2**    | Maps keys · Sentry · EAS secrets · Apple/Play accounts                           |
-| **3**    | `eas build` preview iOS+Android · internal testers                               |
-| **4–10** | Closed beta · watch Sentry · fix via OTA if JS-only                              |
-| **11+**  | Production build · submit · start **closed** store testing → open when stable    |
+| Day      | Work                                                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------------------------------- |
+| **1**    | ~~Merge PR #10 · migrations · deploy functions~~ (done) · `PUSH_WEBHOOK_SECRET` + push_config · SMTP + email confirm |
+| **1**    | Cloudflare Pages legal URLs · Auth redirect URLs                                                                     |
+| **2**    | Maps keys · Sentry · EAS secrets · Apple/Play accounts                                                               |
+| **3**    | `eas build` preview iOS+Android · internal testers                                                                   |
+| **4–10** | Closed beta · watch Sentry · fix via OTA if JS-only                                                                  |
+| **11+**  | Production build · submit · start **closed** store testing → open when stable                                        |
 
 ---
 
