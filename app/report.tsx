@@ -33,6 +33,7 @@ import {
   type PermissionKind,
 } from '@/lib/permissions';
 import { useAiAutofill } from '@/hooks/useAiAutofill';
+import { screenPhotoBestEffort } from '@/hooks/useAiModeration';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -240,7 +241,7 @@ export default function ReportScreen() {
         });
         photoUrls.push(url);
       }
-      await createSighting.mutateAsync({
+      const sighting = await createSighting.mutateAsync({
         lat: marker.latitude,
         lng: marker.longitude,
         title: title.trim() || undefined,
@@ -251,6 +252,19 @@ export default function ReportScreen() {
         needsUrgentHelp: needsUrgent,
         photoUrls,
       });
+      // 🛡️ Background photo screening (AI-M2 #9). Fire-and-forget by contract:
+      // the helper no-ops when its flag is off and swallows its own errors, so
+      // this can never block, delay, or fail the report. Runs only once the
+      // sighting exists and its photos are uploaded (the server checks the
+      // caller is the sighting's reporter).
+      for (const asset of photos) {
+        if (!asset.base64) continue;
+        void screenPhotoBestEffort({
+          imageBase64: asset.base64,
+          mediaType: asset.mimeType,
+          sightingId: sighting.id,
+        });
+      }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }

@@ -112,7 +112,12 @@ export interface LostCatMatch {
 }
 
 export interface ReidCandidate {
-  linkId: string;
+  /**
+   * The `sighting_links` row backing this suggestion. Null when the server
+   * could not create/find one for the pair — the UI hides confirm/reject for
+   * those rather than inventing an id.
+   */
+  linkId: string | null;
   sightingId: string;
   linkedSightingId: string;
   confidence: number;
