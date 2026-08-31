@@ -75,7 +75,8 @@
     "format:check": "prettier --check .",
     "gen:types": "supabase gen types typescript --linked > src/types/database.ts",
     "test": "jest",
-    "test:ci": "jest --ci --runInBand"
+    "test:ci": "jest --ci --runInBand",
+    "preflight": "bash scripts/preflight-check.sh"
   },
   "private": true
 }
