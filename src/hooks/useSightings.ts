@@ -23,10 +23,15 @@ import { useAuth } from '@/providers/AuthProvider';
 import type { CatStatus } from '@/types/models';
 
 export function useNearbySightings(params: NearbyParams | null) {
+  // nearby_sightings is granted to `authenticated` only (0016/0027). The map
+  // tab mounts before the root layout redirects a logged-out user to /welcome,
+  // so without this gate every cold start fires the RPC as anon, gets 42501,
+  // and reports a false error to Sentry.
+  const { session } = useAuth();
   return useQuery({
     queryKey: queryKeys.nearby(params ?? {}),
     queryFn: () => getNearby(params as NearbyParams),
-    enabled: !!params,
+    enabled: !!params && !!session,
     staleTime: 15_000,
   });
 }
