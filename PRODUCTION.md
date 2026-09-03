@@ -38,7 +38,11 @@ ordered roughly by priority.
       `blockUser`/`unblockUser`, and a moderation queue. Block-user action is
       surfaced in the sighting detail screen + Settings has a blocked-users list
       with unblock. _(done — migration 0012; `app/blocked-users.tsx`; `app/sighting/[id].tsx`)_
-- [ ] Add **photo moderation** (e.g. AWS Rekognition / a moderation queue review step).
+- [x] Add **photo moderation** (e.g. AWS Rekognition / a moderation queue review step).
+      _(done in code — AI-M2 `ai-moderate-photo` + `ai-moderate-text` edge functions,
+      migration 0020: a confident violation auto-hides and enqueues for human review,
+      never deletes. Live once 0020 is applied, the functions are deployed and
+      `EXPO_PUBLIC_AI_ENABLED=true`.)_
 - [x] Write the **Privacy Policy** and **Terms** (you collect location + photos).
       _(done — `docs/legal/privacy-policy.md`, `docs/legal/terms.md`, surfaced
       in-app at `app/privacy.tsx` / `app/terms.tsx`. Still need a **public URL**

@@ -33,7 +33,6 @@ export default function SettingsScreen() {
   const [pushPrimerVisible, setPushPrimerVisible] = useState(false);
   const [avatarPrimerVisible, setAvatarPrimerVisible] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!profile) return;
     setUsername(profile.username);

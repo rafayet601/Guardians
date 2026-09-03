@@ -102,18 +102,16 @@ export default function MapScreen() {
     trackPermissionResult('location', 'dismissed');
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     pulseTracks(1200);
     return () => {
       if (tracksTimer.current) clearTimeout(tracksTimer.current);
     };
-  }, []);
+  }, [pulseTracks]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     pulseTracks(500);
-  }, [selected]);
+  }, [selected, pulseTracks]);
 
   const params = useMemo(
     () => ({

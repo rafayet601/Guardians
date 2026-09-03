@@ -34,6 +34,7 @@ import {
 } from '@/lib/permissions';
 import { useAiAutofill } from '@/hooks/useAiAutofill';
 import { screenPhotoBestEffort } from '@/hooks/useAiModeration';
+import { matchSightingAgainstLostCatsBestEffort } from '@/hooks/useLostCat';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/providers/AuthProvider';
@@ -78,10 +79,11 @@ export default function ReportScreen() {
   const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
   const [photoPrimerSource, setPhotoPrimerSource] = useState<PhotoSource | null>(null);
 
-  // default the marker to the user's location once available
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // default the marker to the user's location once available (intentionally
+  // only when `coords` changes — a pin the user cleared must not snap back)
   useEffect(() => {
     if (coords && !marker) setMarker({ latitude: coords.lat, longitude: coords.lng });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coords]);
 
   // Prime once before the OS location prompt (P1-1). Requesting when the
@@ -264,6 +266,13 @@ export default function ReportScreen() {
           mediaType: asset.mimeType,
           sightingId: sighting.id,
         });
+      }
+      // 🐾 Lost-cat continuous matching (AI-M4 #5): match this new sighting
+      // against open lost-cat posts. Same fire-and-forget contract as above —
+      // flag-gated, error-swallowing, never blocks the report. Skipped without
+      // a photo, since matching is photo-embedding based.
+      if (photoUrls.length > 0) {
+        void matchSightingAgainstLostCatsBestEffort(sighting.id);
       }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

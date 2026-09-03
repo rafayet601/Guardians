@@ -78,14 +78,18 @@ function QueueRow({
   const canBrief = AI_FEATURES.modCopilot && canHide;
   const brief = copilot.data;
 
-  const runCopilot = () =>
+  const runCopilot = () => {
+    const type = item.target_type;
+    // Narrow explicitly: ai-mod-copilot 400s on anything but these two.
+    if (type !== 'sighting' && type !== 'comment') return;
     copilot.mutate(
-      { targetType: item.target_type, targetId: item.target_id },
+      { targetType: type, targetId: item.target_id },
       {
         onError: (e) =>
           notify('AI summary unavailable', getErrorMessage(e, 'Please review this item manually.')),
       },
     );
+  };
 
   return (
     <Card style={styles.row}>
