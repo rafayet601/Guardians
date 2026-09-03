@@ -149,10 +149,12 @@ export async function getModCopilotSummary(input: ModCopilotInput): Promise<ModC
 //     to compute embeddings + candidate matches. Calling them for reads spends
 //     real model money.
 //
-// Those RPCs post-date the last `npm run gen:types` run, so they are invoked
-// through a minimally-typed RPC surface (the same boundary cast src/api/push.ts
-// uses). Nothing untyped escapes this module: every row that crosses the
-// boundary goes through an explicit snake_case → camelCase mapper below.
+// These RPCs are invoked through one small typed boundary (`rpc` below) rather
+// than the generated client generics: several of them return `Json` or a
+// SETOF row whose generated shape is wider than what the UI needs. Nothing
+// untyped escapes this module — every row crossing the boundary goes through
+// an explicit snake_case → camelCase mapper below, and those mappers are what
+// the contract tests in src/__tests__/api.test.ts pin.
 
 interface RpcResult<T> {
   data: T | null;
