@@ -22,7 +22,7 @@ export type Database = {
           created_at: string
           id: string
           reason: string | null
-          reporter_id: string
+          reporter_id: string | null
           status: string
           target_id: string
           target_type: string
@@ -31,7 +31,7 @@ export type Database = {
           created_at?: string
           id?: string
           reason?: string | null
-          reporter_id: string
+          reporter_id?: string | null
           status?: string
           target_id: string
           target_type: string
@@ -40,7 +40,7 @@ export type Database = {
           created_at?: string
           id?: string
           reason?: string | null
-          reporter_id?: string
+          reporter_id?: string | null
           status?: string
           target_id?: string
           target_type?: string
@@ -90,6 +90,50 @@ export type Database = {
           },
           {
             foreignKeyName: "adoption_interest_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage: {
+        Row: {
+          created_at: string
+          est_cost_usd: number | null
+          feature: string | null
+          id: string
+          input_tokens: number | null
+          latency_ms: number | null
+          model: string | null
+          output_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          est_cost_usd?: number | null
+          feature?: string | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          est_cost_usd?: number | null
+          feature?: string | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -157,6 +201,7 @@ export type Database = {
         Row: {
           last_known_location: unknown
           notify_radius_m: number
+          push_enabled: boolean
           token: string
           updated_at: string
           urgent_opt_in: boolean
@@ -165,6 +210,7 @@ export type Database = {
         Insert: {
           last_known_location?: unknown
           notify_radius_m?: number
+          push_enabled?: boolean
           token: string
           updated_at?: string
           urgent_opt_in?: boolean
@@ -173,6 +219,7 @@ export type Database = {
         Update: {
           last_known_location?: unknown
           notify_radius_m?: number
+          push_enabled?: boolean
           token?: string
           updated_at?: string
           urgent_opt_in?: boolean
@@ -182,6 +229,187 @@ export type Database = {
           {
             foreignKeyName: "device_push_tokens_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      embeddings: {
+        Row: {
+          created_at: string
+          embedding: string | null
+          id: string
+          kind: string
+          owner_id: string
+          owner_type: string
+        }
+        Insert: {
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          kind: string
+          owner_id: string
+          owner_type: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          kind?: string
+          owner_id?: string
+          owner_type?: string
+        }
+        Relationships: []
+      }
+      kb_chunks: {
+        Row: {
+          chunk_index: number
+          chunk_text: string
+          created_at: string
+          document_id: string
+          id: string
+        }
+        Insert: {
+          chunk_index: number
+          chunk_text: string
+          created_at?: string
+          document_id: string
+          id?: string
+        }
+        Update: {
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "kb_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kb_documents: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          source: string
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          source: string
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          source?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      lost_cat_matches: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          lost_cat_id: string
+          sighting_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          lost_cat_id: string
+          sighting_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          lost_cat_id?: string
+          sighting_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lost_cat_matches_lost_cat_id_fkey"
+            columns: ["lost_cat_id"]
+            isOneToOne: false
+            referencedRelation: "lost_cats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lost_cat_matches_sighting_id_fkey"
+            columns: ["sighting_id"]
+            isOneToOne: false
+            referencedRelation: "sightings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lost_cats: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          last_seen_at: string
+          lat: number | null
+          lng: number | null
+          location: unknown
+          owner_id: string
+          photo_url: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_seen_at: string
+          lat?: number | null
+          lng?: number | null
+          location: unknown
+          owner_id: string
+          photo_url: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_seen_at?: string
+          lat?: number | null
+          lng?: number | null
+          location?: unknown
+          owner_id?: string
+          photo_url?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lost_cats_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -442,6 +670,61 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sighting_links: {
+        Row: {
+          confidence: number
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_sighting_id: string
+          sighting_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_sighting_id: string
+          sighting_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_sighting_id?: string
+          sighting_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sighting_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sighting_links_linked_sighting_id_fkey"
+            columns: ["linked_sighting_id"]
+            isOneToOne: false
+            referencedRelation: "sightings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sighting_links_sighting_id_fkey"
+            columns: ["sighting_id"]
+            isOneToOne: false
+            referencedRelation: "sightings"
             referencedColumns: ["id"]
           },
         ]
@@ -984,6 +1267,16 @@ export type Database = {
             }
             Returns: string
           }
+      ai_moderate_content: {
+        Args: {
+          p_categories?: string[]
+          p_id: string
+          p_reason?: string
+          p_type: string
+          p_verdict: string
+        }
+        Returns: undefined
+      }
       approve_adoption: {
         Args: { p_interest: string }
         Returns: {
@@ -1024,6 +1317,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      check_ai_rate_limit: {
+        Args: { p_feature: string; p_max_per_hour: number }
+        Returns: boolean
+      }
       claim_sighting: {
         Args: { p_sighting: string }
         Returns: {
@@ -1050,6 +1347,74 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "sightings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      coarse_location: { Args: { p: unknown }; Returns: unknown }
+      confirm_lost_cat_match: {
+        Args: { p_match: string }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          id: string
+          lost_cat_id: string
+          sighting_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lost_cat_matches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirm_sighting_link: {
+        Args: { p_link: string }
+        Returns: {
+          confidence: number
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_sighting_id: string
+          sighting_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sighting_links"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_lost_cat: {
+        Args: {
+          p_description?: string
+          p_last_seen_at: string
+          p_lat: number
+          p_lng: number
+          p_photo_url?: string
+          p_title?: string
+        }
+        Returns: {
+          created_at: string
+          description: string | null
+          id: string
+          last_seen_at: string
+          lat: number | null
+          lng: number | null
+          location: unknown
+          owner_id: string
+          photo_url: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lost_cats"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1126,6 +1491,14 @@ export type Database = {
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
+      enqueue_push_notification: {
+        Args: {
+          p_recipient_user_id?: string
+          p_sighting_id: string
+          p_type: string
+        }
+        Returns: undefined
+      }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       express_adoption_interest: {
         Args: { p_message?: string; p_sighting: string }
@@ -1143,6 +1516,58 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      find_lost_cat_matches: {
+        Args: {
+          p_limit?: number
+          p_lost_cat: string
+          p_max_age_days?: number
+          p_radius_m?: number
+        }
+        Returns: {
+          confidence: number
+          created_at: string
+          distance_m: number
+          match_id: string
+          sighting_id: string
+          status: string
+          thumbnail_url: string
+          title: string
+        }[]
+      }
+      find_lost_cats_for_sighting: {
+        Args: {
+          p_limit?: number
+          p_max_age_days?: number
+          p_radius_m?: number
+          p_sighting: string
+        }
+        Returns: {
+          confidence: number
+          distance_m: number
+          lost_cat_id: string
+          match_id: string
+          owner_id: string
+          title: string
+        }[]
+      }
+      find_sighting_duplicates: {
+        Args: {
+          p_limit?: number
+          p_max_age_hours?: number
+          p_radius_m?: number
+          p_sighting: string
+        }
+        Returns: {
+          confidence: number
+          created_at: string
+          distance_m: number
+          link_id: string
+          linked_sighting_id: string
+          status: string
+          thumbnail_url: string
+          title: string
+        }[]
       }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
@@ -1242,7 +1667,70 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_embedding: {
+        Args: { p_kind: string; p_owner_id: string; p_owner_type: string }
+        Returns: string
+      }
+      get_lost_cat: { Args: { p_id: string }; Returns: Json }
+      get_lost_cat_matches: {
+        Args: { p_lost_cat: string }
+        Returns: {
+          confidence: number
+          created_at: string
+          distance_m: number
+          id: string
+          lost_cat_id: string
+          sighting_created_at: string
+          sighting_id: string
+          sighting_thumbnail_url: string
+          sighting_title: string
+          status: string
+        }[]
+      }
+      get_my_lost_cats: {
+        Args: never
+        Returns: {
+          created_at: string
+          description: string
+          id: string
+          last_seen_at: string
+          lat: number
+          lng: number
+          owner_id: string
+          photo_url: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
+      }
+      get_report_velocity_flags: {
+        Args: {
+          p_limit?: number
+          p_threshold?: number
+          p_window_minutes?: number
+        }
+        Returns: {
+          latest_at: string
+          sighting_count: number
+          user_id: string
+          username: string
+          window_start: string
+        }[]
+      }
       get_sighting_detail: { Args: { p_sighting: string }; Returns: Json }
+      get_sighting_links: {
+        Args: { p_sighting: string }
+        Returns: {
+          confidence: number
+          created_at: string
+          id: string
+          linked_sighting_id: string
+          sighting_id: string
+          status: string
+          thumbnail_url: string
+          title: string
+        }[]
+      }
       gettransactionid: { Args: never; Returns: unknown }
       grant_role: {
         Args: { p_role: string; p_user: string; p_value: boolean }
@@ -1258,7 +1746,44 @@ export type Database = {
         Returns: boolean
       }
       level_for_points: { Args: { p_points: number }; Returns: number }
+      log_ai_usage: {
+        Args: {
+          p_cost: number
+          p_feature: string
+          p_input: number
+          p_latency: number
+          p_model: string
+          p_output: number
+        }
+        Returns: undefined
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      match_embeddings: {
+        Args: {
+          p_kind: string
+          p_limit?: number
+          p_owner_exclude?: string
+          p_query: string
+        }
+        Returns: {
+          distance: number
+          id: string
+          kind: string
+          owner_id: string
+          owner_type: string
+        }[]
+      }
+      match_kb_chunks: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          chunk_id: string
+          chunk_text: string
+          distance: number
+          document_id: string
+          source: string
+          title: string
+        }[]
+      }
       moderate_content: {
         Args: { p_hide: boolean; p_id: string; p_type: string }
         Returns: undefined
@@ -1328,6 +1853,16 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      rank_push_recipients: {
+        Args: { p_sighting: string; p_variant?: string }
+        Returns: {
+          is_guardian: boolean
+          rank: number
+          score: number
+          token: string
+          user_id: string
+        }[]
+      }
       redeem_reward: {
         Args: { p_offer: string }
         Returns: {
@@ -1347,10 +1882,48 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reject_lost_cat_match: {
+        Args: { p_match: string }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          id: string
+          lost_cat_id: string
+          sighting_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lost_cat_matches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reject_sighting_link: {
+        Args: { p_link: string }
+        Returns: {
+          confidence: number
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_sighting_id: string
+          sighting_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sighting_links"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       report_content: {
         Args: { p_id: string; p_reason?: string; p_type: string }
         Returns: undefined
       }
+      set_push_enabled: { Args: { p_enabled: boolean }; Returns: undefined }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -1932,6 +2505,15 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      store_embedding: {
+        Args: {
+          p_embedding: string
+          p_kind: string
+          p_owner_id: string
+          p_owner_type: string
+        }
+        Returns: undefined
+      }
       tokens_near: {
         Args: {
           p_exclude_user?: string
@@ -2035,12 +2617,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2064,11 +2646,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2089,11 +2671,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2114,11 +2696,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2131,11 +2713,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2161,4 +2743,3 @@ export const Constants = {
     },
   },
 } as const
-

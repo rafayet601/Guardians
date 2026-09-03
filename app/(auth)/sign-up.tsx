@@ -183,6 +183,42 @@ export default function SignUpScreen() {
               style={styles.submit}
             />
           </Animated.View>
+
+          <Animated.View
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(4.5 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
+            style={styles.legalNotice}
+          >
+            <Text variant="caption" muted center>
+              By creating an account, you agree to our{' '}
+              <Text
+                variant="caption"
+                color={colors.primary}
+                onPress={() => router.push('/terms')}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Service"
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text
+                variant="caption"
+                color={colors.primary}
+                onPress={() => router.push('/privacy')}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </Animated.View>
         </View>
 
         <Animated.View
@@ -221,5 +257,6 @@ const styles = StyleSheet.create({
   sub: { maxWidth: 300 },
   form: { gap: spacing.lg },
   submit: { marginTop: spacing.sm },
+  legalNotice: { marginTop: spacing.xs, paddingHorizontal: spacing.sm },
   switch: { marginTop: spacing.xxl },
 });

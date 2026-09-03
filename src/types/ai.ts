@@ -39,7 +39,8 @@ export interface AdoptionDraft {
   draft: string;
 }
 
-export type ModerationVerdict = 'safe' | 'borderline' | 'violation';
+/** Mirrors the VERDICTS enum in ai-moderate-photo / ai-moderate-text. */
+export type ModerationVerdict = 'ok' | 'borderline' | 'violation';
 
 export interface ModerationResult {
   verdict: ModerationVerdict;
@@ -59,7 +60,8 @@ export interface ModerateTextInput {
   text: string;
 }
 
-export type ModerationTargetType = 'sighting' | 'comment' | 'profile' | 'photo';
+/** The only target types ai-mod-copilot accepts (anything else is a 400). */
+export type ModerationTargetType = 'sighting' | 'comment';
 
 export interface ModCopilotInput {
   targetType: ModerationTargetType;
@@ -112,7 +114,12 @@ export interface LostCatMatch {
 }
 
 export interface ReidCandidate {
-  linkId: string;
+  /**
+   * The `sighting_links` row backing this suggestion. Null when the server
+   * could not create/find one for the pair — the UI hides confirm/reject for
+   * those rather than inventing an id.
+   */
+  linkId: string | null;
   sightingId: string;
   linkedSightingId: string;
   confidence: number;
