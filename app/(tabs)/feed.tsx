@@ -36,8 +36,16 @@ export default function FeedScreen() {
   const [filterKey, setFilterKey] = useState('all');
 
   const statuses = FILTERS.find((f) => f.key === filterKey)?.statuses;
-  const { data, isLoading, isRefetching, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useFeed(statuses);
+  const {
+    data,
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFeed(statuses);
   const items = data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
@@ -84,6 +92,13 @@ export default function FeedScreen() {
 
       {isLoading ? (
         <Loading label="Loading sightings…" />
+      ) : isError ? (
+        <EmptyState
+          title="Could not load sightings"
+          message="Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => refetch()}
+        />
       ) : (
         <FlatList
           data={items}

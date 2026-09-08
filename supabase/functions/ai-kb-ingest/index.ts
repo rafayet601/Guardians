@@ -29,6 +29,7 @@
 //   supabase functions deploy ai-kb-ingest
 //   supabase secrets set VOYAGE_API_KEY=pa-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
   embedTexts,
@@ -95,6 +96,8 @@ async function selectAll<T>(
 }
 
 Deno.serve(async (req: Request) => {
+  const options = preflight(req);
+  if (options) return options;
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -359,6 +362,6 @@ function chunkText(content: string, target = CHUNK_TARGET): string[] {
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

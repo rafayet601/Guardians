@@ -2,14 +2,17 @@
 // -----------------------------------------------------------------------------
 // Permanently deletes the calling user's account. Identifies the caller from
 // their JWT, then uses the service role to delete the auth.users row — which
-// cascades to public.profiles and all child rows (ON DELETE CASCADE). This
+// cascades to public.profiles; community records may retain anonymized rows. This
 // powers the App Store / Play "in-app account deletion" requirement.
 //
-// Note: storage objects under the user's folder (avatars/cat-photos) are not
-// FK-linked, so a follow-up storage sweep is recommended for full erasure.
+// Storage objects must be removed first: Auth refuses to delete their owner.
+import { deleteUserUploads } from '../_shared/deleteUserUploads.ts';
+import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 Deno.serve(async (req: Request) => {
+  const options = preflight(req);
+  if (options) return options;
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -28,10 +31,16 @@ Deno.serve(async (req: Request) => {
   if (!user) return json({ error: 'Unauthorized' }, 401);
 
   const admin = createClient(url, serviceKey);
+  try {
+    await deleteUserUploads(admin, user.id);
+  } catch (error) {
+    console.error('[delete-account] storage cleanup failed:', error);
+    return json({ error: 'Unable to remove uploads. Please retry account deletion.' }, 500);
+  }
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
     console.error('[delete-account] failed:', error.message);
-    return json({ error: error.message }, 500);
+    return json({ error: 'Unable to delete account. Please retry.' }, 500);
   }
 
   return json({ deleted: true });
@@ -40,6 +49,6 @@ Deno.serve(async (req: Request) => {
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

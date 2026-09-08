@@ -1,22 +1,7 @@
-/**
- * Deterministic placeholder imagery for records that have no uploaded photo
- * yet (e.g. seeded sightings). The same seed always yields the same picture, so
- * a given cat keeps a stable thumbnail across renders.
- */
+import { colors } from '@/theme';
 
-function hashCode(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
-
-/**
- * An example cat photo for a sighting with no real image. LoremFlickr's `lock`
- * param makes the result deterministic for a given seed.
- */
-export function catPhoto(seed: string, size = 240): string {
-  const lock = (hashCode(seed) % 4000) + 1;
-  return `https://loremflickr.com/${size}/${size}/cat,kitten?lock=${lock}`;
+/** Neutral local illustration: never substitute another animal's photograph. */
+export function catPhoto(_seed: string, size = 240): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 240 240"><rect width="240" height="240" fill="${colors.surface}"/><path d="M65 98V58l39 23a79 79 0 0 1 32 0l39-23v40c21 49-1 85-55 85s-76-36-55-85Z" fill="${colors.border}"/><circle cx="99" cy="125" r="5" fill="${colors.textMuted}"/><circle cx="141" cy="125" r="5" fill="${colors.textMuted}"/><path d="m113 143 7 7 7-7" fill="${colors.textMuted}"/></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }

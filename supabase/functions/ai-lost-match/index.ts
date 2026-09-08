@@ -46,6 +46,7 @@
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... VOYAGE_API_KEY=pa-...
 //   (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY / SUPABASE_URL as for send-push)
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
 import {
@@ -119,6 +120,8 @@ interface EmbedResult {
 }
 
 Deno.serve(async (req: Request) => {
+  const options = preflight(req);
+  if (options) return options;
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -643,6 +646,6 @@ function base64(buf: ArrayBuffer): string {
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

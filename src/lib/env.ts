@@ -37,6 +37,7 @@ export const env = {
   googleMapsAndroidKey: realEnv(process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY),
   googleMapsIosKey: realEnv(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY),
   // Optional: set to enable real error reporting via the observability façade.
+  supportUrl: realEnv(process.env.EXPO_PUBLIC_SUPPORT_URL),
   sentryDsn: realEnv(process.env.EXPO_PUBLIC_SENTRY_DSN),
   isConfigured: looksConfigured,
   // Master flag for client-side AI UI (server does the actual model calls).
