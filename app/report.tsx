@@ -55,7 +55,7 @@ export default function ReportScreen() {
   const autofill = useAiAutofill();
 
   const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [marker, setMarker] = useState<LatLng | null>(null);
+  const [selectedMarker, setMarker] = useState<LatLng | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('');
@@ -77,11 +77,8 @@ export default function ReportScreen() {
   const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
   const [photoPrimerSource, setPhotoPrimerSource] = useState<PhotoSource | null>(null);
 
-  // default the marker to the user's location once available
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (coords && !marker) setMarker({ latitude: coords.lat, longitude: coords.lng });
-  }, [coords]);
+  const marker =
+    selectedMarker ?? (coords ? { latitude: coords.lat, longitude: coords.lng } : null);
 
   // Prime once before the OS location prompt (P1-1). Requesting when the
   // permission is already decided is prompt-free, so returning users keep
@@ -151,6 +148,10 @@ export default function ReportScreen() {
   };
 
   const pickFrom = async (mode: PhotoSource) => {
+    if (mode !== 'camera' && Platform.OS !== 'ios') {
+      await launchPicker(mode);
+      return;
+    }
     if (photos.length >= MAX_PHOTOS) return;
     const kind = kindForSource(mode);
     const existing =

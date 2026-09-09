@@ -186,6 +186,10 @@ function LostCatForm() {
   const pickPhoto = async () => {
     const source = await choosePhotoSource();
     if (!source) return;
+    if (source !== 'camera' && Platform.OS !== 'ios') {
+      await launchPicker(source);
+      return;
+    }
     const kind = kindForSource(source);
     const existing =
       source === 'camera'

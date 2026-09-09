@@ -2,6 +2,8 @@ import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+import { setPushAccount, unregisterForPush } from '@/lib/push';
+import { queryClient } from '@/lib/queryClient';
 import { track } from '@/lib/observability';
 import { supabase } from '@/lib/supabase';
 
@@ -32,11 +34,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let authEventReceived = false;
+    let currentUserId: string | null = null;
+    const applySession = (next: Session | null) => {
+      if (!active) return;
+      const nextUserId = next?.user.id ?? null;
+      if (nextUserId !== currentUserId) {
+        // Clear privileged details before another account can render them.
+        queryClient.clear();
+        currentUserId = nextUserId;
+      }
+      setPushAccount(nextUserId);
+      setSession(next);
+    };
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (!active) return;
-        setSession(data.session);
+        if (!authEventReceived) applySession(data.session);
       })
       .catch((err) => {
         console.error('Failed to resolve session on mount:', err);
@@ -45,7 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (active) setInitializing(false);
       });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      authEventReceived = true;
+      applySession(newSession);
     });
     return () => {
       active = false;
@@ -78,7 +93,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { needsConfirmation: !data.session };
       },
       async signOut() {
-        await supabase.auth.signOut();
+        if (session?.user.id) await unregisterForPush(session.user.id);
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
       },
       async resetPassword(email) {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -93,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async deleteAccount() {
         // Permanently deletes the auth user (cascades all data) via the
         // `delete-account` Edge Function, then clears the local session.
+        if (session?.user.id) await unregisterForPush(session.user.id);
         const { error } = await supabase.functions.invoke('delete-account');
         if (error) throw error;
         await supabase.auth.signOut();
