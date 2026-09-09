@@ -43,3 +43,5 @@ TypeScript, ESLint, Prettier, Jest, dependency audit, native/web Metro exports,
 Playwright browser smoke tests, Deno checks/tests and the pgTAP database suite.
 See `scripts/patch-query-string.cjs`; remove the patch when Expo Router upgrades
 its CommonJS query-string dependency to support the patched ESM decoder itself.
+
+For native Google Maps credentials and physical-device checks, follow [MAPS_SETUP.md](MAPS_SETUP.md).

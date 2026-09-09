@@ -17,6 +17,7 @@ import { STATUS_META } from '@/constants/status';
 import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
+import { notify } from '@/lib/dialog';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { CatStatus, NearbySighting } from '@/types/models';
 import { DEFAULT_REGION, radiusFromRegion, regionForRadius } from '@/utils/geo';
@@ -38,7 +39,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const mapRef = useRef<ComponentRef<typeof MapView>>(null);
-  const { coords, request } = useCurrentLocation();
+  const { coords, status: locationStatus, request } = useCurrentLocation();
 
   const reduced = useReducedMotion() ?? false;
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
@@ -118,18 +119,32 @@ export default function MapScreen() {
     [region, filter],
   );
 
-  const { data: sightings = [], isFetching } = useNearbySightings(params);
+  const { data: sightings = [], isFetching, isError, refetch } = useNearbySightings(params);
 
-  const recenter = () => {
-    if (coords) {
-      mapRef.current?.animateToRegion(regionForRadius(coords.lat, coords.lng, 3000), 500);
+  const recenter = async () => {
+    if (locationStatus === 'loading') return;
+    if (!(await hasPrimerBeenShown('location'))) {
+      setLocationPrimerVisible(true);
+      return;
+    }
+    // Obtain a fresh position instead of recentering on an old GPS fix.
+    const next = await request();
+    if (next) {
+      const r = regionForRadius(next.lat, next.lng, 3000);
+      setRegion(r);
+      mapRef.current?.animateToRegion(r, 500);
+    } else {
+      notify(
+        'Location unavailable',
+        'Enable location access and device location services, then try again. You can still browse the map manually.',
+      );
     }
   };
 
   // Geocode the search query and recenter the map there.
   const onSearch = async () => {
     const q = query.trim();
-    if (!q) return;
+    if (!q || searching) return;
     setSearching(true);
     try {
       const results = await Location.geocodeAsync(q);
@@ -137,9 +152,12 @@ export default function MapScreen() {
         const r = regionForRadius(results[0].latitude, results[0].longitude, 3000);
         setRegion(r);
         mapRef.current?.animateToRegion(r, 600);
-      }
+      } else notify('Place not found', 'Try a more specific address or move the map to your area.');
     } catch {
-      // ignore geocode failures — leave the map where it is
+      notify(
+        'Search unavailable',
+        'Place search is unavailable right now. Move and zoom the map to browse your area.',
+      );
     } finally {
       setSearching(false);
     }
@@ -189,7 +207,13 @@ export default function MapScreen() {
         provider={MAP_PROVIDER}
         style={StyleSheet.absoluteFill}
         initialRegion={DEFAULT_REGION}
-        showsUserLocation
+        showsUserLocation={locationStatus === 'granted'}
+        onMapReady={() => {
+          if (!coords) return;
+          const r = regionForRadius(coords.lat, coords.lng, 3000);
+          setRegion(r);
+          mapRef.current?.animateToRegion(r, 500);
+        }}
         showsMyLocationButton={false}
         onPress={() => {
           setSelected(null);
@@ -295,12 +319,30 @@ export default function MapScreen() {
         </Animated.View>
       ) : null}
 
+      {isError && !isFetching ? (
+        <PressableScale
+          onPress={() => void refetch()}
+          style={[styles.fetching, { top: insets.top + 108 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Sightings could not refresh. Tap to retry."
+        >
+          <Text variant="caption" color={colors.white}>
+            Couldn’t refresh sightings · Tap to retry
+          </Text>
+        </PressableScale>
+      ) : null}
+
       {/* Recenter */}
       <PressableScale
         onPress={recenter}
         style={[styles.recenter, { bottom: controlBottom + 60 }]}
         accessibilityRole="button"
         accessibilityLabel="Recenter map on my location"
+        accessibilityState={{
+          busy: locationStatus === 'loading',
+          disabled: locationStatus === 'loading',
+        }}
+        disabled={locationStatus === 'loading'}
       >
         <Ionicons name="locate" size={22} color={coords ? colors.primary : colors.textFaint} />
       </PressableScale>
