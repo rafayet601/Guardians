@@ -34,7 +34,12 @@ export function track(event: string, props?: Props): void {
   if (!env.isConfigured) return;
   // Forward to the self-hosted analytics backend (track_event RPC →
   // analytics_events). Fire-and-forget — telemetry must never block or throw.
-  void supabase.rpc('track_event', { p_event: event, p_props: (props ?? {}) as Json });
+  // Supabase builders are lazy thenables: consuming one starts the request.
+  void Promise.resolve(
+    supabase.rpc('track_event', { p_event: event, p_props: (props ?? {}) as Json }),
+  ).catch(() => {
+    // Analytics outages must not create unhandled rejections or interrupt rescue work.
+  });
 }
 
 interface RNErrorUtils {

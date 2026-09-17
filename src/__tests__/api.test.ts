@@ -32,6 +32,7 @@ import {
   triggerSightingLostMatch,
 } from '@/api/ai';
 import { getMyProfile } from '@/api/profiles';
+import { getMyScreening, isAdopterCleared, startIdVerification, submitScreening } from '@/api/screening';
 import { getLeaderboard } from '@/api/gamification';
 import { reportContent, moderateContent, getBlockedUsers } from '@/api/moderation';
 
@@ -118,6 +119,35 @@ describe('API client → RPC argument mapping', () => {
     expect(rpc).toHaveBeenCalledWith('approve_adoption', { p_interest: 'i1' });
   });
 
+  it('getMyScreening → get_my_screening', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await getMyScreening();
+    expect(rpc).toHaveBeenCalledWith('get_my_screening');
+  });
+
+  it('submitScreening → submit_adopter_screening with p_payload', async () => {
+    const payload = {
+      full_name: 'Jordan Rivera',
+      dob: '1990-01-01',
+      phone: '+1 555 0100',
+      address_line: '123 Maple St',
+      city: 'Portland',
+      postal: '97201',
+      housing: 'own' as const,
+      home_visit_consent: true,
+      cruelty_attestation: true,
+      consent: true,
+    };
+    await submitScreening(payload);
+    expect(rpc).toHaveBeenCalledWith('submit_adopter_screening', { p_payload: payload });
+  });
+
+  it('isAdopterCleared → is_adopter_cleared', async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    await expect(isAdopterCleared('u1')).resolves.toBe(true);
+    expect(rpc).toHaveBeenCalledWith('is_adopter_cleared', { p_user: 'u1' });
+  });
+
   it('getNearby → nearby_sightings', async () => {
     rpc.mockResolvedValue({ data: [], error: null });
     await getNearby({ lat: 1, lng: 2, radiusM: 3000 });
@@ -176,6 +206,17 @@ describe('API client → RPC argument mapping', () => {
 });
 
 describe('API client → Edge Function invocation', () => {
+  it('startIdVerification → screening-verify with doc paths', async () => {
+    invoke.mockResolvedValue({
+      data: { provider: 'manual', status: 'pending' },
+      error: null,
+    });
+    const result = await startIdVerification(['u1/abc.jpg']);
+    expect(invoke).toHaveBeenCalledWith('screening-verify', {
+      body: { id_doc_paths: ['u1/abc.jpg'] },
+    });
+    expect(result.provider).toBe('manual');
+  });
   it('getReportAutofill → ai-report-autofill with the photo body', async () => {
     invoke.mockResolvedValue({
       data: {

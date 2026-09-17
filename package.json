@@ -32,6 +32,7 @@
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
     "expo-updates": "~56.0.19",
+    "expo-web-browser": "~56.0.6",
     "leaflet": "^1.9.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -76,7 +77,8 @@
     "gen:types": "supabase gen types typescript --linked > src/types/database.ts",
     "test": "jest",
     "test:ci": "jest --ci --runInBand",
-    "preflight": "bash scripts/preflight-check.sh"
+    "preflight": "bash scripts/preflight-check.sh",
+    "auth:status": "node --env-file=.env scripts/check-auth-settings.mjs"
   },
   "private": true
 }

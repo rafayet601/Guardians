@@ -125,6 +125,89 @@ export interface AdoptionInterest {
   applicant?: ProfileRef | null;
 }
 
+// ---------------------------------------------------------------------------
+// Adopter background check (migration 0032)
+// ---------------------------------------------------------------------------
+
+export type ScreeningStatus =
+  | 'draft'
+  | 'pending'
+  | 'needs_review'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
+
+export type ScreeningIdStatus = 'unverified' | 'pending' | 'verified' | 'failed';
+
+export interface AdopterScreening {
+  id: string;
+  user_id: string;
+  status: ScreeningStatus;
+  id_status: ScreeningIdStatus;
+  full_name: string;
+  dob: string;
+  phone: string;
+  address_line: string;
+  city: string;
+  postal: string;
+  housing: 'own' | 'rent' | 'other';
+  landlord_permission: boolean | null;
+  household_adults: number;
+  household_children: number;
+  other_pets: boolean;
+  pets_details: string | null;
+  vet_name: string | null;
+  vet_phone: string | null;
+  experience: string | null;
+  hours_alone: number;
+  home_visit_consent: boolean;
+  cruelty_attestation: boolean;
+  consent: boolean;
+  consent_at: string | null;
+  consent_version: string;
+  score: number;
+  reasons: string[];
+  id_provider: string;
+  id_session_id: string | null;
+  id_doc_paths: string[];
+  verified_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Payload sent to the submit_adopter_screening RPC (snake_case, DB shape). */
+export interface ScreeningPayload {
+  full_name: string;
+  dob: string;
+  phone: string;
+  address_line: string;
+  city: string;
+  postal: string;
+  housing: 'own' | 'rent' | 'other';
+  landlord_permission?: boolean | null;
+  household_adults?: number;
+  household_children?: number;
+  other_pets?: boolean;
+  pets_details?: string;
+  vet_name?: string;
+  vet_phone?: string;
+  experience?: string;
+  hours_alone?: number;
+  home_visit_consent: boolean;
+  cruelty_attestation: boolean;
+  consent: boolean;
+  id_doc_paths?: string[];
+}
+
+/** True when the applicant may adopt right now (approved + ID verified + unexpired). */
+export function isScreeningCleared(s: AdopterScreening | null | undefined): boolean {
+  if (!s) return false;
+  if (s.status !== 'approved' || s.id_status !== 'verified') return false;
+  if (s.expires_at && new Date(s.expires_at).getTime() <= Date.now()) return false;
+  return true;
+}
+
 export interface Badge {
   id: string;
   name: string;

@@ -2,7 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Supercluster from 'supercluster';
@@ -16,6 +24,7 @@ import { Text } from '@/components/ui';
 import { STATUS_META } from '@/constants/status';
 import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
+import { confirmAsync, notify } from '@/lib/dialog';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { CatStatus, NearbySighting } from '@/types/models';
@@ -38,7 +47,8 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const mapRef = useRef<ComponentRef<typeof MapView>>(null);
-  const { coords, request } = useCurrentLocation();
+  const { coords, status: locationStatus, error: locationError, request } = useCurrentLocation();
+  const locationActionPending = useRef(false);
 
   const reduced = useReducedMotion() ?? false;
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
@@ -68,26 +78,41 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion(r, 600);
   }, [coords]);
 
-  // Prime once before the OS location prompt (P1-1). Requesting when the
-  // permission is already decided is prompt-free, so returning users keep
-  // auto-centering and previously-denied users just stay on the default
-  // region (no OS re-prompt is possible anyway).
+  // Only already-granted permissions may auto-center. Every new OS prompt
+  // follows the primer or an explicit tap on the location control.
   useEffect(() => {
     let active = true;
     (async () => {
-      const perm = await Location.getForegroundPermissionsAsync();
-      if (!active) return;
-      if (perm.granted || !perm.canAskAgain) {
-        void request();
-        return;
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!active) return;
+        if (perm.granted) {
+          void request();
+          return;
+        }
+        const shown = await hasPrimerBeenShown('location');
+        if (active && !shown && perm.canAskAgain) setLocationPrimerVisible(true);
+      } catch {
+        // Permission APIs can be unavailable in a browser. The explicit
+        // location control remains available to retry and explain recovery.
       }
-      const shown = await hasPrimerBeenShown('location');
-      if (active && !shown) setLocationPrimerVisible(true);
     })();
     return () => {
       active = false;
     };
   }, [request]);
+
+  useEffect(() => {
+    if (locationStatus !== 'denied') return;
+    notify(
+      locationError ? 'Location unavailable' : 'Location access is off',
+      locationError
+        ? 'Check that location services are enabled, then tap the location button to retry. You can still explore the map.'
+        : Platform.OS === 'web'
+          ? 'Allow location for this site in your browser settings, then tap the location button again. You can still explore the map.'
+          : 'Tap the location button to retry or open app settings. You can still explore the map.',
+    );
+  }, [locationStatus, locationError]);
 
   const allowLocationPrimer = async () => {
     setLocationPrimerVisible(false);
@@ -123,11 +148,50 @@ export default function MapScreen() {
     [region, filter],
   );
 
-  const { data: sightings = [], isFetching } = useNearbySightings(params);
+  const {
+    data: sightings = [],
+    isPending,
+    isError,
+    isFetching,
+    refetch,
+  } = useNearbySightings(params);
 
-  const recenter = () => {
-    if (coords) {
-      mapRef.current?.animateToRegion(regionForRadius(coords.lat, coords.lng, 3000), 500);
+  const recenter = async () => {
+    if (locationActionPending.current || locationStatus === 'loading') return;
+    locationActionPending.current = true;
+    try {
+      const permission = await Location.getForegroundPermissionsAsync();
+      if (!permission.granted && !permission.canAskAgain) {
+        if (Platform.OS === 'web') {
+          notify(
+            'Location access is off',
+            'Allow location for this site in your browser settings, then tap the location button again. You can still explore the map.',
+          );
+        } else if (
+          await confirmAsync({
+            title: 'Location access is off',
+            message:
+              'Enable location for Guardians in app settings, then return and tap the location button again.',
+            confirmLabel: 'Open settings',
+            cancelLabel: 'Keep browsing',
+          })
+        ) {
+          await Linking.openSettings();
+        }
+        return;
+      }
+      if (!permission.granted && !(await hasPrimerBeenShown('location'))) {
+        setLocationPrimerVisible(true);
+        return;
+      }
+      await request();
+    } catch {
+      notify(
+        'Location unavailable',
+        'Check your device or browser location settings and try again. You can still explore the map.',
+      );
+    } finally {
+      locationActionPending.current = false;
     }
   };
 
@@ -142,9 +206,17 @@ export default function MapScreen() {
         const r = regionForRadius(results[0].latitude, results[0].longitude, 3000);
         setRegion(r);
         mapRef.current?.animateToRegion(r, 600);
+      } else {
+        notify(
+          'Place not found',
+          'Try a city, neighbourhood, or a more complete address. You can also pan the map.',
+        );
       }
     } catch {
-      // ignore geocode failures — leave the map where it is
+      notify(
+        'Search unavailable',
+        'Please try again or pan the map to your area. Your current map has been kept.',
+      );
     } finally {
       setSearching(false);
     }
@@ -194,7 +266,7 @@ export default function MapScreen() {
         provider={MAP_PROVIDER}
         style={StyleSheet.absoluteFill}
         initialRegion={DEFAULT_REGION}
-        showsUserLocation
+        showsUserLocation={locationStatus === 'granted'}
         showsMyLocationButton={false}
         onPress={() => setSelected(null)}
         onRegionChangeComplete={(r) => {
@@ -299,9 +371,20 @@ export default function MapScreen() {
         onPress={recenter}
         style={[styles.recenter, { bottom: controlBottom + 60 }]}
         accessibilityRole="button"
-        accessibilityLabel="Recenter map on my location"
+        accessibilityLabel={
+          locationStatus === 'loading' ? 'Finding your location' : 'Recenter map on my location'
+        }
+        accessibilityState={{
+          busy: locationStatus === 'loading',
+          disabled: locationStatus === 'loading',
+        }}
+        disabled={locationStatus === 'loading'}
       >
-        <Ionicons name="locate" size={22} color={coords ? colors.primary : colors.textFaint} />
+        {locationStatus === 'loading' ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Ionicons name="locate" size={22} color={colors.primary} />
+        )}
       </PressableScale>
 
       {/* Report pill — sits just above the sheet peek */}
@@ -326,6 +409,18 @@ export default function MapScreen() {
       {/* Persistent nearby sheet */}
       <NearbySheet
         sightings={sightings}
+        loading={isPending}
+        failed={isError}
+        refreshing={isFetching}
+        onRetry={() => void refetch()}
+        emptyTitle={
+          filter === 'available'
+            ? 'No adoptable cats in this area'
+            : filter === 'needs_help'
+              ? 'No matching help requests here'
+              : 'No sightings in this area yet'
+        }
+        emptyMessage="Try another area or filter. Reports come from the community, so an empty map does not mean every cat is safe."
         coords={coords}
         selectedId={selected?.id}
         onSelect={(id) => router.push(`/sighting/${id}`)}
@@ -365,7 +460,7 @@ function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolea
           { backgroundColor: color, borderColor: active ? colors.accent : colors.white },
         ]}
       >
-        {urgent ? <Text style={styles.pinGlyph}>🚨</Text> : <View style={styles.pinDot} />}
+        <Ionicons name={urgent ? "alert" : "paw"} size={16} color={colors.white} />
       </View>
       <View style={[styles.pinTail, { borderTopColor: color }]} />
     </View>

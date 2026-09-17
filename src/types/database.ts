@@ -1,6 +1,3 @@
-// Generated from the live Supabase schema. Do not edit by hand —
-// regenerate with: npm run gen:types  (see package.json).
-
 export type Json =
   | string
   | number
@@ -14,6 +11,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -50,6 +72,125 @@ export type Database = {
             foreignKeyName: "abuse_reports_reporter_id_fkey"
             columns: ["reporter_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adopter_screenings: {
+        Row: {
+          address_line: string
+          city: string
+          consent: boolean
+          consent_at: string | null
+          consent_version: string
+          created_at: string
+          cruelty_attestation: boolean
+          dob: string
+          experience: string | null
+          expires_at: string | null
+          full_name: string
+          home_visit_consent: boolean
+          hours_alone: number
+          household_adults: number
+          household_children: number
+          housing: string
+          id: string
+          id_doc_paths: string[]
+          id_provider: string
+          id_session_id: string | null
+          id_status: Database["public"]["Enums"]["screening_id_status"]
+          landlord_permission: boolean | null
+          other_pets: boolean
+          pets_details: string | null
+          phone: string
+          postal: string
+          reasons: string[]
+          score: number
+          status: Database["public"]["Enums"]["screening_status"]
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          vet_name: string | null
+          vet_phone: string | null
+        }
+        Insert: {
+          address_line: string
+          city: string
+          consent?: boolean
+          consent_at?: string | null
+          consent_version?: string
+          created_at?: string
+          cruelty_attestation?: boolean
+          dob: string
+          experience?: string | null
+          expires_at?: string | null
+          full_name: string
+          home_visit_consent?: boolean
+          hours_alone?: number
+          household_adults?: number
+          household_children?: number
+          housing: string
+          id?: string
+          id_doc_paths?: string[]
+          id_provider?: string
+          id_session_id?: string | null
+          id_status?: Database["public"]["Enums"]["screening_id_status"]
+          landlord_permission?: boolean | null
+          other_pets?: boolean
+          pets_details?: string | null
+          phone: string
+          postal: string
+          reasons?: string[]
+          score?: number
+          status?: Database["public"]["Enums"]["screening_status"]
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+          vet_name?: string | null
+          vet_phone?: string | null
+        }
+        Update: {
+          address_line?: string
+          city?: string
+          consent?: boolean
+          consent_at?: string | null
+          consent_version?: string
+          created_at?: string
+          cruelty_attestation?: boolean
+          dob?: string
+          experience?: string | null
+          expires_at?: string | null
+          full_name?: string
+          home_visit_consent?: boolean
+          hours_alone?: number
+          household_adults?: number
+          household_children?: number
+          housing?: string
+          id?: string
+          id_doc_paths?: string[]
+          id_provider?: string
+          id_session_id?: string | null
+          id_status?: Database["public"]["Enums"]["screening_id_status"]
+          landlord_permission?: boolean | null
+          other_pets?: boolean
+          pets_details?: string | null
+          phone?: string
+          postal?: string
+          reasons?: string[]
+          score?: number
+          status?: Database["public"]["Enums"]["screening_status"]
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+          vet_name?: string | null
+          vet_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adopter_screenings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1703,6 +1844,51 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_screening: {
+        Args: never
+        Returns: {
+          address_line: string
+          city: string
+          consent: boolean
+          consent_at: string | null
+          consent_version: string
+          created_at: string
+          cruelty_attestation: boolean
+          dob: string
+          experience: string | null
+          expires_at: string | null
+          full_name: string
+          home_visit_consent: boolean
+          hours_alone: number
+          household_adults: number
+          household_children: number
+          housing: string
+          id: string
+          id_doc_paths: string[]
+          id_provider: string
+          id_session_id: string | null
+          id_status: Database["public"]["Enums"]["screening_id_status"]
+          landlord_permission: boolean | null
+          other_pets: boolean
+          pets_details: string | null
+          phone: string
+          postal: string
+          reasons: string[]
+          score: number
+          status: Database["public"]["Enums"]["screening_status"]
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          vet_name: string | null
+          vet_phone: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "adopter_screenings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_report_velocity_flags: {
         Args: {
           p_limit?: number
@@ -1737,6 +1923,7 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
+      is_adopter_cleared: { Args: { p_user: string }; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
       is_valid_transition: {
         Args: {
@@ -1922,6 +2109,51 @@ export type Database = {
       report_content: {
         Args: { p_id: string; p_reason?: string; p_type: string }
         Returns: undefined
+      }
+      review_adopter_screening: {
+        Args: { p_decision: string; p_reason?: string; p_user: string }
+        Returns: {
+          address_line: string
+          city: string
+          consent: boolean
+          consent_at: string | null
+          consent_version: string
+          created_at: string
+          cruelty_attestation: boolean
+          dob: string
+          experience: string | null
+          expires_at: string | null
+          full_name: string
+          home_visit_consent: boolean
+          hours_alone: number
+          household_adults: number
+          household_children: number
+          housing: string
+          id: string
+          id_doc_paths: string[]
+          id_provider: string
+          id_session_id: string | null
+          id_status: Database["public"]["Enums"]["screening_id_status"]
+          landlord_permission: boolean | null
+          other_pets: boolean
+          pets_details: string | null
+          phone: string
+          postal: string
+          reasons: string[]
+          score: number
+          status: Database["public"]["Enums"]["screening_status"]
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          vet_name: string | null
+          vet_phone: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "adopter_screenings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_push_enabled: { Args: { p_enabled: boolean }; Returns: undefined }
       st_3dclosestpoint: {
@@ -2514,6 +2746,51 @@ export type Database = {
         }
         Returns: undefined
       }
+      submit_adopter_screening: {
+        Args: { p_payload: Json }
+        Returns: {
+          address_line: string
+          city: string
+          consent: boolean
+          consent_at: string | null
+          consent_version: string
+          created_at: string
+          cruelty_attestation: boolean
+          dob: string
+          experience: string | null
+          expires_at: string | null
+          full_name: string
+          home_visit_consent: boolean
+          hours_alone: number
+          household_adults: number
+          household_children: number
+          housing: string
+          id: string
+          id_doc_paths: string[]
+          id_provider: string
+          id_session_id: string | null
+          id_status: Database["public"]["Enums"]["screening_id_status"]
+          landlord_permission: boolean | null
+          other_pets: boolean
+          pets_details: string | null
+          phone: string
+          postal: string
+          reasons: string[]
+          score: number
+          status: Database["public"]["Enums"]["screening_status"]
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          vet_name: string | null
+          vet_phone: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "adopter_screenings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       tokens_near: {
         Args: {
           p_exclude_user?: string
@@ -2593,6 +2870,14 @@ export type Database = {
         | "adopted"
         | "archived"
       cat_temperament: "friendly" | "shy" | "feral" | "unknown"
+      screening_id_status: "unverified" | "pending" | "verified" | "failed"
+      screening_status:
+        | "draft"
+        | "pending"
+        | "needs_review"
+        | "approved"
+        | "rejected"
+        | "expired"
       update_type: "comment" | "status_change" | "photo" | "claim" | "system"
     }
     CompositeTypes: {
@@ -2727,6 +3012,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       cat_status: [
@@ -2739,6 +3027,15 @@ export const Constants = {
         "archived",
       ],
       cat_temperament: ["friendly", "shy", "feral", "unknown"],
+      screening_id_status: ["unverified", "pending", "verified", "failed"],
+      screening_status: [
+        "draft",
+        "pending",
+        "needs_review",
+        "approved",
+        "rejected",
+        "expired",
+      ],
       update_type: ["comment", "status_change", "photo", "claim", "system"],
     },
   },

@@ -29,6 +29,7 @@ gamification engine that power Guardians.
 | `migrations/0029_push_lifecycle.sql`                | Lifecycle push triggers: `private.push_config`, `enqueue_push_notification()`, webhook for claimed/rescued/adoption-interest |
 | `migrations/0030_send_push_auth.sql`                | Dual auth (JWT + webhook shared secret) for send-push Edge Function                                                          |
 | `migrations/0031_fix_redeem_reward_search_path.sql` | Prod bug fix: widen `redeem_reward()` search_path to `extensions` schema for pgcrypto                                        |
+| `migrations/0032_adopter_screening.sql`             | Adopter background check: `adopter_screenings` + private `screening-docs` bucket; `submit`/`get_my`/`review`/`is_cleared` RPCs; hard gate on express/approve |
 | `seed.sql`                                          | Optional demo sightings                                                                                                      |
 | `tests/`                                            | pgTAP behavioral test suites (9 files, 114 tests)                                                                            |
 | `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                  |
@@ -37,7 +38,7 @@ gamification engine that power Guardians.
 
 1. Create a project at <https://app.supabase.com>.
 2. Open **SQL Editor** and run each file in `migrations/` **in order**
-   (`0001` → `0031`). Then optionally run `seed.sql`.
+   (`0001` → `0032`). Then optionally run `seed.sql`.
 3. In **Project Settings → API**, copy the **Project URL** and **anon public**
    key into the app's `.env`:
    ```
@@ -68,6 +69,11 @@ supabase db reset                      # applies migrations + seed.sql
   (plus `archived`). Status changes only happen via the RPCs below.
 - **sighting_photos / sighting_updates** — photos and the activity timeline.
 - **adoption_interest** — adopters applying for an `available` cat.
+  Expressing interest and approval both require a cleared background check
+  (see `adopter_screenings` below).
+- **adopter_screenings** — one background-check row per user (PII: owner-only
+  via `get_my_screening()`; listers see only the `is_adopter_cleared()` boolean).
+  ID documents live in the private `screening-docs` bucket (`{uid}/...`).
 - **badges / user_badges / point_events** — gamification.
 - **reward_brands / reward_offers / reward_redemptions** — the rewards
   marketplace. Users spend `profiles.kibble_balance` (a spendable currency
@@ -83,8 +89,12 @@ supabase db reset                      # applies migrations + seed.sql
 | `get_sighting_detail(p_sighting)`                            | Full sighting with precise coords + address (RESTRICTED — reporter/guardian only) |
 | `claim_sighting(p_sighting)`                                 | A guardian claims an open cat (+15 pts)                                           |
 | `update_sighting_status(p_sighting, p_new_status, p_note?)`  | Advance lifecycle (+50 on rescue)                                                 |
-| `express_adoption_interest(p_sighting, p_message?)`          | Apply to adopt an available cat                                                   |
-| `approve_adoption(p_interest)`                               | Lister approves an adopter (forever home 🎉)                                      |
+| `express_adoption_interest(p_sighting, p_message?)`          | Apply to adopt an available cat (requires cleared background check)               |
+| `approve_adoption(p_interest)`                               | Lister approves an adopter (forever home 🎉; applicant must be cleared)           |
+| `submit_adopter_screening(p_payload)`                        | Submit background-check questionnaire (deterministic auto-scoring)                 |
+| `get_my_screening()`                                         | Owner-only read of my screening (lazy-expires approvals)                          |
+| `is_adopter_cleared(p_user)`                                 | Boolean only (lister-safe, no PII) — cleared = approved + ID verified + unexpired |
+| `review_adopter_screening(p_user, p_decision, p_reason?)`     | Moderator: verify ID + approve/reject (12-month validity)                         |
 | `redeem_reward(p_offer)`                                     | Spend Kibble on a brand offer; issues a discount code                             |
 | `award_points(p_target_user, p_points, p_reason)`            | SECURITY DEFINER points award (moderator only)                                    |
 | `set_push_enabled(p_enabled)`                                | Toggle push notifications for current user                                        |

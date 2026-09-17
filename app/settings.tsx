@@ -196,7 +196,12 @@ export default function SettingsScreen() {
       confirmLabel: 'Sign out',
       destructive: true,
     });
-    if (ok) signOut();
+    if (!ok) return;
+    try {
+      await signOut();
+    } catch (error) {
+      notify('Could not sign out', getErrorMessage(error, 'Please try again.'));
+    }
   };
 
   const confirmDelete = async () => {

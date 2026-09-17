@@ -125,7 +125,7 @@ optional at roughly $10/yr.
 ## 8. Nice-to-haves
 
 - [ ] Dark mode (theme tokens are centralized in `src/theme`).
-- [ ] Social / Apple / Google sign-in.
+- [ ] Activate and verify Google / Apple sign-in. Client PKCE flow, callback routes, and provider-aware buttons are implemented; live providers are currently disabled. Follow [`docs/release/OAUTH_READINESS.md`](docs/release/OAUTH_READINESS.md).
 - [ ] Map heatmap of rescue activity; guardian "on duty" radius alerts.
 - [ ] In-app chat between reporter, guardian and adopter.
 - [ ] Generated Supabase types: `supabase gen types typescript --linked > src/types/database.ts`.

@@ -51,6 +51,9 @@ function RootNavigator() {
 
     const root = segments[0];
 
+    // Legal pages must remain public, including before backend setup.
+    if (root === 'privacy' || root === 'terms') return;
+
     // Backend not set up yet → force the setup screen.
     if (!env.isConfigured) {
       if (root !== 'setup') router.replace('/setup');
@@ -59,7 +62,7 @@ function RootNavigator() {
 
     // Password-recovery / email-confirm deep links manage their own flow and
     // briefly hold a session before the user finishes — don't redirect them.
-    if (root === 'reset' || root === 'confirm') return;
+    if (root === 'reset' || root === 'confirm' || root === 'oauth-callback') return;
 
     const inAuthFlow = root === '(auth)';
     if (!session && !inAuthFlow) {
@@ -134,6 +137,14 @@ function RootNavigator() {
         <Stack.Screen
           name="settings"
           options={{ headerShown: true, title: 'Settings', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="adopt/screening"
+          options={{
+            headerShown: true,
+            title: 'Background check',
+            headerTintColor: colors.primary,
+          }}
         />
         <Stack.Screen
           name="privacy"

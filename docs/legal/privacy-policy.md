@@ -1,6 +1,6 @@
 # Guardians — Privacy Policy
 
-_Last updated: 2026-07-12_
+_Last updated: 2026-09-16_
 
 Guardians ("we", "us", the "app") helps a community rescue feral and lost cats by
 letting people report sightings on a map, claim and complete rescues, and place
@@ -12,7 +12,8 @@ share it with.
 - **Account data** — your email/auth identifier, username, and profile details.
 - **Location** — the location of a sighting you report, and (if you opt in to
   urgent-help notifications) a coarsened "home area" used to notify you about
-  nearby urgent sightings. Precise coordinates are never shown to other users.
+  nearby urgent sightings. The reporter and assigned Guardian can see the precise
+  sighting location. Other users see an approximate location.
 - **Photos** — images you upload for a sighting or your profile.
 - **Content you write** — report titles/descriptions, rescue updates, comments.
 - **Usage/diagnostic data** — in-app product events and (optionally) crash

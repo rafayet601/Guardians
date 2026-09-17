@@ -1,11 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, Card, EmptyState, Loading, Text } from '@/components/ui';
+import { Avatar, Card, EmptyState, Loading, PageHeader, Text } from '@/components/ui';
 import { useLeaderboard } from '@/hooks/useGamification';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, palette, spacing } from '@/theme';
+import { colors, layout, motion, palette, radius, spacing } from '@/theme';
 import type { LeaderboardEntry } from '@/types/models';
 import { compactNumber } from '@/utils/format';
 
@@ -14,7 +15,7 @@ const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { data, isLoading, isRefetching, refetch } = useLeaderboard();
+  const { data, isLoading, isError, isRefetching, refetch } = useLeaderboard();
   const reduced = useReducedMotion() ?? false;
 
   return (
@@ -27,14 +28,23 @@ export default function LeaderboardScreen() {
         }
         style={styles.header}
       >
-        <Text variant="title">🏆 Top Guardians</Text>
-        <Text variant="small" muted>
-          Every rescue, report and adoption earns points.
-        </Text>
+        <PageHeader
+          eyebrow="Kindness adds up"
+          title="Top Guardians"
+          subtitle="Celebrating the people making a difference."
+          icon="trophy-outline"
+        />
       </Animated.View>
 
       {isLoading ? (
         <Loading label="Loading rankings…" />
+      ) : isError && !data ? (
+        <EmptyState
+          title="Could not load rankings"
+          message="Check your connection and try again."
+          actionLabel={isRefetching ? 'Retrying…' : 'Try again'}
+          onAction={isRefetching ? undefined : () => void refetch()}
+        />
       ) : (
         <FlatList
           data={data ?? []}
@@ -52,6 +62,9 @@ export default function LeaderboardScreen() {
               tintColor={colors.primary}
             />
           }
+          ListHeaderComponent={
+            data && data.length >= 3 ? <Podium entries={data.slice(0, 3)} /> : null
+          }
           ListEmptyComponent={
             <EmptyState icon="🏆" title="No rankings yet" message="Be the first to earn points!" />
           }
@@ -60,6 +73,44 @@ export default function LeaderboardScreen() {
           )}
         />
       )}
+    </View>
+  );
+}
+
+function Podium({ entries }: { entries: LeaderboardEntry[] }) {
+  return (
+    <View style={styles.podium}>
+      <View style={styles.podiumHeading}>
+        <Ionicons name="sparkles" size={16} color={colors.accentDark} />
+        <Text variant="overline" color={colors.accentDark}>
+          A little extra recognition
+        </Text>
+      </View>
+      <View style={styles.podiumRow}>
+        {[entries[1], entries[0], entries[2]].map((entry) => (
+          <View key={entry.id} style={[styles.podiumPerson, entry.rank === 1 && styles.winner]}>
+            {entry.rank === 1 && <Ionicons name="trophy" size={24} color={colors.accentDark} />}
+            <View style={[styles.podiumAvatar, entry.rank === 1 && styles.winnerAvatar]}>
+              <Avatar
+                url={entry.avatar_url}
+                name={entry.username}
+                size={entry.rank === 1 ? 64 : 48}
+              />
+            </View>
+            <Text variant="smallStrong" numberOfLines={1}>
+              {entry.username}
+            </Text>
+            <Text variant="caption" color={colors.primary}>
+              {compactNumber(entry.points)} pts
+            </Text>
+            <View style={[styles.podiumBase, entry.rank === 1 && styles.winnerBase]}>
+              <Text variant="title" color={entry.rank === 1 ? colors.accentDark : colors.primary}>
+                {String(entry.rank).padStart(2, '0')}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -109,14 +160,55 @@ function Row({ entry, index, isMe }: { entry: LeaderboardEntry; index: number; i
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    gap: 2,
+  podium: {
+    backgroundColor: colors.primaryTint,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: 0,
+    marginBottom: spacing.xl,
+    overflow: 'hidden',
   },
-  listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl, flexGrow: 1 },
+  podiumHeading: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  podiumRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+  },
+  podiumPerson: { flex: 1, minWidth: 0, alignItems: 'center', gap: spacing.sm },
+  winner: { gap: spacing.sm },
+  podiumAvatar: {
+    padding: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.primarySoft,
+  },
+  winnerAvatar: { borderColor: colors.accent, borderWidth: 2 },
+  podiumBase: {
+    width: '100%',
+    backgroundColor: colors.primarySoft,
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
+    padding: spacing.sm,
+    alignItems: 'center',
+  },
+  winnerBase: { backgroundColor: colors.accentSoft, paddingBottom: spacing.xxl },
+  flex: { flex: 1, backgroundColor: colors.background },
+  header: {},
+  listContent: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.bottomClearance,
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: layout.contentMax,
+    alignSelf: 'center',
+  },
   sep: { height: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   rowTop: { borderColor: colors.accentSoft, backgroundColor: palette.amber100 },

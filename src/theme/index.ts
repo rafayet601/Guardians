@@ -1,4 +1,4 @@
-import { Platform, TextStyle, ViewStyle } from 'react-native';
+import { TextStyle, ViewStyle } from 'react-native';
 
 /**
  * Guardians design system.
@@ -75,7 +75,7 @@ export const palette = {
 } as const;
 
 export const colors = {
-  primary: palette.green500,
+  primary: palette.green700,
   primaryDark: palette.green700,
   primaryDeep: palette.green900,
   primaryLight: palette.green300,
@@ -108,6 +108,11 @@ export const colors = {
   info: palette.blue500,
 
   overlay: 'rgba(36, 31, 26, 0.45)',
+  onPrimaryMuted: '#D7EEDF',
+  glass: 'rgba(255,255,255,0.16)',
+  glassStrong: 'rgba(255,255,255,0.28)',
+  photoScrim: 'rgba(11,61,40,0.65)',
+  transparent: 'transparent',
   white: palette.white,
   black: palette.black,
 } as const;
@@ -120,6 +125,8 @@ export const spacing = {
   xl: 20,
   xxl: 28,
   xxxl: 40,
+  section: 56,
+  bottomClearance: 112,
 } as const;
 
 export const radius = {
@@ -127,11 +134,24 @@ export const radius = {
   md: 14,
   lg: 18,
   xl: 24,
+  hero: 32,
   sheet: 28,
   pill: 999,
 } as const;
 
 export const typography = {
+  hero: {
+    fontFamily: fontFamily.heavy,
+    fontSize: 36,
+    lineHeight: 40,
+    letterSpacing: -1,
+  } as TextStyle,
+  heroWide: {
+    fontFamily: fontFamily.heavy,
+    fontSize: 48,
+    lineHeight: 53,
+    letterSpacing: -1,
+  } as TextStyle,
   display: {
     fontSize: 30,
     fontFamily: fontFamily.heavy,
@@ -141,15 +161,15 @@ export const typography = {
   } as TextStyle,
   title: {
     fontSize: 23,
-    fontFamily: fontFamily.extrabold,
-    fontWeight: '800',
+    fontFamily: fontFamily.bodyBold,
+    fontWeight: '700',
     letterSpacing: -0.4,
     lineHeight: 28,
   } as TextStyle,
   heading: {
     fontSize: 18,
-    fontFamily: fontFamily.extrabold,
-    fontWeight: '800',
+    fontFamily: fontFamily.bodyBold,
+    fontWeight: '700',
     letterSpacing: -0.2,
   } as TextStyle,
   subheading: {
@@ -206,37 +226,18 @@ export const typography = {
 } as const;
 
 export const shadow = {
-  card: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#2A2118',
-      shadowOpacity: 0.06,
-      shadowRadius: 14,
-      shadowOffset: { width: 0, height: 6 },
-    },
-    android: { elevation: 2 },
-    default: {},
-  })!,
-  floating: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#241F1A',
-      shadowOpacity: 0.14,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-    },
-    android: { elevation: 8 },
-    default: {},
-  })!,
-  // green glow under the primary call-to-action
-  glow: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#1FA463',
-      shadowOpacity: 0.32,
-      shadowRadius: 18,
-      shadowOffset: { width: 0, height: 10 },
-    },
-    android: { elevation: 6 },
-    default: {},
-  })!,
+  card: { boxShadow: '0 3px 16px rgba(36,31,26,0.045)' } as ViewStyle,
+  floating: { boxShadow: '0 8px 30px rgba(11,61,40,0.13)' } as ViewStyle,
+  glow: { boxShadow: '0 5px 16px rgba(21,120,74,0.18)' } as ViewStyle,
+} as const;
+
+export const layout = {
+  contentMax: 760,
+  formMax: 480,
+  welcomeMax: 1120,
+  wideBreakpoint: 800,
+  tabHeight: 68,
+  touchTarget: 44,
 } as const;
 
 /**
@@ -252,5 +253,15 @@ export const motion = {
   cardPressScale: 0.985, // gentler for large cards
 } as const;
 
-export const theme = { colors, spacing, radius, typography, shadow, palette, motion, fontFamily };
+export const theme = {
+  colors,
+  spacing,
+  radius,
+  typography,
+  shadow,
+  palette,
+  motion,
+  fontFamily,
+  layout,
+};
 export type Theme = typeof theme;

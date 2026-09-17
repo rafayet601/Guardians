@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+import { createAccountCacheBoundary } from '@/lib/accountCache';
 import { track } from '@/lib/observability';
 import { supabase } from '@/lib/supabase';
 
@@ -20,6 +22,7 @@ interface AuthContextValue {
   signUp: (params: SignUpParams) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -27,16 +30,23 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     let active = true;
+    let authEventReceived = false;
+    const updateCacheIdentity = createAccountCacheBoundary(queryClient);
+    const publishSession = (next: Session | null) => {
+      updateCacheIdentity(next?.user.id ?? null);
+      setSession(next);
+    };
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (!active) return;
-        setSession(data.session);
+        if (!active || authEventReceived) return;
+        publishSession(data.session);
       })
       .catch((err) => {
         console.error('Failed to resolve session on mount:', err);
@@ -45,13 +55,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (active) setInitializing(false);
       });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      if (!active) return;
+      authEventReceived = true;
+      publishSession(newSession);
     });
     return () => {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -78,7 +90,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { needsConfirmation: !data.session };
       },
       async signOut() {
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      },
+      async resendConfirmation(email) {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email: email.trim(),
+          options: { emailRedirectTo: Linking.createURL('/confirm') },
+        });
+        if (error) throw error;
       },
       async resetPassword(email) {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {

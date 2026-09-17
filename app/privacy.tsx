@@ -8,7 +8,7 @@ export default function PrivacyScreen() {
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       <Text variant="display">Privacy Policy</Text>
       <Text variant="caption" muted style={styles.updated}>
-        Last updated: July 12, 2026
+        Last updated: September 16, 2026
       </Text>
 
       <Text variant="body" style={styles.para}>
@@ -30,8 +30,9 @@ export default function PrivacyScreen() {
         <Text variant="body">
           {' '}
           — the location of a sighting you report, and (if you opt in to urgent-help notifications)
-          a coarsened &quot;home area&quot; used to notify you about nearby urgent sightings.
-          Precise coordinates are never shown to other users.
+          a coarsened &quot;home area&quot; used to notify you about nearby urgent sightings. The
+          reporter and assigned Guardian can see the precise sighting location. Other users see an
+          approximate location.
         </Text>
       </Bullet>
       <Bullet>

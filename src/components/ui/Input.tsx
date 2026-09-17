@@ -46,6 +46,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       ) : null}
       <AnimatedTextInput
         ref={ref}
+        accessibilityLabel={label}
         placeholderTextColor={colors.textMuted}
         style={[styles.input, multiline && styles.multiline, animatedBorder, style]}
         multiline={multiline}
@@ -81,12 +82,12 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    minHeight: 48,
+    minHeight: 54,
   },
   multiline: { minHeight: 96, textAlignVertical: 'top', paddingTop: spacing.md },
   helper: { marginLeft: 2 },

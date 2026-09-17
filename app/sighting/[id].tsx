@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -14,15 +14,17 @@ import {
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { PressableScale } from '@/components/PressableScale';
 import { JourneyTimeline } from '@/components/JourneyTimeline';
+import { ApplicantScreeningBadge } from '@/components/ScreeningBadge';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { ReidSuggestions } from '@/components/ReidSuggestions';
 import { RescueCopilot } from '@/components/RescueCopilot';
 import { StatusPill } from '@/components/StatusPill';
-import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
+import { Avatar, Button, Card, EmptyState, Input, Loading, Pill, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
 import { CLAIM_TO_RESCUE_TOTAL } from '@/constants/points';
 import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
 import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
+import { useMyScreening } from '@/hooks/useScreening';
 import { useAiAdoptionCopy } from '@/hooks/useAiAdoptionCopy';
 import { useBlockUser, useReportContent } from '@/hooks/useModeration';
 import {
@@ -38,16 +40,22 @@ import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, palette, radius, spacing } from '@/theme';
 import type { CatStatus, SightingUpdate } from '@/types/models';
+import { isScreeningCleared } from '@/types/models';
 import { regionForRadius } from '@/utils/geo';
 import { timeAgo } from '@/utils/format';
+import { ADOPTION_REQUEST_META, getSightingGuidance } from '@/utils/sightingGuidance';
 
 export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
 
-  const { data: sighting, isLoading } = useSighting(id);
-  const { data: updates = [] } = useSightingUpdates(id);
-  const { data: interests = [] } = useAdoptionInterest(id);
+  const sightingQuery = useSighting(id);
+  const updatesQuery = useSightingUpdates(id);
+  const interestsQuery = useAdoptionInterest(id);
+  const screeningQuery = useMyScreening();
+  const { data: sighting, isLoading } = sightingQuery;
+  const { data: updates = [] } = updatesQuery;
+  const { data: interests = [] } = interestsQuery;
 
   const claim = useClaimSighting();
   const updateStatus = useUpdateStatus();
@@ -60,7 +68,30 @@ export default function SightingDetailScreen() {
   const reduced = useReducedMotion() ?? false;
   const [comment, setComment] = useState('');
 
-  if (isLoading || !sighting) return <Loading label="Loading…" />;
+  if (isLoading) return <Loading label="Loading report…" />;
+  if (!sighting) {
+    return (
+      <ScrollView contentContainerStyle={styles.unavailable}>
+        <EmptyState
+          icon={sightingQuery.isError ? '☁️' : '🐾'}
+          title={sightingQuery.isError ? 'Could not load this report' : 'Report unavailable'}
+          message={
+            sightingQuery.isError
+              ? 'Check your connection and try again. The report may also no longer be available.'
+              : 'This report may have been removed or may no longer be available to you.'
+          }
+        />
+        {id ? (
+          <Button
+            title="Try again"
+            loading={sightingQuery.isFetching}
+            onPress={() => void sightingQuery.refetch()}
+          />
+        ) : null}
+        <Button title="Back to map" variant="outline" onPress={() => router.replace('/(tabs)')} />
+      </ScrollView>
+    );
+  }
 
   const isOwner = !!user && user.id === sighting.reporter_id;
   const isClaimer = !!user && user.id === sighting.claimed_by;
@@ -71,6 +102,11 @@ export default function SightingDetailScreen() {
   const heroPhoto = sighting.photos?.[0]?.url;
   const nextStatuses = canManage ? (NEXT_STATUSES[sighting.status] ?? []) : [];
   const myInterest = interests.find((i) => i.user_id === user?.id);
+  const guidance = getSightingGuidance(sighting, user?.id);
+  const latestActivityAt = updates.reduce(
+    (latest, update) => (update.created_at > latest ? update.created_at : latest),
+    sighting.updated_at,
+  );
 
   const onClaim = () =>
     claim.mutate(sighting.id, {
@@ -97,11 +133,23 @@ export default function SightingDetailScreen() {
     );
   };
 
-  const onAdopt = () =>
+  const onAdopt = async () => {
+    // Background-check hard gate (UI hint — the RPC enforces it server-side).
+    if (!screeningQuery.isPending && !isScreeningCleared(screeningQuery.data)) {
+      const ok = await confirmAsync({
+        title: 'Background check required',
+        message:
+          'Adopters need a cleared background check first. It takes a few minutes and is valid for 12 months.',
+        confirmLabel: 'Start screening',
+      });
+      if (ok) router.push('/adopt/screening');
+      return;
+    }
     expressInterest.mutate(undefined, {
       onSuccess: () => notify('Interest sent! 🎉', 'The lister will review your request.'),
-      onError: (e) => notify('Could not send', errMsg(e)),
+      onError: (e) => notify('Could not send', getErrorMessage(e)),
     });
+  };
 
   const onApprove = async (interestId: string, username?: string) => {
     const ok = await confirmAsync({
@@ -209,6 +257,26 @@ export default function SightingDetailScreen() {
             </Text>
           </Animated.View>
 
+          <Card style={styles.caseSummary}>
+            <Text variant="smallStrong" color={colors.primary}>
+              {guidance.responsibility}
+            </Text>
+            <Text variant="bodyStrong">What happens next</Text>
+            <Text variant="small" muted>
+              {guidance.nextStep}
+            </Text>
+            <Text variant="caption" muted>
+              Last recorded activity · {timeAgo(latestActivityAt)}
+            </Text>
+          </Card>
+          {sightingQuery.isError ? (
+            <QueryFailure
+              message="This report could not be refreshed. Showing the last loaded details."
+              loading={sightingQuery.isFetching}
+              onRetry={() => void sightingQuery.refetch()}
+            />
+          ) : null}
+
           {/* Description */}
           {sighting.description ? (
             <Animated.View
@@ -294,7 +362,8 @@ export default function SightingDetailScreen() {
             </View>
             {!sighting.is_precise ? (
               <Text variant="caption" muted style={styles.mapNote}>
-                📍 Approximate area — the exact location is shared only with the rescuer.
+                📍 Approximate area — the exact location is shared with the reporter and assigned
+                guardian.
               </Text>
             ) : null}
           </Animated.View>
@@ -357,24 +426,42 @@ export default function SightingDetailScreen() {
               />
             ))}
 
-            {sighting.status === 'available' && !canManage ? (
-              myInterest ? (
-                <Pill
-                  label="✓ You applied to adopt"
-                  fg={colors.primary}
-                  bg={colors.primarySoft}
-                  style={styles.appliedPill}
+            {(sighting.status === 'available' || sighting.status === 'adopted') && !canManage ? (
+              interestsQuery.isPending ? (
+                <Text variant="small" muted>
+                  Checking your adoption request…
+                </Text>
+              ) : interestsQuery.isError ? (
+                <QueryFailure
+                  message="Could not check your adoption request."
+                  loading={interestsQuery.isFetching}
+                  onRetry={() => void interestsQuery.refetch()}
                 />
-              ) : (
-                <Button
-                  title="🏠 I want to adopt"
-                  variant="secondary"
-                  size="lg"
-                  fullWidth
-                  loading={expressInterest.isPending}
-                  onPress={onAdopt}
-                />
-              )
+              ) : myInterest ? (
+                <Card style={styles.caseSummary}>
+                  <Text variant="bodyStrong">{ADOPTION_REQUEST_META[myInterest.status].label}</Text>
+                  <Text variant="small" muted>
+                    {ADOPTION_REQUEST_META[myInterest.status].description}
+                  </Text>
+                </Card>
+              ) : sighting.status === 'available' ? (
+                <>
+                  <Button
+                    title="🏠 I want to adopt"
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    loading={expressInterest.isPending}
+                    onPress={onAdopt}
+                  />
+                  {screeningQuery.isSuccess && !isScreeningCleared(screeningQuery.data) ? (
+                    <Text variant="small" muted>
+                      Adopters need a cleared background check — tapping above will start
+                      screening (a few minutes, valid 12 months).
+                    </Text>
+                  ) : null}
+                </>
+              ) : null
             ) : null}
           </Animated.View>
 
@@ -402,8 +489,23 @@ export default function SightingDetailScreen() {
               }
               style={styles.section}
             >
-              <Text variant="heading">Adoption requests ({interests.length})</Text>
-              {interests.length === 0 ? (
+              <Text variant="heading">
+                Adoption requests{interestsQuery.isSuccess ? ` (${interests.length})` : ''}
+              </Text>
+              <Text variant="small" muted>
+                Approval requires the applicant&apos;s background check to be cleared.
+              </Text>
+              {interestsQuery.isPending ? (
+                <Text variant="small" muted>
+                  Loading adoption requests…
+                </Text>
+              ) : interestsQuery.isError ? (
+                <QueryFailure
+                  message="Could not load adoption requests."
+                  loading={interestsQuery.isFetching}
+                  onRetry={() => void interestsQuery.refetch()}
+                />
+              ) : interests.length === 0 ? (
                 <Text variant="small" muted>
                   No one has applied yet.
                 </Text>
@@ -418,15 +520,20 @@ export default function SightingDetailScreen() {
                           {i.message}
                         </Text>
                       ) : null}
+                      <ApplicantScreeningBadge userId={i.user_id} />
                     </View>
-                    {i.status === 'approved' ? (
-                      <Pill label="Approved" fg={colors.primary} bg={colors.primarySoft} />
-                    ) : (
+                    {i.status === 'pending' ? (
                       <Button
                         title="Approve"
                         size="sm"
+                        loading={approveAdoption.isPending && approveAdoption.variables === i.id}
+                        disabled={approveAdoption.isPending}
                         onPress={() => onApprove(i.id, i.applicant?.username)}
                       />
+                    ) : (
+                      <Text variant="small" muted>
+                        {ADOPTION_REQUEST_META[i.status].label}
+                      </Text>
                     )}
                   </Card>
                 ))
@@ -466,6 +573,22 @@ export default function SightingDetailScreen() {
             style={styles.section}
           >
             <Text variant="heading">Activity</Text>
+            {updatesQuery.isLoading ? (
+              <Text variant="small" muted>
+                Loading activity…
+              </Text>
+            ) : null}
+            {updatesQuery.isError ? (
+              <QueryFailure
+                message="Could not refresh activity. Any updates shown may be out of date."
+                loading={updatesQuery.isFetching}
+                onRetry={() => void updatesQuery.refetch()}
+              />
+            ) : updatesQuery.isSuccess && updates.length === 0 ? (
+              <Text variant="small" muted>
+                No updates yet. Add a comment to share useful information.
+              </Text>
+            ) : null}
             {updates.map((u, i) => (
               <Animated.View
                 key={u.id}
@@ -667,8 +790,29 @@ function errMsg(e: unknown): string {
   return getErrorMessage(e, 'Please try again.');
 }
 
+function QueryFailure({
+  message,
+  loading,
+  onRetry,
+}: {
+  message: string;
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.caseSummary}>
+      <Text variant="small" muted accessibilityRole="alert">
+        {message}
+      </Text>
+      <Button title="Try again" variant="outline" size="sm" loading={loading} onPress={onRetry} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  unavailable: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
+  caseSummary: { gap: spacing.sm },
   content: { paddingBottom: spacing.xxxl },
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
@@ -705,7 +849,6 @@ const styles = StyleSheet.create({
   },
   modAction: { paddingVertical: spacing.xs },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
-  appliedPill: { alignSelf: 'center' },
   rewardCard: {
     flexDirection: 'row',
     alignItems: 'center',
