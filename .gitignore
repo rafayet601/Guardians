@@ -53,3 +53,6 @@ supabase/.temp/
 # Google Play service-account key (eas.json submit.production.android points
 # here). Downloading it into the repo root must never make it committable.
 google-services-key.json
+# Browser test artifacts
+/test-results/
+/playwright-report/

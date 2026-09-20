@@ -19,9 +19,13 @@
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { corsHeaders, preflight } from '../_shared/http.ts';
+
 type Provider = 'manual' | 'veriff' | 'onfido';
 
 Deno.serve(async (req: Request) => {
+  const options = preflight(req);
+  if (options) return options;
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -68,9 +72,7 @@ Deno.serve(async (req: Request) => {
   // otherwise fall back to the manual review queue so applicants are never stuck.
   if (provider === 'veriff' || provider === 'onfido') {
     const secret =
-      provider === 'veriff'
-        ? Deno.env.get('VERIFF_API_KEY')
-        : Deno.env.get('ONFIDO_API_TOKEN');
+      provider === 'veriff' ? Deno.env.get('VERIFF_API_KEY') : Deno.env.get('ONFIDO_API_TOKEN');
     if (!secret) {
       console.warn(`[screening-verify] ${provider} selected but secret missing — manual fallback`);
     } else {
@@ -126,6 +128,6 @@ Deno.serve(async (req: Request) => {
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

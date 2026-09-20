@@ -32,7 +32,12 @@ import {
   triggerSightingLostMatch,
 } from '@/api/ai';
 import { getMyProfile } from '@/api/profiles';
-import { getMyScreening, isAdopterCleared, startIdVerification, submitScreening } from '@/api/screening';
+import {
+  getMyScreening,
+  isAdopterCleared,
+  startIdVerification,
+  submitScreening,
+} from '@/api/screening';
 import { getLeaderboard } from '@/api/gamification';
 import { reportContent, moderateContent, getBlockedUsers } from '@/api/moderation';
 

@@ -16,21 +16,22 @@ export type PermissionKind = 'location' | 'camera' | 'mediaLibrary' | 'notificat
 /** 'dismissed' = the user tapped "Not now" on the primer (no OS prompt ran). */
 export type PermissionOutcome = 'granted' | 'denied' | 'dismissed';
 
-const primerKey = (kind: PermissionKind) => `@guardians/primer_${kind}`;
+const primerKey = (kind: PermissionKind, userId?: string) =>
+  `@guardians/primer_${kind}${kind === 'notifications' ? `/${userId ?? 'signed-out'}` : ''}`;
 
 /** True once the primer for `kind` has been answered (allow OR dismiss). */
-export async function hasPrimerBeenShown(kind: PermissionKind): Promise<boolean> {
+export async function hasPrimerBeenShown(kind: PermissionKind, userId?: string): Promise<boolean> {
   try {
-    return (await AsyncStorage.getItem(primerKey(kind))) === '1';
+    return (await AsyncStorage.getItem(primerKey(kind, userId))) === '1';
   } catch {
     return false; // fail-open — worst case the primer shows one extra time
   }
 }
 
 /** Mark the primer for `kind` as answered. Never throws. */
-export async function markPrimerShown(kind: PermissionKind): Promise<void> {
+export async function markPrimerShown(kind: PermissionKind, userId?: string): Promise<void> {
   try {
-    await AsyncStorage.setItem(primerKey(kind), '1');
+    await AsyncStorage.setItem(primerKey(kind, userId), '1');
   } catch {
     // best-effort — a lost flag just re-shows the primer once
   }

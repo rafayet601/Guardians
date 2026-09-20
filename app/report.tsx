@@ -180,6 +180,10 @@ function ReportForm() {
   };
 
   const pickFrom = async (mode: PhotoSource) => {
+    if (mode !== 'camera' && Platform.OS !== 'ios') {
+      await launchPicker(mode);
+      return;
+    }
     if (photos.length >= MAX_PHOTOS) return;
     const kind = kindForSource(mode);
     const existing =

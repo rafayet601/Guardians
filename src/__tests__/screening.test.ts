@@ -55,9 +55,7 @@ describe('isScreeningCleared', () => {
     expect(isScreeningCleared(screening({ status: 'needs_review' }))).toBe(false);
     expect(isScreeningCleared(screening({ status: 'rejected' }))).toBe(false);
     expect(
-      isScreeningCleared(
-        screening({ expires_at: new Date(Date.now() - 1000).toISOString() }),
-      ),
+      isScreeningCleared(screening({ expires_at: new Date(Date.now() - 1000).toISOString() })),
     ).toBe(false);
   });
 

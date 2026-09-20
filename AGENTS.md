@@ -1,8 +1,8 @@
 # Working in this repo
 
-## ⚠️ Expo SDK 56 has changed
+## ⚠️ Expo SDK 57 has changed
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before
+Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before
 writing native/Expo code. Several `app.json`/config fields were removed
 (`splash`, `newArchEnabled`, `android.edgeToEdgeEnabled`); New Architecture is on
 by default; Reanimated 4 needs `react-native-worklets` (the worklets babel plugin

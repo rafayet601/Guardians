@@ -74,7 +74,6 @@ export default function MapScreen() {
   useEffect(() => {
     if (!coords) return;
     const r = regionForRadius(coords.lat, coords.lng, 3000);
-    setRegion(r);
     mapRef.current?.animateToRegion(r, 600);
   }, [coords]);
 
@@ -128,15 +127,11 @@ export default function MapScreen() {
   };
 
   useEffect(() => {
-    pulseTracks(1200);
+    tracksTimer.current = setTimeout(() => setTracksChanges(false), 1200);
     return () => {
       if (tracksTimer.current) clearTimeout(tracksTimer.current);
     };
   }, [pulseTracks]);
-
-  useEffect(() => {
-    pulseTracks(500);
-  }, [selected, pulseTracks]);
 
   const params = useMemo(
     () => ({
@@ -268,7 +263,10 @@ export default function MapScreen() {
         initialRegion={DEFAULT_REGION}
         showsUserLocation={locationStatus === 'granted'}
         showsMyLocationButton={false}
-        onPress={() => setSelected(null)}
+        onPress={() => {
+          setSelected(null);
+          pulseTracks(500);
+        }}
         onRegionChangeComplete={(r) => {
           setRegion(r);
           pulseTracks(800);
@@ -300,7 +298,10 @@ export default function MapScreen() {
             <Marker
               key={s.id}
               coordinate={{ latitude: s.lat, longitude: s.lng }}
-              onPress={() => setSelected(s)}
+              onPress={() => {
+                setSelected(s);
+                pulseTracks(500);
+              }}
               tracksViewChanges={tracksChanges}
               anchor={{ x: 0.5, y: 1 }}
               accessibilityLabel={`${s.title?.trim() || 'Cat sighting'}, ${
@@ -460,7 +461,7 @@ function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolea
           { backgroundColor: color, borderColor: active ? colors.accent : colors.white },
         ]}
       >
-        <Ionicons name={urgent ? "alert" : "paw"} size={16} color={colors.white} />
+        <Ionicons name={urgent ? 'alert' : 'paw'} size={16} color={colors.white} />
       </View>
       <View style={[styles.pinTail, { borderTopColor: color }]} />
     </View>

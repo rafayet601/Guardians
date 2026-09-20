@@ -40,6 +40,7 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: 'Invalid JSON' }, 400);
   }
+  if (!body.id_session_id) return json({ error: 'id_session_id required' }, 400);
   if (!body.user_id) return json({ error: 'user_id required' }, 400);
   if (body.id_status !== 'verified' && body.id_status !== 'failed') {
     return json({ error: 'id_status must be verified or failed' }, 400);
@@ -51,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: screening, error: readErr } = await admin
     .from('adopter_screenings')
-    .select('id, status, id_status, reasons')
+    .select('id, status, id_status, reasons, id_session_id')
     .eq('user_id', body.user_id)
     .maybeSingle();
   if (readErr) {
@@ -60,19 +61,10 @@ Deno.serve(async (req: Request) => {
   }
   if (!screening) return json({ error: 'No screening for user' }, 404);
 
-  // Optional session binding: reject callbacks that don't match the session we
-  // issued, when both sides present one.
-  if (body.id_session_id) {
-    const { data: sess } = await admin
-      .from('adopter_screenings')
-      .select('id_session_id')
-      .eq('user_id', body.user_id)
-      .maybeSingle();
-    const expected = (sess as { id_session_id?: string } | null)?.id_session_id;
-    if (expected && expected !== body.id_session_id) {
-      console.warn('[screening-webhook] session mismatch for user', body.user_id);
-      return json({ error: 'Session mismatch' }, 403);
-    }
+  // Evidence changes invalidate the previous session. Never accept an unbound
+  // callback or let a delayed provider response approve a new application.
+  if (!screening.id_session_id || screening.id_session_id !== body.id_session_id) {
+    return json({ error: 'Session mismatch' }, 403);
   }
 
   const patch: Record<string, unknown> = {
@@ -93,15 +85,21 @@ Deno.serve(async (req: Request) => {
     if (body.reason) patch['reasons'] = [...(screening.reasons ?? []), body.reason];
   }
 
-  const { error: updErr } = await admin
+  const { data: updated, error: updErr } = await admin
     .from('adopter_screenings')
     .update(patch)
-    .eq('user_id', body.user_id);
+    .eq('user_id', body.user_id)
+    .eq('id_session_id', body.id_session_id)
+    .eq('status', screening.status)
+    .eq('id_status', screening.id_status)
+    .select('id');
   if (updErr) {
     console.error('[screening-webhook] update failed:', updErr.message);
     return json({ error: 'Update failed' }, 500);
   }
 
+  if (!updated?.length)
+    return json({ error: 'Screening changed; retry with the current session' }, 409);
   return json({ ok: true });
 });
 

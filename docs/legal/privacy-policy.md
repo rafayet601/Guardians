@@ -1,6 +1,6 @@
 # Guardians — Privacy Policy
 
-_Last updated: 2026-09-16_
+_Last updated: 2026-09-20_
 
 Guardians ("we", "us", the "app") helps a community rescue feral and lost cats by
 letting people report sightings on a map, claim and complete rescues, and place
@@ -45,23 +45,38 @@ example, autofilling a report's color, marks, and description from a photo) and 
 help screen content for safety. This processing happens **server-side only** —
 the AI never runs on your device and no AI key is stored in the app.
 
-This data is processed under **Anthropic's commercial terms with zero data
-retention**: it is used only to return a result for that single request, is **not
-retained** by Anthropic afterward, and is **never used to train AI models**. AI
-output is always a **suggestion you review and confirm** — it never auto-submits a
-report, auto-bans a user, or takes any irreversible action on your behalf, and it
-does not provide medical or veterinary diagnosis.
+Provider retention depends on their applicable terms and our account configuration;
+we do not promise zero retention. Avoid including people, private documents or
+unnecessary personal information in uploads. Suggestions need your review;
+automated moderation may temporarily hide flagged content for human review.
+AI cannot diagnose or replace a veterinarian.
+
+Voyage AI processes photos and text for embeddings used in matching and rescue
+guidance. On web, OpenStreetMap receives tile requests and IP addresses to render
+the map. Native map providers are Google Maps or Apple Maps.
+
+## Adoption screening
+
+Applicants provide their legal name, birth date, phone, address, housing and
+household details, pet experience, veterinary references, consent, and optional
+ID document images. We use these to assess adoption suitability and verify
+identity. Supabase stores these records and private documents; authorized
+moderators review them. Other users can check clearance, but cannot read the
+underlying screening details. ID-provider integrations are not yet active.
+Screening records and documents are retained while your account is active and
+removed from active systems when you delete it; backup retention follows the
+policies described below. Screening documents are not sent to the cat-photo AI services.
 
 ## Your choices and rights
 
 You can delete your account from within the app, which permanently removes your
-account and associated data. You can opt out of urgent-help notifications at any
+profile, authored reports, comments, uploads, rewards and linked usage records from active systems. Other users’ rescue records may remain without your account association. You can opt out of urgent-help notifications at any
 time. You may contact us to exercise applicable data rights.
 
 ## Retention
 
 We keep your data for as long as your account is active. When you delete your
-account, associated records are removed (see above).
+account, authored records are removed from active systems (see above). Backups and service providers may retain data under their applicable retention policies.
 
 ## Contact
 

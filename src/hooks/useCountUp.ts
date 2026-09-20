@@ -11,10 +11,7 @@ export function useCountUp(target: number, duration = 900, from = 0): number {
   useEffect(() => {
     const start = from;
     const delta = target - start;
-    if (delta === 0) {
-      setValue(target);
-      return;
-    }
+    if (delta === 0) return;
     let startTs: number | null = null;
     const tick = (t: number) => {
       if (startTs == null) startTs = t;
@@ -29,5 +26,5 @@ export function useCountUp(target: number, duration = 900, from = 0): number {
     };
   }, [target, duration, from]);
 
-  return value;
+  return target === from ? target : value;
 }

@@ -15,12 +15,10 @@ afterEach(() => {
 });
 
 test('only exposes providers explicitly enabled by the linked backend', async () => {
-  globalThis.fetch = jest
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      json: async () => ({ external: { google: true, apple: false, github: true } }),
-    });
+  globalThis.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ external: { google: true, apple: false, github: true } }),
+  });
   await expect(getOAuthProviders()).resolves.toEqual(['google']);
   expect(fetch).toHaveBeenCalledWith(
     'https://test.supabase.co/auth/v1/settings',
@@ -34,12 +32,10 @@ test('failed provider settings remain an error rather than pretending providers 
 });
 
 test('requests an explicit callback and controls browser navigation', async () => {
-  jest
-    .mocked(supabase.auth.signInWithOAuth)
-    .mockResolvedValue({
-      data: { provider: 'google', url: 'https://example/authorize' },
-      error: null,
-    });
+  jest.mocked(supabase.auth.signInWithOAuth).mockResolvedValue({
+    data: { provider: 'google', url: 'https://example/authorize' },
+    error: null,
+  });
   await expect(getOAuthSignInUrl('google', 'guardians://oauth-callback')).resolves.toBe(
     'https://example/authorize',
   );

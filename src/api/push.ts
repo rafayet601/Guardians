@@ -47,3 +47,14 @@ export async function notifyUrgentSighting(sightingId: string): Promise<void> {
     captureError(e, { scope: 'notifyUrgentSighting', sightingId });
   }
 }
+
+/** Remove only this account's association with this device. Idempotent. */
+export async function unregisterPushToken(token: string): Promise<void> {
+  const { error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ error: Error | null }>
+  )('unregister_push_token', { p_token: token });
+  if (error) throw error;
+}

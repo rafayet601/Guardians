@@ -1,5 +1,5 @@
 /**
- * Jest config (SDK 56). Focused on fast, reliable unit tests of the pure logic
+ * Jest config (SDK 57). Focused on fast, reliable unit tests of the pure logic
  * the whole app depends on — gamification math, geo, reward eligibility, and
  * the status state-machine — plus a thin layer around the API client.
  * `.tsx` is included so React Native Testing Library component tests are
@@ -17,6 +17,6 @@ module.exports = {
   collectCoverageFrom: ['src/api/**/*.ts', 'src/utils/**/*.ts', 'src/constants/**/*.ts'],
   // jest-expo's default plus the extra ESM/native packages our pure modules pull in.
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|@sentry/.*|native-base|react-native-svg|date-fns|@supabase/.*|@react-native-async-storage/.*))',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|@sentry/.*|native-base|react-native-svg|decode-uri-component|date-fns|@supabase/.*|@react-native-async-storage/.*))',
   ],
 };

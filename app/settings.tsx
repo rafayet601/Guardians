@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { uploadAvatar } from '@/api/storage';
@@ -11,53 +11,58 @@ import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/li
 import { getPushOptIn, registerForPush, setPushOptIn } from '@/lib/push';
 import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
-import { Avatar, Button, Input, Loading, Text } from '@/components/ui';
+import { Avatar, Button, EmptyState, Input, Loading, Text } from '@/components/ui';
 import { useMyProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/providers/AuthProvider';
+import type { Profile } from '@/types/models';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 
 export default function SettingsScreen() {
+  const { data: profile, isLoading, refetch } = useMyProfile();
+  if (isLoading) return <Loading />;
+  if (!profile)
+    return (
+      <EmptyState
+        title="Could not load your profile"
+        message="Check your connection and try again."
+        actionLabel="Try again"
+        onAction={() => refetch()}
+      />
+    );
+  return <SettingsForm key={profile.id} profile={profile} />;
+}
+
+function SettingsForm({ profile }: { profile: Profile }) {
   const router = useRouter();
   const { user, signOut, deleteAccount } = useAuth();
-  const { data: profile, isLoading } = useMyProfile();
   const updateProfile = useUpdateProfile();
 
-  const [username, setUsername] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [bio, setBio] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [isGuardian, setIsGuardian] = useState(false);
-  const [wantsToAdopt, setWantsToAdopt] = useState(false);
+  const [username, setUsername] = useState(profile.username);
+  const [fullName, setFullName] = useState(profile.full_name ?? '');
+  const [bio, setBio] = useState(profile.bio ?? '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
+  const [isGuardian, setIsGuardian] = useState(profile.is_guardian);
+  const [wantsToAdopt, setWantsToAdopt] = useState(profile.wants_to_adopt);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [accountBusy, setAccountBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushPrimerVisible, setPushPrimerVisible] = useState(false);
   const [avatarPrimerVisible, setAvatarPrimerVisible] = useState(false);
 
-  useEffect(() => {
-    if (!profile) return;
-    setUsername(profile.username);
-    setFullName(profile.full_name ?? '');
-    setBio(profile.bio ?? '');
-    setAvatarUrl(profile.avatar_url);
-    setIsGuardian(profile.is_guardian);
-    setWantsToAdopt(profile.wants_to_adopt);
-  }, [profile]);
-
   // Reflect the stored push opt-in choice in the notifications toggle.
   useEffect(() => {
     let active = true;
     (async () => {
-      const optedIn = await getPushOptIn();
+      const optedIn = await getPushOptIn(user?.id ?? '');
       if (active) setPushEnabled(optedIn);
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const reduced = useReducedMotion() ?? false;
-
-  if (isLoading || !profile) return <Loading />;
 
   const launchAvatarPicker = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -96,6 +101,10 @@ export default function SettingsScreen() {
 
   // Prime once before the OS photo-library prompt (P1-1), mirroring report.tsx.
   const changeAvatar = async () => {
+    if (Platform.OS !== 'ios') {
+      await launchAvatarPicker();
+      return;
+    }
     const existing = await ImagePicker.getMediaLibraryPermissionsAsync();
     if (existing.granted) {
       await launchAvatarPicker(); // already granted — no prompt, no funnel event
@@ -123,8 +132,14 @@ export default function SettingsScreen() {
   // Opt in + register. The switch only flips on once the choice persists.
   const enablePush = async (): Promise<string | null> => {
     try {
-      await setPushOptIn(true);
-      const token = await registerForPush();
+      await setPushOptIn(user?.id ?? '', true);
+      const token = await registerForPush(user?.id ?? '');
+      if (!token) {
+        await setPushOptIn(user?.id ?? '', false);
+        throw new Error(
+          'Alerts are unavailable. Check notification permission in your device settings and try again.',
+        );
+      }
       setPushEnabled(true);
       return token;
     } catch (e) {
@@ -138,14 +153,14 @@ export default function SettingsScreen() {
     if (!next) {
       setPushEnabled(false);
       try {
-        await setPushOptIn(false); // also disables pushes server-side
+        await setPushOptIn(user?.id ?? '', false); // also disables pushes server-side
       } catch (e) {
         setPushEnabled(true);
         notify('Could not update', getErrorMessage(e, 'Please try again.'));
       }
       return;
     }
-    if (await hasPrimerBeenShown('notifications')) {
+    if (await hasPrimerBeenShown('notifications', user?.id)) {
       await enablePush();
     } else {
       setPushPrimerVisible(true); // prime once; "Continue" resumes the flow
@@ -154,14 +169,14 @@ export default function SettingsScreen() {
 
   const allowPushPrimer = async () => {
     setPushPrimerVisible(false);
-    await markPrimerShown('notifications');
+    await markPrimerShown('notifications', user?.id);
     const token = await enablePush();
     trackPermissionResult('notifications', token ? 'granted' : 'denied');
   };
 
   const dismissPushPrimer = async () => {
     setPushPrimerVisible(false);
-    await markPrimerShown('notifications');
+    await markPrimerShown('notifications', user?.id);
     setPushEnabled(false);
     trackPermissionResult('notifications', 'dismissed');
   };
@@ -196,11 +211,14 @@ export default function SettingsScreen() {
       confirmLabel: 'Sign out',
       destructive: true,
     });
-    if (!ok) return;
+    if (!ok || accountBusy) return;
+    setAccountBusy(true);
     try {
       await signOut();
-    } catch (error) {
-      notify('Could not sign out', getErrorMessage(error, 'Please try again.'));
+    } catch (e) {
+      notify('Could not sign out', getErrorMessage(e, 'Please reconnect and try again.'));
+    } finally {
+      setAccountBusy(false);
     }
   };
 
@@ -212,12 +230,15 @@ export default function SettingsScreen() {
       confirmLabel: 'Delete account',
       destructive: true,
     });
-    if (!ok) return;
+    if (!ok || accountBusy) return;
+    setAccountBusy(true);
     try {
       await deleteAccount();
       // the root layout redirects to /welcome once the session clears
     } catch (e) {
       notify('Could not delete account', getErrorMessage(e, 'Please try again.'));
+    } finally {
+      setAccountBusy(false);
     }
   };
 
@@ -322,7 +343,15 @@ export default function SettingsScreen() {
           </View>
           <Switch
             value={pushEnabled}
-            onValueChange={onTogglePush}
+            disabled={pushBusy}
+            onValueChange={async (next) => {
+              setPushBusy(true);
+              try {
+                await onTogglePush(next);
+              } finally {
+                setPushBusy(false);
+              }
+            }}
             trackColor={{ true: colors.primaryLight, false: colors.border }}
             thumbColor={colors.white}
             accessibilityRole="switch"
@@ -344,10 +373,12 @@ export default function SettingsScreen() {
             title="Sign out"
             variant="danger"
             fullWidth
+            loading={accountBusy}
             onPress={confirmSignOut}
             style={styles.signOut}
           />
           <PressableScale
+            disabled={accountBusy}
             onPress={confirmDelete}
             style={styles.deleteLink}
             hitSlop={8}

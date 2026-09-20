@@ -52,18 +52,13 @@ const schema = z
     experience: z.string().optional().default(''),
     hours_alone: z.coerce.number().int().min(0).max(24),
     home_visit_consent: z.boolean(),
-    cruelty_attestation: z
-      .boolean()
-      .refine((v) => v === true, 'This confirmation is required'),
+    cruelty_attestation: z.boolean().refine((v) => v === true, 'This confirmation is required'),
     consent: z.boolean().refine((v) => v === true, 'Background-check consent is required'),
   })
-  .refine(
-    (v) => v.housing !== 'rent' || v.landlord_permission === true,
-    {
-      message: 'Landlord permission is required when renting',
-      path: ['landlord_permission'],
-    },
-  );
+  .refine((v) => v.housing !== 'rent' || v.landlord_permission === true, {
+    message: 'Landlord permission is required when renting',
+    path: ['landlord_permission'],
+  });
 
 type FormInput = z.input<typeof schema>;
 
@@ -174,8 +169,13 @@ export default function ScreeningScreen() {
       // 3. Start ID verification (manual review queue in v1).
       try {
         await verify.mutateAsync(paths);
-      } catch {
-        // Non-fatal: the screening row already exists and can be verified later.
+      } catch (error) {
+        await screeningQuery.refetch();
+        notify(
+          'Answers saved — verification not started',
+          getErrorMessage(error, 'Please try submitting again to start ID review.'),
+        );
+        return;
       }
       await screeningQuery.refetch();
       if (screening.status === 'rejected') {
@@ -209,8 +209,8 @@ export default function ScreeningScreen() {
     <Screen scroll contentContainerStyle={styles.page}>
       <Text variant="heading">Adoption background check</Text>
       <Text variant="small" muted>
-        Standard screening before you can adopt: identity, home, and pet history. Your details
-        stay private — listers only see whether you are cleared.
+        Standard screening before you can adopt: identity, home, and pet history. Your details stay
+        private — listers only see whether you are cleared.
       </Text>
 
       {existing ? (
@@ -499,8 +499,8 @@ export default function ScreeningScreen() {
 
       <Text variant="bodyStrong">ID documents</Text>
       <Text variant="small" muted>
-        A front and back photo of a government ID speeds up verification. Stored privately —
-        never shown to listers.
+        A front and back photo of a government ID speeds up verification. Stored privately — never
+        shown to listers.
       </Text>
       <View style={styles.row}>
         <Button
@@ -513,12 +513,7 @@ export default function ScreeningScreen() {
         />
       </View>
       {docs.length > 0 ? (
-        <Button
-          title="Remove ID photos"
-          variant="ghost"
-          size="sm"
-          onPress={() => setDocs([])}
-        />
+        <Button title="Remove ID photos" variant="ghost" size="sm" onPress={() => setDocs([])} />
       ) : null}
 
       <Text variant="bodyStrong">Consents</Text>
@@ -582,8 +577,8 @@ export default function ScreeningScreen() {
         style={styles.submit}
       />
       <Text variant="caption" muted center>
-        Screenings are valid for 12 months. You can delete your account anytime in Settings —
-        your screening and ID documents are removed with it.
+        Screenings are valid for 12 months. You can delete your account anytime in Settings — your
+        screening and ID documents are removed with it.
       </Text>
     </Screen>
   );

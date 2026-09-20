@@ -1,11 +1,12 @@
-import { Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
-import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-} from '@expo-google-fonts/plus-jakarta-sans';
-import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
+import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
+import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
+import { Nunito_900Black } from '@expo-google-fonts/nunito/900Black';
+import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
+import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
+import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
+import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
+import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono/400Regular';
+import { SpaceMono_700Bold } from '@expo-google-fonts/space-mono/700Bold';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -15,6 +16,9 @@ import { useEffect, useState } from 'react';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PermissionPrimer } from '@/components/PermissionPrimer';
+import { Platform } from 'react-native';
+import { notify } from '@/lib/dialog';
+import { getErrorMessage } from '@/lib/errors';
 import { env } from '@/lib/env';
 import { initObservability } from '@/lib/observability';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
@@ -28,6 +32,7 @@ initObservability();
 
 function RootNavigator() {
   const { session, initializing } = useAuth();
+  const userId = session?.user.id;
   const segments = useSegments();
   const router = useRouter();
   const [pushPrimerVisible, setPushPrimerVisible] = useState(false);
@@ -75,13 +80,13 @@ function RootNavigator() {
   // Push is strictly opt-in (P1-1): prime once, then honor the stored choice.
   // Returning opted-in users re-register silently on session (token refresh).
   useEffect(() => {
-    if (!session || !env.isConfigured) return;
+    if (!userId || !env.isConfigured || Platform.OS === 'web') return;
     let active = true;
     (async () => {
-      const shown = await hasPrimerBeenShown('notifications');
+      const shown = await hasPrimerBeenShown('notifications', userId);
       if (!active) return;
       if (shown) {
-        if (await getPushOptIn()) void registerForPush();
+        if (await getPushOptIn(userId ?? '')) void registerForPush(userId ?? '');
         return;
       }
       setPushPrimerVisible(true);
@@ -89,31 +94,48 @@ function RootNavigator() {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [userId]);
 
   const allowPushPrimer = async () => {
     setPushPrimerVisible(false);
-    await markPrimerShown('notifications');
-    await setPushOptIn(true);
-    const token = await registerForPush();
-    trackPermissionResult('notifications', token ? 'granted' : 'denied');
+    await markPrimerShown('notifications', session?.user.id);
+    try {
+      await setPushOptIn(session?.user.id ?? '', true);
+      const token = await registerForPush(session?.user.id ?? '');
+      if (!token) await setPushOptIn(session?.user.id ?? '', false);
+      trackPermissionResult('notifications', token ? 'granted' : 'denied');
+      if (!token) notify('Alerts unavailable', 'You can enable rescue alerts later in Settings.');
+    } catch (e) {
+      notify('Could not enable alerts', getErrorMessage(e, 'Please try again in Settings.'));
+    }
   };
 
   const dismissPushPrimer = async () => {
     setPushPrimerVisible(false);
-    await markPrimerShown('notifications');
-    await setPushOptIn(false);
+    await markPrimerShown('notifications', session?.user.id);
+    try {
+      await setPushOptIn(session?.user.id ?? '', false);
+    } catch (e) {
+      notify('Could not update alerts', getErrorMessage(e));
+    }
     trackPermissionResult('notifications', 'dismissed');
   };
 
   // Tapping a push notification deep-links to the relevant sighting.
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
+    if (Platform.OS === 'web' || initializing || !session || !fontsReady) return;
+    const redirect = (resp: Notifications.NotificationResponse) => {
       const data = resp.notification.request.content.data as { sighting_id?: string } | undefined;
-      if (data?.sighting_id) router.push(`/sighting/${data.sighting_id}`);
-    });
+      if (typeof data?.sighting_id === 'string' && /^[0-9a-f-]{36}$/i.test(data.sighting_id)) {
+        router.push(`/sighting/${data.sighting_id}`);
+        Notifications.clearLastNotificationResponse();
+      }
+    };
+    const last = Notifications.getLastNotificationResponse();
+    if (last) redirect(last);
+    const sub = Notifications.addNotificationResponseReceivedListener(redirect);
     return () => sub.remove();
-  }, [router]);
+  }, [router, initializing, session, fontsReady]);
 
   // Hold the splash screen until fonts are ready so text doesn't flash unstyled.
   if (!fontsReady) return null;

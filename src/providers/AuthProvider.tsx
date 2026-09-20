@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { createAccountCacheBoundary } from '@/lib/accountCache';
+import { setPushAccount, unregisterForPush } from '@/lib/push';
 import { track } from '@/lib/observability';
 import { supabase } from '@/lib/supabase';
 
@@ -39,7 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let authEventReceived = false;
     const updateCacheIdentity = createAccountCacheBoundary(queryClient);
     const publishSession = (next: Session | null) => {
+      if (!active) return;
       updateCacheIdentity(next?.user.id ?? null);
+      setPushAccount(next?.user.id ?? null);
       setSession(next);
     };
     supabase.auth
@@ -90,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { needsConfirmation: !data.session };
       },
       async signOut() {
+        if (session?.user.id) await unregisterForPush(session.user.id);
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
       },
@@ -114,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async deleteAccount() {
         // Permanently deletes the auth user (cascades all data) via the
         // `delete-account` Edge Function, then clears the local session.
+        if (session?.user.id) await unregisterForPush(session.user.id);
         const { error } = await supabase.functions.invoke('delete-account');
         if (error) throw error;
         await supabase.auth.signOut();
