@@ -19,6 +19,8 @@ export interface SightingCardProps {
   isInjured?: boolean;
   needsUrgentHelp?: boolean;
   thumbnailUrl?: string | null;
+  /** Bundled, labeled demo image for a known seeded sighting only. */
+  demoPhoto?: number | null;
   /** Retained for compatibility with existing sighting callers. */
   seed?: string;
   distanceM?: number | null;
@@ -35,32 +37,40 @@ export function SightingCard({
   isInjured,
   needsUrgentHelp,
   thumbnailUrl,
+  demoPhoto,
   distanceM,
   createdAt,
   onPress,
 }: SightingCardProps) {
   const temp = TEMPERAMENT_META[temperament];
-  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const [failedPhoto, setFailedPhoto] = useState<string | number | null>(null);
+  const photo = thumbnailUrl || demoPhoto;
+  const isDemoPhoto = !thumbnailUrl && !!demoPhoto;
   const feature = variant === 'feature';
   return (
     <Card onPress={onPress} padded={false} style={styles.card}>
       <View style={[styles.row, feature && styles.featureRow]}>
         <View style={[styles.photoWrap, feature && styles.featurePhoto]}>
-          {thumbnailUrl && failedPhoto !== thumbnailUrl ? (
+          {photo && failedPhoto !== photo ? (
             <Image
-              source={{ uri: thumbnailUrl }}
+              source={thumbnailUrl ? { uri: thumbnailUrl } : demoPhoto}
               style={styles.photo}
               contentFit="cover"
               transition={180}
-              onError={() => setFailedPhoto(thumbnailUrl)}
-              accessibilityLabel={title?.trim() || 'Reported cat'}
+              onError={() => setFailedPhoto(photo)}
+              accessibilityLabel={`${isDemoPhoto ? 'AI-generated demo photo: ' : ''}${title?.trim() || 'Reported cat'}`}
             />
           ) : (
             <View style={styles.noPhoto}>
               <Ionicons name="paw-outline" size={36} color={colors.primary} />
               <Text variant="caption" color={colors.primary}>
-                {thumbnailUrl ? 'Photo unavailable' : 'No photo yet'}
+                {photo ? 'Photo unavailable' : 'No photo yet'}
               </Text>
+            </View>
+          )}
+          {isDemoPhoto && failedPhoto !== photo && (
+            <View style={feature ? styles.featureDemoLabel : styles.demoLabel}>
+              <Pill label="Demo photo" fg={colors.primaryDark} bg={colors.surface} />
             </View>
           )}
           {feature && (
@@ -149,6 +159,8 @@ const styles = StyleSheet.create({
   featureRow: { flexDirection: 'column' },
   featurePhoto: { width: '100%', aspectRatio: 1.65, minHeight: 180 },
   featureBody: { padding: spacing.lg, gap: spacing.sm },
+  demoLabel: { position: 'absolute', bottom: spacing.xs, alignSelf: 'center' },
+  featureDemoLabel: { position: 'absolute', top: spacing.md, right: spacing.md },
   photoStatus: { position: 'absolute', top: spacing.md, left: spacing.md },
   urgentFlag: {
     position: 'absolute',

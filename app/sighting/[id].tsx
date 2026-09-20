@@ -43,6 +43,7 @@ import type { CatStatus, SightingUpdate } from '@/types/models';
 import { isScreeningCleared } from '@/types/models';
 import { regionForRadius } from '@/utils/geo';
 import { timeAgo } from '@/utils/format';
+import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { ADOPTION_REQUEST_META, getSightingGuidance } from '@/utils/sightingGuidance';
 
 export default function SightingDetailScreen() {
@@ -67,6 +68,7 @@ export default function SightingDetailScreen() {
 
   const reduced = useReducedMotion() ?? false;
   const [comment, setComment] = useState('');
+  const [failedPhoto, setFailedPhoto] = useState<string | number | null>(null);
 
   if (isLoading) return <Loading label="Loading report…" />;
   if (!sighting) {
@@ -100,6 +102,9 @@ export default function SightingDetailScreen() {
   const meta = STATUS_META[sighting.status];
   const temp = TEMPERAMENT_META[sighting.temperament];
   const heroPhoto = sighting.photos?.[0]?.url;
+  const demoPhoto = getDemoSightingPhoto(sighting);
+  const photo = heroPhoto || demoPhoto;
+  const isDemoPhoto = !heroPhoto && !!demoPhoto;
   const nextStatuses = canManage ? (NEXT_STATUSES[sighting.status] ?? []) : [];
   const myInterest = interests.find((i) => i.user_id === user?.id);
   const guidance = getSightingGuidance(sighting, user?.id);
@@ -213,11 +218,22 @@ export default function SightingDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <Animated.View entering={reduced ? FadeIn.duration(0) : FadeIn.duration(motion.enter)}>
-          {heroPhoto ? (
-            <Image source={{ uri: heroPhoto }} style={styles.hero} contentFit="cover" />
+          {photo && failedPhoto !== photo ? (
+            <Image
+              source={heroPhoto ? { uri: heroPhoto } : demoPhoto}
+              style={styles.hero}
+              contentFit="cover"
+              onError={() => setFailedPhoto(photo)}
+              accessibilityLabel={`${isDemoPhoto ? 'AI-generated demo photo: ' : ''}${sighting.title?.trim() || 'Reported cat'}`}
+            />
           ) : (
             <View style={[styles.hero, styles.heroFallback]}>
               <Text style={styles.heroEmoji}>{temp.icon}</Text>
+            </View>
+          )}
+          {isDemoPhoto && failedPhoto !== photo && (
+            <View style={styles.demoLabel}>
+              <Pill label="Demo photo" fg={colors.primaryDark} bg={colors.surface} />
             </View>
           )}
         </Animated.View>
@@ -456,8 +472,8 @@ export default function SightingDetailScreen() {
                   />
                   {screeningQuery.isSuccess && !isScreeningCleared(screeningQuery.data) ? (
                     <Text variant="small" muted>
-                      Adopters need a cleared background check — tapping above will start
-                      screening (a few minutes, valid 12 months).
+                      Adopters need a cleared background check — tapping above will start screening
+                      (a few minutes, valid 12 months).
                     </Text>
                   ) : null}
                 </>
@@ -816,6 +832,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxxl },
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
+  demoLabel: { position: 'absolute', top: spacing.md, right: spacing.md },
   heroEmoji: { fontSize: 96 },
   body: {
     padding: spacing.lg,

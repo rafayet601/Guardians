@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { SightingCard } from '@/components/SightingCard';
+import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { Button, EmptyState, Loading, Text } from '@/components/ui';
 import type { Coords } from '@/hooks/useLocation';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
@@ -214,6 +215,7 @@ export function NearbySheet({
                   isInjured={s.is_injured}
                   needsUrgentHelp={s.needs_urgent_help}
                   thumbnailUrl={s.thumbnail_url}
+                  demoPhoto={getDemoSightingPhoto(s)}
                   seed={s.id}
                   distanceM={coords ? s.distance_m : null}
                   createdAt={s.created_at}

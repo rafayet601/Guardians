@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
 import { SightingCard } from '@/components/SightingCard';
+import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { SponsoredCard } from '@/components/SponsoredCard';
 import { EmptyState, Loading, PageHeader, Text } from '@/components/ui';
 import { useFeed } from '@/hooks/useSightings';
@@ -158,6 +159,7 @@ export default function FeedScreen() {
                 isInjured={item.is_injured}
                 needsUrgentHelp={item.needs_urgent_help}
                 thumbnailUrl={item.photos?.[0]?.url ?? null}
+                demoPhoto={getDemoSightingPhoto(item)}
                 seed={item.id}
                 createdAt={item.created_at}
                 onPress={() => router.push(`/sighting/${item.id}`)}
