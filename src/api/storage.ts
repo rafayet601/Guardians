@@ -1,3 +1,4 @@
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Buffer } from 'buffer';
 
 import { supabase } from '@/lib/supabase';
@@ -12,42 +13,44 @@ export interface LocalAsset {
   base64?: string | null;
 }
 
-function extFromAsset(asset: LocalAsset): string {
-  const mime = asset.mimeType ?? '';
-  if (mime.includes('png')) return 'png';
-  if (mime.includes('webp')) return 'webp';
-  if (mime.includes('heic')) return 'heic';
-  const m = asset.uri.match(/\.(\w+)(?:\?|$)/);
-  return m ? m[1].toLowerCase() : 'jpg';
-}
-
-/**
- * Uploads a local image (from expo-image-picker) into a per-user folder and
- * returns its public URL. The path "{uid}/..." satisfies the storage RLS policy.
- *
- * We decode the picker's base64 rather than `fetch(uri).arrayBuffer()`, which is
- * unreliable for local file URIs on Hermes (it can yield 0-byte/corrupt files).
- * Pass the asset with `base64` populated (expo-image-picker `base64: true`).
- */
+/** Normalize to compressed JPEG and bound dimensions before transmitting. */
 export async function uploadImage(
   bucket: Bucket,
   userId: string,
   asset: LocalAsset,
 ): Promise<string> {
-  if (!asset.base64) {
-    throw new Error('Image is missing data — please pick the photo again.');
+  const context = ImageManipulator.manipulate(asset.uri);
+  const original = await context.renderAsync();
+  const maxSide = bucket === 'avatars' ? 512 : 1600;
+  const scale = Math.min(1, maxSide / Math.max(original.width, original.height));
+  const resized = ImageManipulator.manipulate(original);
+  let image = original;
+  try {
+    if (scale < 1) {
+      resized.resize({
+        width: Math.round(original.width * scale),
+        height: Math.round(original.height * scale),
+      });
+      image = await resized.renderAsync();
+    }
+    const result = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.75, base64: true });
+    if (!result.base64) throw new Error('Unable to prepare photo. Please choose it again.');
+    const bytes = Buffer.from(result.base64, 'base64');
+    if (!bytes.length || bytes.length > 5 * 1024 * 1024)
+      throw new Error('Please choose a smaller photo.');
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error;
+
+    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  } finally {
+    if (image !== original) image.release();
+    resized.release();
+    original.release();
+    context.release();
   }
-  const bytes = Buffer.from(asset.base64, 'base64');
-  const ext = extFromAsset(asset);
-  const contentType = asset.mimeType ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(path, bytes, { contentType, upsert: false });
-  if (error) throw error;
-
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
 export const uploadCatPhoto = (userId: string, asset: LocalAsset) =>

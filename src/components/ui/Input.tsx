@@ -46,6 +46,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       ) : null}
       <AnimatedTextInput
         ref={ref}
+        accessibilityLabel={label}
         placeholderTextColor={colors.textMuted}
         style={[styles.input, multiline && styles.multiline, animatedBorder, style]}
         multiline={multiline}
@@ -62,7 +63,12 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         {...rest}
       />
       {error ? (
-        <Text variant="small" color={colors.danger} style={styles.helper}>
+        <Text
+          variant="small"
+          color={colors.danger}
+          style={styles.helper}
+          accessibilityLiveRegion="polite"
+        >
           {error}
         </Text>
       ) : hint ? (

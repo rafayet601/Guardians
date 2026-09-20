@@ -1,4 +1,10 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import { releaseErrors } from './scripts/release-config.cjs';
+
+if (process.env.EAS_BUILD_PROFILE === 'production' || process.env.GUARDIANS_RELEASE_CHECK === '1') {
+  const errors = releaseErrors(process.env, process.env.EAS_BUILD_PLATFORM);
+  if (errors.length) throw new Error(`Production configuration incomplete:\n${errors.join('\n')}`);
+}
 
 /**
  * Dynamic Expo config.
@@ -36,7 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: '1.0.0',
   // OTA updates: ties each update to the app version. The URL is only set once an
   // EAS project exists (run `eas update:configure`), so dev/local builds stay inert.
-  runtimeVersion: { policy: 'appVersion' },
+  runtimeVersion: { policy: 'fingerprint' },
   updates: process.env.EAS_PROJECT_ID
     ? { url: `https://u.expo.dev/${process.env.EAS_PROJECT_ID}` }
     : undefined,
@@ -46,7 +52,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // light-only), so pin the UI to light for consistent system chrome. A true
   // dark mode would need a second palette + dynamic theming (tracked separately).
   userInterfaceStyle: 'light',
-  assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.guardians.app',
@@ -79,7 +84,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY,
       },
     },
-    permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'CAMERA', 'READ_MEDIA_IMAGES'],
+    permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'CAMERA'],
+    blockedPermissions: [
+      'android.permission.RECORD_AUDIO',
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+    ],
   },
   web: {
     bundler: 'metro',
@@ -89,6 +99,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     'expo-font',
+    'expo-image',
+    'expo-status-bar',
     [
       'expo-splash-screen',
       {
@@ -108,6 +120,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-image-picker',
       {
+        microphonePermission: false,
         photosPermission:
           'Guardians needs photo access so you can attach pictures of cats to your reports.',
         cameraPermission:
@@ -124,6 +137,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   experiments: {
     typedRoutes: true,
+    reactCompiler: true,
   },
   extra: {
     eas: {

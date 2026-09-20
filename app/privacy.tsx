@@ -1,3 +1,5 @@
+import * as Linking from 'expo-linking';
+import { env } from '@/lib/env';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
@@ -8,7 +10,7 @@ export default function PrivacyScreen() {
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       <Text variant="display">Privacy Policy</Text>
       <Text variant="caption" muted style={styles.updated}>
-        Last updated: July 12, 2026
+        Last updated: September 8, 2026
       </Text>
 
       <Text variant="body" style={styles.para}>
@@ -31,7 +33,8 @@ export default function PrivacyScreen() {
           {' '}
           — the location of a sighting you report, and (if you opt in to urgent-help notifications)
           a coarsened &quot;home area&quot; used to notify you about nearby urgent sightings.
-          Precise coordinates are never shown to other users.
+          Precise sighting coordinates and addresses are available to the reporter and assigned
+          guardian. Other users see an approximate area.
         </Text>
       </Bullet>
       <Bullet>
@@ -68,7 +71,11 @@ export default function PrivacyScreen() {
       </Text>
       <ProcessorRow name="Supabase" purpose="Hosting: database, authentication, file storage" />
       <ProcessorRow name="Expo" purpose="Delivering push notifications" />
-      <ProcessorRow name="Google Maps" purpose="Rendering the map" />
+      <ProcessorRow name="Google Maps / Apple Maps" purpose="Rendering native maps" />
+      <ProcessorRow
+        name="OpenStreetMap"
+        purpose="Serving web map tiles; receives tile requests and your IP address"
+      />
       <ProcessorRow name="Sentry (optional)" purpose="Error reporting" />
       <ProcessorRow
         name="Anthropic (Claude API)"
@@ -85,10 +92,12 @@ export default function PrivacyScreen() {
       <Text variant="body" style={styles.para}>
         Some features use AI to make suggestions. When you use them, relevant cat photos and report
         text are sent to Anthropic&apos;s Claude API and Voyage AI. This processing happens
-        server-side only — the AI never runs on your device and no AI key is stored in the app. Data
-        is processed under zero-retention commercial terms and is never used to train AI models. AI
-        output is always a suggestion you review and confirm — it never auto-submits a report or
-        takes any irreversible action.
+        server-side only — the AI never runs on your device and no AI key is stored in the app.
+        Provider retention depends on their applicable terms and our account configuration; we do
+        not promise zero retention. Avoid including people, private documents, or unnecessary
+        personal information in uploads. Report suggestions need your review. Automated moderation
+        may temporarily hide flagged content for human review. AI cannot diagnose or replace a
+        veterinarian.
       </Text>
 
       <Text variant="heading" style={styles.h2}>
@@ -96,25 +105,37 @@ export default function PrivacyScreen() {
       </Text>
       <Text variant="body" style={styles.para}>
         You can delete your account from within the app, which permanently removes your account and
-        associated data. You can opt out of urgent-help notifications at any time. You may contact
-        us to exercise applicable data rights.
+        authored reports, comments, uploads, profile, rewards and linked usage records. Other users’
+        records may remain without your account association. You can opt out of urgent-help
+        notifications at any time. You may contact us to exercise applicable data rights.
       </Text>
 
       <Text variant="heading" style={styles.h2}>
         Retention
       </Text>
       <Text variant="body" style={styles.para}>
-        We keep your data for as long as your account is active. When you delete your account,
-        associated records are removed.
+        We keep your data for as long as your account is active. When you delete your account, your
+        authored reports, comments, uploaded images, profile, rewards and linked usage records are
+        removed from active systems. Other users’ rescue records may remain without your account
+        association. Backups and service providers may retain data under their applicable retention
+        policies.
       </Text>
 
       <Text variant="heading" style={styles.h2}>
         Contact
       </Text>
       <Text variant="body" style={styles.para}>
-        Questions about this policy: reach us through the support contact listed on our store
-        listing.
+        Questions about this policy or deletion: use the support contact on our store listing.
       </Text>
+      {env.supportUrl ? (
+        <Text
+          accessibilityRole="link"
+          onPress={() => Linking.openURL(env.supportUrl)}
+          color={colors.primary}
+        >
+          Contact Guardians support
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }

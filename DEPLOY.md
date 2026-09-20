@@ -30,7 +30,10 @@ APIs, multi-region, Apple/Google sign-in.
 
 ## Phase 0 — Git / prod parity
 
-**Status as of 2026-08-03: steps 1–3 are DONE.** Only steps 4–6 remain.
+**Historical snapshot from 2026-08-03:** steps 1–3 were verified then. This is not
+current deployment evidence. Before each release, inspect the linked project's
+migration ledger, compare deployed functions, and apply only missing changes from
+[PRODUCTION.md](PRODUCTION.md). Recheck secrets and webhook configuration too.
 
 1. ~~**Merge PR #10** → `main`.~~ **Done** — merged as `4406c01`.
 2. ~~**Apply migrations 0027–0031.**~~ **Done** — the live project
@@ -77,9 +80,10 @@ APIs, multi-region, Apple/Google sign-in.
 
 ## Phase 1 — Free public surface (Privacy/Terms + auth URLs) (half day)
 
-Stores require a **public Privacy + Terms URL**. The web build is the app minus
-the map (placeholder on web) — still works for auth, feed, sighting detail,
-profiles, adoption, leaderboard, rewards, moderation, and the legal pages.
+Stores require a **public Privacy + Terms URL**. The web build includes a Leaflet
+map using OpenStreetMap tiles, alongside auth, feed, sighting detail, profiles,
+adoption, leaderboard, rewards, moderation, and the legal pages. Native push
+notifications remain unavailable on web.
 
 1. Build web with only Supabase public vars (**no Maps keys**):
    ```bash
