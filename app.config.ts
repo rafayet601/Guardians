@@ -1,5 +1,6 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 import { releaseErrors } from './scripts/release-config.cjs';
+import { mapsPluginOptions } from './scripts/maps-config.cjs';
 
 if (process.env.EAS_BUILD_PROFILE === 'production' || process.env.GUARDIANS_RELEASE_CHECK === '1') {
   const errors = releaseErrors(process.env, process.env.EAS_BUILD_PLATFORM);
@@ -55,9 +56,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.guardians.app',
-    config: {
-      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY,
-    },
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         'Guardians uses your location to show nearby cat sightings and to tag where you spotted a cat.',
@@ -79,11 +77,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
-    config: {
-      googleMaps: {
-        apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY,
-      },
-    },
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'CAMERA'],
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',
@@ -97,6 +90,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    ['react-native-maps', mapsPluginOptions(process.env)],
     'expo-secure-store',
     'expo-font',
     'expo-image',
