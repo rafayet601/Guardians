@@ -26,7 +26,6 @@ import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { confirmAsync, notify } from '@/lib/dialog';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
-import { notify } from '@/lib/dialog';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { CatStatus, NearbySighting } from '@/types/models';
 import { DEFAULT_REGION, radiusFromRegion, regionForRadius } from '@/utils/geo';

@@ -26,6 +26,19 @@ import { useAuth } from '@/providers/AuthProvider';
 import type { CatStatus } from '@/types/models';
 
 export function useNearbySightings(params: NearbyParams | null) {
+  const [active, setActive] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setActive(AppState.currentState === 'active');
+      const subscription = AppState.addEventListener('change', (state) => {
+        setActive(state === 'active');
+      });
+      return () => {
+        subscription.remove();
+        setActive(false);
+      };
+    }, []),
+  );
   // nearby_sightings is granted to `authenticated` only (0016/0027). The map
   // tab mounts before the root layout redirects a logged-out user to /welcome,
   // so without this gate every cold start fires the RPC as anon, gets 42501,
@@ -34,7 +47,7 @@ export function useNearbySightings(params: NearbyParams | null) {
   return useQuery({
     queryKey: queryKeys.nearby(params ?? {}),
     queryFn: () => getNearby(params as NearbyParams),
-    enabled: !!params && !!session,
+    enabled: !!params && !!session && active,
     staleTime: 15_000,
     // Refresh through the privacy-preserving RPC, never raw location events.
     refetchInterval: active ? 30_000 : false,

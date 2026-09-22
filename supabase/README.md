@@ -37,8 +37,12 @@ gamification engine that power Guardians.
 ## Option A — hosted Supabase (fastest)
 
 1. Create a project at <https://app.supabase.com>.
-2. Open **SQL Editor** and run each file in `migrations/` **in order**
-   (`0001` → `0032`). Then optionally run `seed.sql`.
+2. For a **new, empty database**, open **SQL Editor** and run every file in
+   `migrations/` **in filename order**, currently through
+   `0035_screening_evidence_reset.sql`. Include suffixed migrations such as
+   `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
+   For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
+   do not replay the full migration set.
 3. In **Project Settings → API**, copy the **Project URL** and **anon public**
    key into the app's `.env`:
    ```
@@ -52,13 +56,17 @@ gamification engine that power Guardians.
 
 ```bash
 brew install supabase/tap/supabase     # or see supabase.com/docs
-supabase init                          # if not already initialized
-supabase link --project-ref <your-ref>
-supabase db push                       # applies migrations/
-# local dev with Docker:
+# This repository already contains supabase/config.toml.
+# Local development with Docker:
 supabase start
-supabase db reset                      # applies migrations + seed.sql
+supabase db reset --local              # destroys local data; reapplies migrations + seed.sql
 ```
+
+For hosted deployments, inspect the linked project's migration history and
+follow [DEPLOY.md](../DEPLOY.md). The existing Guardians project has timestamped
+remote migration entries while this repository uses numeric filenames; a plain
+`supabase db push` can replay already-applied SQL. Apply only confirmed missing
+migrations and reconcile their history as documented in that runbook.
 
 ## Data model at a glance
 
