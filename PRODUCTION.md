@@ -3,6 +3,10 @@
 The app uses Expo SDK 57 / React Native 0.86.3. See
 [the verified review](PRODUCTION_REVIEW.md) for the changes and test evidence.
 
+See [the deployment runbook](DEPLOY.md) for hosting and auth setup. Its historical
+backend snapshot must be rechecked before deploying; do not blindly run `db push`
+against the timestamped production migration history.
+
 ## Before a production build
 
 1. Create the business support/deletion page and set `EXPO_PUBLIC_SUPPORT_URL`.

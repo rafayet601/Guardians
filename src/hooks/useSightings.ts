@@ -1,4 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { AppState } from 'react-native';
 
 import {
   addPhoto,
@@ -33,6 +36,10 @@ export function useNearbySightings(params: NearbyParams | null) {
     queryFn: () => getNearby(params as NearbyParams),
     enabled: !!params && !!session,
     staleTime: 15_000,
+    // Refresh through the privacy-preserving RPC, never raw location events.
+    refetchInterval: active ? 30_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 }
 

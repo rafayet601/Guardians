@@ -26,6 +26,7 @@ import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { confirmAsync, notify } from '@/lib/dialog';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
+import { notify } from '@/lib/dialog';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { CatStatus, NearbySighting } from '@/types/models';
 import { DEFAULT_REGION, radiusFromRegion, regionForRadius } from '@/utils/geo';
@@ -193,7 +194,7 @@ export default function MapScreen() {
   // Geocode the search query and recenter the map there.
   const onSearch = async () => {
     const q = query.trim();
-    if (!q) return;
+    if (!q || searching) return;
     setSearching(true);
     try {
       const results = await Location.geocodeAsync(q);
@@ -201,16 +202,11 @@ export default function MapScreen() {
         const r = regionForRadius(results[0].latitude, results[0].longitude, 3000);
         setRegion(r);
         mapRef.current?.animateToRegion(r, 600);
-      } else {
-        notify(
-          'Place not found',
-          'Try a city, neighbourhood, or a more complete address. You can also pan the map.',
-        );
-      }
+      } else notify('Place not found', 'Try a more specific address or move the map to your area.');
     } catch {
       notify(
         'Search unavailable',
-        'Please try again or pan the map to your area. Your current map has been kept.',
+        'Place search is unavailable right now. Move and zoom the map to browse your area.',
       );
     } finally {
       setSearching(false);
@@ -262,6 +258,12 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={DEFAULT_REGION}
         showsUserLocation={locationStatus === 'granted'}
+        onMapReady={() => {
+          if (!coords) return;
+          const r = regionForRadius(coords.lat, coords.lng, 3000);
+          setRegion(r);
+          mapRef.current?.animateToRegion(r, 500);
+        }}
         showsMyLocationButton={false}
         onPress={() => {
           setSelected(null);
@@ -365,6 +367,19 @@ export default function MapScreen() {
             Updating…
           </Text>
         </Animated.View>
+      ) : null}
+
+      {isError && !isFetching ? (
+        <PressableScale
+          onPress={() => void refetch()}
+          style={[styles.fetching, { top: insets.top + 108 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Sightings could not refresh. Tap to retry."
+        >
+          <Text variant="caption" color={colors.white}>
+            Couldn’t refresh sightings · Tap to retry
+          </Text>
+        </PressableScale>
       ) : null}
 
       {/* Recenter */}
