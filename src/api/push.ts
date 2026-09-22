@@ -21,18 +21,9 @@ export async function upsertPushToken(
  * Enable/disable server-side pushes on ALL of the signed-in user's push-token
  * rows. Backs the client-side push opt-in flag (P1-1).
  *
- * The `set_push_enabled` RPC ships in migration 0029 and isn't in the
- * generated Database types yet, so this calls through a minimally-typed RPC
- * surface (same boundary cast src/api/ai.ts uses for untyped endpoints) until
- * `npm run gen:types` picks it up.
  */
 export async function setPushEnabled(enabled: boolean): Promise<void> {
-  const { error } = await (
-    supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ error: Error | null }>
-  )('set_push_enabled', { p_enabled: enabled });
+  const { error } = await supabase.rpc('set_push_enabled', { p_enabled: enabled });
   if (error) throw error;
 }
 

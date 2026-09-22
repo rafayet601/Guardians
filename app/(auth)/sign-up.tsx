@@ -6,11 +6,13 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'rea
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
+import { AuthHeader } from '@/components/AuthHeader';
+import { OAuthButtons } from '@/components/OAuthButtons';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, spacing } from '@/theme';
+import { colors, layout, motion, spacing } from '@/theme';
 
 const schema = z.object({
   username: z
@@ -26,6 +28,7 @@ type FormValues = z.infer<typeof schema>;
 export default function SignUpScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
+  const [oauthPending, setOAuthPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const reduced = useReducedMotion() ?? false;
   const {
@@ -38,6 +41,7 @@ export default function SignUpScreen() {
   });
 
   const onSubmit = async (values: FormValues) => {
+    if (oauthPending) return;
     setFormError(null);
     try {
       const { needsConfirmation } = await signUp({
@@ -46,7 +50,10 @@ export default function SignUpScreen() {
         username: values.username.trim(),
       });
       if (needsConfirmation) {
-        notify('Confirm your email', 'We sent you a confirmation link. Tap it, then sign in.');
+        notify(
+          'Confirm your email',
+          'We sent you a confirmation link. Open it in this same browser or app to finish signing in.',
+        );
         router.replace('/sign-in');
       }
       // otherwise the root layout redirects into the app automatically
@@ -56,7 +63,7 @@ export default function SignUpScreen() {
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll contentContainerStyle={styles.page}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View
           entering={
@@ -66,12 +73,13 @@ export default function SignUpScreen() {
           }
           style={styles.header}
         >
-          <Text style={styles.logo}>🐾</Text>
-          <Text variant="title">Join Guardians</Text>
-          <Text variant="body" muted center style={styles.sub}>
-            Become a reporter, a guardian, or a forever home.
-          </Text>
+          <AuthHeader
+            title="Good things start here."
+            subtitle="Join your neighbours in helping cats find their way home."
+          />
         </Animated.View>
+
+        <OAuthButtons disabled={isSubmitting} onBusyChange={setOAuthPending} />
 
         <View style={styles.form}>
           <Animated.View
@@ -179,9 +187,46 @@ export default function SignUpScreen() {
               size="lg"
               fullWidth
               loading={isSubmitting}
+              disabled={oauthPending}
               onPress={handleSubmit(onSubmit)}
               style={styles.submit}
             />
+          </Animated.View>
+
+          <Animated.View
+            entering={
+              reduced
+                ? undefined
+                : FadeInDown.delay(4.5 * motion.stagger)
+                    .duration(motion.enter)
+                    .springify()
+                    .damping(motion.damping)
+            }
+            style={styles.legalNotice}
+          >
+            <Text variant="caption" muted center>
+              By creating an account, you agree to our{' '}
+              <Text
+                variant="caption"
+                color={colors.primary}
+                onPress={() => router.push('/terms')}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Service"
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text
+                variant="caption"
+                color={colors.primary}
+                onPress={() => router.push('/privacy')}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
           </Animated.View>
         </View>
 
@@ -216,10 +261,17 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xxl },
+  page: {
+    width: '100%',
+    maxWidth: layout.formMax,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  header: {},
   logo: { fontSize: 56 },
   sub: { maxWidth: 300 },
   form: { gap: spacing.lg },
   submit: { marginTop: spacing.sm },
+  legalNotice: { marginTop: spacing.xs, paddingHorizontal: spacing.sm },
   switch: { marginTop: spacing.xxl },
 });

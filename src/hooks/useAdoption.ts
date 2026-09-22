@@ -30,6 +30,7 @@ export function useApproveAdoption(sightingId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.adoptionInterest(sightingId) });
       qc.invalidateQueries({ queryKey: queryKeys.sighting(sightingId) });
+      qc.invalidateQueries({ queryKey: queryKeys.sightingUpdates(sightingId) });
       qc.invalidateQueries({ queryKey: ['sightings'] });
       // approving awards points + the matchmaker badge to the lister
       qc.invalidateQueries({ queryKey: queryKeys.me });

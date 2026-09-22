@@ -1,0 +1,7 @@
+# Guardian garden
+
+Generated with the built-in ImageGen tool for the Guardians UI refresh. The welcome screen uses `guardian-garden.webp` (275 KB); `guardian-garden.png` is the source artwork. This is decorative onboarding art, never a reported cat photo.
+
+## Generation prompt
+
+Use case: illustration-story. Asset type: polished editorial illustration for the Guardians community cat-rescue mobile app onboarding. Create a beautiful landscape 3:2 illustration, no text or UI. Three charming expressive cats, a ginger cat sitting upright in the center foreground, a small cream kitten beside it and a dark charcoal cat curled nearby, nestled in a lush stylized neighborhood garden. A subtle arched warm cream doorway suggesting a safe home behind them, oversized elegant botanical leaves frame both sides, tiny honey flowers. Modern premium magazine / picture-book illustration, sophisticated simple shapes with delicate grain and subtle painted texture, beautifully designed proportions, warm and welcoming, refined rather than childish, no outlines. Restrained palette deep forest green #0B3D28, rescue green #1FA463, mint #D7EEDF, warm ivory #FBF9F4, honey gold #F4A93C, terracotta. Cream background towards top edges, deep green foliage along bottom. Cats large, beautifully drawn, unmistakably the focal point, occupying central 60 percent, full bodies visible. No letters, no logos, no watermark, no borders.

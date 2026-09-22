@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -24,7 +24,7 @@ import { uploadCatPhoto } from '@/api/storage';
 import { Button, Input, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
 import { TEMPERAMENT_META } from '@/constants/status';
-import { choosePhotoSource, notify, type PhotoSource } from '@/lib/dialog';
+import { choosePhotoSource, confirmAsync, notify, type PhotoSource } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import {
   hasPrimerBeenShown,
@@ -33,8 +33,12 @@ import {
   type PermissionKind,
 } from '@/lib/permissions';
 import { useAiAutofill } from '@/hooks/useAiAutofill';
+import { screenPhotoBestEffort } from '@/hooks/useAiModeration';
+import { matchSightingAgainstLostCatsBestEffort } from '@/hooks/useLostCat';
 import { useCreateSighting } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
+import { useReportDraft } from '@/hooks/useReportDraft';
+import { hasReportDraft } from '@/lib/reportDraft';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, radius, spacing } from '@/theme';
 import type { CatTemperament } from '@/types/models';
@@ -47,6 +51,11 @@ const kindForSource = (source: PhotoSource): PermissionKind =>
   source === 'camera' ? 'camera' : 'mediaLibrary';
 
 export default function ReportScreen() {
+  const { user } = useAuth();
+  return <ReportForm key={user?.id ?? 'signed-out'} />;
+}
+
+function ReportForm() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -55,14 +64,31 @@ export default function ReportScreen() {
   const autofill = useAiAutofill();
 
   const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [selectedMarker, setMarker] = useState<LatLng | null>(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState('');
-  const [temperament, setTemperament] = useState<CatTemperament>('unknown');
-  const [isInjured, setIsInjured] = useState(false);
-  const [needsUrgent, setNeedsUrgent] = useState(false);
+  const {
+    draft,
+    setDraft,
+    ready,
+    restored,
+    saveStatus,
+    clear: clearDraft,
+  } = useReportDraft(user?.id);
+  const { marker, title, description, color, temperament, isInjured, needsUrgent } = draft;
+  const setMarker = (value: LatLng | null) => setDraft((d) => ({ ...d, marker: value }));
+  const setTitle = (value: string) => setDraft((d) => ({ ...d, title: value }));
+  const setDescription = (value: string) => setDraft((d) => ({ ...d, description: value }));
+  const setColor = (value: string) => setDraft((d) => ({ ...d, color: value }));
+  const setTemperament = (value: CatTemperament) => setDraft((d) => ({ ...d, temperament: value }));
+  const setIsInjured = (value: boolean) => setDraft((d) => ({ ...d, isInjured: value }));
+  const setNeedsUrgent = (value: boolean) => setDraft((d) => ({ ...d, needsUrgent: value }));
   const [submitting, setSubmitting] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const pickerLock = useRef(false);
+  const [submissionStep, setSubmissionStep] = useState('');
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const submitLock = useRef(false);
+  const uploadedPhotos = useRef(new Map<string, string>());
+  const busy = submitting || discarding || picking || autofill.isPending || !ready;
   // True once an autofill suggestion has prefilled the form, so we can subtly
   // label the fields as AI-suggested-but-editable until the user posts.
   const [autofilled, setAutofilled] = useState(false);
@@ -77,8 +103,12 @@ export default function ReportScreen() {
   const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
   const [photoPrimerSource, setPhotoPrimerSource] = useState<PhotoSource | null>(null);
 
-  const marker =
-    selectedMarker ?? (coords ? { latitude: coords.lat, longitude: coords.lng } : null);
+  // default the marker to the user's location once available (intentionally
+  // only when `coords` changes — a pin the user cleared must not snap back)
+  useEffect(() => {
+    if (ready && coords && !marker) setMarker({ latitude: coords.lat, longitude: coords.lng });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coords, ready]);
 
   // Prime once before the OS location prompt (P1-1). Requesting when the
   // permission is already decided is prompt-free, so returning users keep
@@ -94,7 +124,9 @@ export default function ReportScreen() {
       }
       const shown = await hasPrimerBeenShown('location');
       if (active && !shown) setLocationPrimerVisible(true);
-    })();
+    })().catch(() => {
+      // Location lookup is optional: manual map placement remains available.
+    });
     return () => {
       active = false;
     };
@@ -127,7 +159,7 @@ export default function ReportScreen() {
             base64: true,
           });
     if (!result.canceled && result.assets[0]) {
-      setPhotos((p) => [...p, result.assets[0]]);
+      setPhotos((p) => [...p, result.assets[0]].slice(0, MAX_PHOTOS));
     }
   };
 
@@ -172,9 +204,18 @@ export default function ReportScreen() {
   const allowPhotoPrimer = async () => {
     const mode = photoPrimerSource;
     setPhotoPrimerSource(null);
-    if (!mode) return;
-    await markPrimerShown(kindForSource(mode));
-    if (await requestPhotoPermission(mode)) await launchPicker(mode);
+    if (!mode || pickerLock.current) return;
+    pickerLock.current = true;
+    setPicking(true);
+    try {
+      await markPrimerShown(kindForSource(mode));
+      if (await requestPhotoPermission(mode)) await launchPicker(mode);
+    } catch (error) {
+      notify('Could not add photo', getErrorMessage(error, 'Please try choosing the photo again.'));
+    } finally {
+      pickerLock.current = false;
+      setPicking(false);
+    }
   };
 
   const dismissPhotoPrimer = async () => {
@@ -186,8 +227,18 @@ export default function ReportScreen() {
   };
 
   const addPhoto = async () => {
-    const source = await choosePhotoSource();
-    if (source) pickFrom(source);
+    if (busy || pickerLock.current) return;
+    pickerLock.current = true;
+    setPicking(true);
+    try {
+      const source = await choosePhotoSource();
+      if (source) await pickFrom(source);
+    } catch (error) {
+      notify('Could not add photo', getErrorMessage(error, 'Please try choosing the photo again.'));
+    } finally {
+      pickerLock.current = false;
+      setPicking(false);
+    }
   };
 
   // ✨ AI autofill: send the first attached photo to the vision model and use
@@ -224,24 +275,32 @@ export default function ReportScreen() {
   };
 
   const submit = async () => {
+    if (submitLock.current || pickerLock.current || busy) return;
     if (!marker) {
       notify('Location required', 'Tap the map to mark where you saw the cat.');
       return;
     }
     if (!user) return;
+    submitLock.current = true;
     setSubmitting(true);
+    setSubmissionError(null);
     try {
       const photoUrls: string[] = [];
-      for (const asset of photos) {
-        const url = await uploadCatPhoto(user.id, {
-          uri: asset.uri,
-          mimeType: asset.mimeType,
-          fileName: asset.fileName,
-          base64: asset.base64,
-        });
+      for (const [index, asset] of photos.entries()) {
+        setSubmissionStep(`Uploading photo ${index + 1} of ${photos.length}…`);
+        const url =
+          uploadedPhotos.current.get(asset.uri) ??
+          (await uploadCatPhoto(user.id, {
+            uri: asset.uri,
+            mimeType: asset.mimeType,
+            fileName: asset.fileName,
+            base64: asset.base64,
+          }));
+        uploadedPhotos.current.set(asset.uri, url);
         photoUrls.push(url);
       }
-      await createSighting.mutateAsync({
+      setSubmissionStep('Posting your sighting…');
+      const sighting = await createSighting.mutateAsync({
         lat: marker.latitude,
         lng: marker.longitude,
         title: title.trim() || undefined,
@@ -252,18 +311,74 @@ export default function ReportScreen() {
         needsUrgentHelp: needsUrgent,
         photoUrls,
       });
+      // 🛡️ Background photo screening (AI-M2 #9). Fire-and-forget by contract:
+      // the helper no-ops when its flag is off and swallows its own errors, so
+      // this can never block, delay, or fail the report. Runs only once the
+      // sighting exists and its photos are uploaded (the server checks the
+      // caller is the sighting's reporter).
+      for (const asset of photos) {
+        if (!asset.base64) continue;
+        void screenPhotoBestEffort({
+          imageBase64: asset.base64,
+          mediaType: asset.mimeType,
+          sightingId: sighting.id,
+        });
+      }
+      // 🐾 Lost-cat continuous matching (AI-M4 #5): match this new sighting
+      // against open lost-cat posts. Same fire-and-forget contract as above —
+      // flag-gated, error-swallowing, never blocks the report. Skipped without
+      // a photo, since matching is photo-embedding based.
+      if (photoUrls.length > 0) {
+        void matchSightingAgainstLostCatsBestEffort(sighting.id);
+      }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
-      router.back();
+      // A local cleanup error must never turn a successful post into a retry.
+      await clearDraft(true).catch(() => {
+        notify(
+          'Sighting posted',
+          'Your saved draft could not be removed from this device. Discard it before starting another report.',
+        );
+      });
+      router.replace(`/sighting/${sighting.id}`);
     } catch (e) {
-      notify('Could not post', getErrorMessage(e, 'Please try again.'));
+      setSubmissionError(getErrorMessage(e, 'Please try again. Your report is still here.'));
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
+      setSubmissionStep('');
     }
   };
 
-  const region = coords ? regionForRadius(coords.lat, coords.lng, 800) : DEFAULT_REGION;
+  const discard = async () => {
+    if (busy || submitLock.current) return;
+    const confirmed = await confirmAsync({
+      title: 'Discard this report?',
+      message: 'This removes your saved details and the photos attached to this report.',
+      confirmLabel: 'Discard',
+      destructive: true,
+    });
+    if (!confirmed || submitLock.current) return;
+    setDiscarding(true);
+    try {
+      await clearDraft();
+      setPhotos([]);
+      uploadedPhotos.current.clear();
+      setAutofilled(false);
+      setSubmissionError(null);
+    } catch {
+      notify('Could not discard', 'Your report is still here. Please try again.');
+    } finally {
+      setDiscarding(false);
+    }
+  };
+
+  const region = marker
+    ? regionForRadius(marker.latitude, marker.longitude, 800)
+    : coords
+      ? regionForRadius(coords.lat, coords.lng, 800)
+      : DEFAULT_REGION;
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
@@ -271,6 +386,7 @@ export default function ReportScreen() {
         <Text variant="heading">Report a cat</Text>
         <Pressable
           onPress={() => router.back()}
+          disabled={submitting || discarding || picking}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Close"
@@ -289,156 +405,211 @@ export default function ReportScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Photos */}
-          <Animated.View entering={entrance(0)} style={styles.section}>
-            <Text variant="subheading">Photos</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.photoRow}
-            >
-              {photos.map((p, i) => (
-                <View key={p.uri} style={styles.photoWrap}>
-                  <Image source={{ uri: p.uri }} style={styles.photo} contentFit="cover" />
-                  <Pressable
-                    style={styles.photoRemove}
-                    onPress={() => setPhotos((arr) => arr.filter((_, idx) => idx !== i))}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                    accessibilityLabel="Remove photo"
-                  >
-                    <Ionicons name="close-circle" size={22} color={colors.white} />
-                  </Pressable>
-                </View>
-              ))}
-              {photos.length < MAX_PHOTOS ? (
-                <Pressable
-                  style={styles.addPhoto}
-                  onPress={addPhoto}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add photo"
-                >
-                  <Ionicons name="camera" size={26} color={colors.primary} />
-                  <Text variant="caption" color={colors.primary}>
-                    ADD
-                  </Text>
-                </Pressable>
-              ) : null}
-            </ScrollView>
-
-            {AI_FEATURES.reportAutofill && photos.length > 0 ? (
-              <View style={styles.autofillWrap}>
-                <PressableScale
-                  onPress={runAutofill}
-                  disabled={autofill.isPending}
-                  style={styles.autofillBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Autofill from photo"
-                >
-                  <Ionicons name="sparkles" size={16} color={colors.primary} />
-                  <Text variant="smallStrong" color={colors.primary}>
-                    {autofill.isPending ? 'Reading the photo…' : 'Autofill from photo'}
-                  </Text>
-                </PressableScale>
-                {autofilled ? (
-                  <Text variant="small" muted style={styles.autofillHint}>
-                    AI suggested these details — please review and edit before posting.
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-          </Animated.View>
-
-          {/* Location */}
-          <Animated.View entering={entrance(1)} style={styles.section}>
-            <Text variant="subheading">Where did you see it?</Text>
+          <View style={styles.draftNotice} accessibilityLiveRegion="polite">
+            <Text variant="smallStrong">
+              {!ready
+                ? 'Opening your draft…'
+                : saveStatus === 'error'
+                  ? 'Draft could not be saved on this device'
+                  : saveStatus === 'saving'
+                    ? 'Saving draft…'
+                    : restored
+                      ? 'Saved report restored'
+                      : saveStatus === 'saved'
+                        ? 'Draft saved on this device'
+                        : 'Your report details save on this device'}
+            </Text>
             <Text variant="small" muted>
-              Tap or drag the pin to mark the exact spot.
+              {saveStatus === 'error' ? 'Keep this screen open to avoid losing your work. ' : ''}
+              Photos are kept only while this screen stays open. Add them again if you return later.
+              {restored ? ' Review the saved location and details before posting.' : ''}
             </Text>
-            <View style={styles.mapWrap}>
-              <MapView
-                provider={MAP_PROVIDER}
-                style={styles.map}
-                initialRegion={region}
-                // onPanDrag makes the map win the responder over the parent
-                // ScrollView so taps/drags to place the pin register reliably.
-                onPanDrag={() => {}}
-                onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+            {(hasReportDraft(draft) || photos.length > 0 || saveStatus === 'error') && ready ? (
+              <Button
+                title="Discard draft"
+                variant="ghost"
+                size="sm"
+                onPress={discard}
+                disabled={busy}
+              />
+            ) : null}
+          </View>
+          <View pointerEvents={busy ? 'none' : 'auto'} style={styles.formSections}>
+            {/* Photos */}
+            <Animated.View entering={entrance(0)} style={styles.section}>
+              <Text variant="subheading">Photos</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.photoRow}
               >
-                {marker ? (
-                  <Marker
-                    coordinate={marker}
-                    draggable
-                    onDragEnd={(e) => setMarker(e.nativeEvent.coordinate)}
-                  />
-                ) : null}
-              </MapView>
-            </View>
-          </Animated.View>
-
-          {/* Details */}
-          <Animated.View entering={entrance(2)} style={styles.section}>
-            <Input
-              label="Nickname (optional)"
-              placeholder="e.g. Orange tabby by the park"
-              value={title}
-              onChangeText={setTitle}
-            />
-            <Input
-              label="Description (optional)"
-              placeholder="Behavior, where it hides, anything helpful…"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
-            <Input
-              label="Color / markings (optional)"
-              placeholder="e.g. black & white"
-              value={color}
-              onChangeText={setColor}
-            />
-          </Animated.View>
-
-          {/* Temperament */}
-          <Animated.View entering={entrance(3)} style={styles.section}>
-            <Text variant="smallStrong" color={colors.textSecondary} style={styles.label}>
-              Temperament
-            </Text>
-            <View style={styles.tempRow}>
-              {TEMPERAMENTS.map((t) => {
-                const active = temperament === t;
-                const meta = TEMPERAMENT_META[t];
-                return (
-                  <PressableScale
-                    key={t}
-                    onPress={() => setTemperament(t)}
-                    style={[styles.tempChip, active && styles.tempChipActive]}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={meta.label}
+                {photos.map((p, i) => (
+                  <View key={p.uri} style={styles.photoWrap}>
+                    <Image source={{ uri: p.uri }} style={styles.photo} contentFit="cover" />
+                    <Pressable
+                      style={styles.photoRemove}
+                      disabled={busy}
+                      onPress={() => setPhotos((arr) => arr.filter((_, idx) => idx !== i))}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove photo"
+                    >
+                      <Ionicons name="close-circle" size={22} color={colors.white} />
+                    </Pressable>
+                  </View>
+                ))}
+                {photos.length < MAX_PHOTOS ? (
+                  <Pressable
+                    style={styles.addPhoto}
+                    disabled={busy}
+                    onPress={addPhoto}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add photo"
                   >
-                    <Text variant="smallStrong" color={active ? colors.white : colors.text}>
-                      {meta.icon} {meta.label}
+                    <Ionicons name="camera" size={26} color={colors.primary} />
+                    <Text variant="caption" color={colors.primary}>
+                      ADD
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </ScrollView>
+
+              {AI_FEATURES.reportAutofill && photos.length > 0 ? (
+                <View style={styles.autofillWrap}>
+                  <PressableScale
+                    onPress={runAutofill}
+                    disabled={busy}
+                    style={styles.autofillBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Autofill from photo"
+                  >
+                    <Ionicons name="sparkles" size={16} color={colors.primary} />
+                    <Text variant="smallStrong" color={colors.primary}>
+                      {autofill.isPending ? 'Reading the photo…' : 'Autofill from photo'}
                     </Text>
                   </PressableScale>
-                );
-              })}
-            </View>
-          </Animated.View>
+                  {autofilled ? (
+                    <Text variant="small" muted style={styles.autofillHint}>
+                      AI suggested these details — please review and edit before posting.
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </Animated.View>
 
-          {/* Flags */}
-          <Animated.View entering={entrance(4)} style={styles.section}>
-            <ToggleRow
-              label="🩹 This cat looks injured"
-              value={isInjured}
-              onChange={setIsInjured}
-            />
-            <ToggleRow label="🚨 Needs urgent help" value={needsUrgent} onChange={setNeedsUrgent} />
-          </Animated.View>
+            {/* Location */}
+            <Animated.View entering={entrance(1)} style={styles.section}>
+              <Text variant="subheading">Where did you see it?</Text>
+              <Text variant="small" muted>
+                Tap or drag the pin to mark the exact spot.
+              </Text>
+              <View style={styles.mapWrap}>
+                <MapView
+                  key={ready ? 'ready' : 'loading'}
+                  provider={MAP_PROVIDER}
+                  style={styles.map}
+                  initialRegion={region}
+                  // onPanDrag makes the map win the responder over the parent
+                  // ScrollView so taps/drags to place the pin register reliably.
+                  onPanDrag={() => {}}
+                  onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+                >
+                  {marker ? (
+                    <Marker
+                      coordinate={marker}
+                      draggable
+                      onDragEnd={(e) => setMarker(e.nativeEvent.coordinate)}
+                    />
+                  ) : null}
+                </MapView>
+              </View>
+            </Animated.View>
 
+            {/* Details */}
+            <Animated.View entering={entrance(2)} style={styles.section}>
+              <Input
+                label="Nickname (optional)"
+                placeholder="e.g. Orange tabby by the park"
+                value={title}
+                onChangeText={setTitle}
+                editable={!busy}
+              />
+              <Input
+                label="Description (optional)"
+                placeholder="Behavior, where it hides, anything helpful…"
+                value={description}
+                onChangeText={setDescription}
+                editable={!busy}
+                multiline
+              />
+              <Input
+                label="Color / markings (optional)"
+                placeholder="e.g. black & white"
+                value={color}
+                onChangeText={setColor}
+                editable={!busy}
+              />
+            </Animated.View>
+
+            {/* Temperament */}
+            <Animated.View entering={entrance(3)} style={styles.section}>
+              <Text variant="smallStrong" color={colors.textSecondary} style={styles.label}>
+                Temperament
+              </Text>
+              <View style={styles.tempRow}>
+                {TEMPERAMENTS.map((t) => {
+                  const active = temperament === t;
+                  const meta = TEMPERAMENT_META[t];
+                  return (
+                    <PressableScale
+                      key={t}
+                      disabled={busy}
+                      onPress={() => setTemperament(t)}
+                      style={[styles.tempChip, active && styles.tempChipActive]}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={meta.label}
+                    >
+                      <Text variant="smallStrong" color={active ? colors.white : colors.text}>
+                        {meta.icon} {meta.label}
+                      </Text>
+                    </PressableScale>
+                  );
+                })}
+              </View>
+            </Animated.View>
+
+            {/* Flags */}
+            <Animated.View entering={entrance(4)} style={styles.section}>
+              <ToggleRow
+                label="🩹 This cat looks injured"
+                value={isInjured}
+                onChange={setIsInjured}
+                disabled={busy}
+              />
+              <ToggleRow
+                label="🚨 Needs urgent help"
+                value={needsUrgent}
+                onChange={setNeedsUrgent}
+                disabled={busy}
+              />
+            </Animated.View>
+          </View>
           <Animated.View entering={entrance(5)}>
+            {submissionError ? (
+              <Text variant="small" color={colors.danger} accessibilityRole="alert">
+                Could not post: {submissionError} Your report is still here. Check My reports if you
+                lost connection before trying again.
+              </Text>
+            ) : null}
+            {submissionStep ? (
+              <Text variant="smallStrong" accessibilityLiveRegion="polite">
+                {submissionStep}
+              </Text>
+            ) : null}
             <Button
-              title="Post sighting"
+              title={submissionError ? 'Try posting again' : 'Post sighting'}
+              disabled={busy || !user}
               size="lg"
               fullWidth
               loading={submitting}
@@ -470,10 +641,12 @@ function ToggleRow({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.toggleRow}>
@@ -481,6 +654,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onChange}
+        disabled={disabled}
         trackColor={{ true: colors.primaryLight, false: colors.border }}
         thumbColor={colors.white}
         accessibilityRole="switch"
@@ -504,6 +678,13 @@ const styles = StyleSheet.create({
   },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
   section: { gap: spacing.md },
+  formSections: { gap: spacing.md },
+  draftNotice: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+  },
   photoRow: { gap: spacing.sm, paddingVertical: spacing.xs },
   autofillWrap: { gap: spacing.xs },
   autofillBtn: {

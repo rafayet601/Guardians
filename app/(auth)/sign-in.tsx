@@ -6,10 +6,12 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'rea
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
+import { AuthHeader } from '@/components/AuthHeader';
+import { OAuthButtons } from '@/components/OAuthButtons';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, spacing } from '@/theme';
+import { colors, layout, motion, spacing } from '@/theme';
 
 const schema = z.object({
   email: z.string().trim().email('Enter a valid email'),
@@ -19,12 +21,16 @@ type FormValues = z.infer<typeof schema>;
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, resendConfirmation } = useAuth();
+  const [resending, setResending] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
+  const [oauthPending, setOAuthPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const reduced = useReducedMotion() ?? false;
   const {
     control,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -32,6 +38,7 @@ export default function SignInScreen() {
   });
 
   const onSubmit = async (values: FormValues) => {
+    if (oauthPending || resending) return;
     setFormError(null);
     try {
       await signIn(values.email.trim(), values.password);
@@ -42,7 +49,7 @@ export default function SignInScreen() {
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll contentContainerStyle={styles.page}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View
           entering={
@@ -55,12 +62,13 @@ export default function SignInScreen() {
           }
           style={styles.header}
         >
-          <Text style={styles.logo}>🐾</Text>
-          <Text variant="title">Welcome back</Text>
-          <Text variant="body" muted>
-            Sign in to keep helping cats.
-          </Text>
+          <AuthHeader
+            title="Welcome back."
+            subtitle="Your next good deed starts here. Sign in to your community."
+          />
         </Animated.View>
+
+        <OAuthButtons disabled={isSubmitting || resending} onBusyChange={setOAuthPending} />
 
         <View style={styles.form}>
           <Animated.View
@@ -140,11 +148,46 @@ export default function SignInScreen() {
               size="lg"
               fullWidth
               loading={isSubmitting}
+              disabled={oauthPending || resending}
               onPress={handleSubmit(onSubmit)}
               style={styles.submit}
             />
           </Animated.View>
         </View>
+
+        <Button
+          title="Resend confirmation email"
+          variant="ghost"
+          loading={resending}
+          disabled={isSubmitting || oauthPending || resending}
+          onPress={async () => {
+            const email = z.string().trim().email().safeParse(getValues('email'));
+            if (!email.success) {
+              setFormError('Enter your email above to request a confirmation link.');
+              return;
+            }
+            setResending(true);
+            setFormError(null);
+            setConfirmationMessage(null);
+            try {
+              await resendConfirmation(email.data);
+              setConfirmationMessage(
+                'If your account needs confirmation, a new link has been sent. Check your inbox and spam folder, and open the link in this same browser or app.',
+              );
+            } catch (e) {
+              setFormError(
+                getErrorMessage(e, 'Could not resend the email. Please try again later.'),
+              );
+            } finally {
+              setResending(false);
+            }
+          }}
+        />
+        {confirmationMessage ? (
+          <Text variant="small" muted accessibilityLiveRegion="polite">
+            {confirmationMessage}
+          </Text>
+        ) : null}
 
         <Animated.View
           entering={
@@ -188,7 +231,13 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xxl },
+  page: {
+    width: '100%',
+    maxWidth: layout.formMax,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  header: {},
   logo: { fontSize: 56 },
   form: { gap: spacing.lg },
   submit: { marginTop: spacing.sm },

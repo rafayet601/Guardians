@@ -17,9 +17,9 @@ against the timestamped production migration history.
    key/Sentry configuration. Never put a service-role or AI key in a public var.
 3. Run `npm run release:check -- android` (or `ios` / `web`) with that environment.
    The same checks run automatically for the EAS production build profile.
-4. Apply migrations through `0033_account_erasure.sql` to staging, then production
+4. Apply migrations through `0035_screening_evidence_reset.sql` to staging, then production
    after validating them. Redeploy the Edge Functions. Existing push registrations
-   are disabled by 0032 until users explicitly opt in again using the updated app.
+   are disabled by 0034 until users explicitly opt in again using the updated app.
 5. Configure Supabase SMTP, email confirmation, native/web auth redirect URLs,
    backup recovery, push webhook secret/configuration, and moderation staffing.
    Verify APNs/FCM credentials and restrict Maps keys to the registered apps.
@@ -48,4 +48,8 @@ Playwright browser smoke tests, Deno checks/tests and the pgTAP database suite.
 See `scripts/patch-query-string.cjs`; remove the patch when Expo Router upgrades
 its CommonJS query-string dependency to support the patched ESM decoder itself.
 
-For native Google Maps credentials and physical-device checks, follow [MAPS_SETUP.md](MAPS_SETUP.md).
+## Additional release checks
+
+Follow [OAuth readiness](docs/release/OAUTH_READINESS.md) for provider activation,
+[Android release steps](docs/release/ANDROID_RELEASE_RUNBOOK.md) for Play testing,
+and verify adopter screening before enabling adoption.

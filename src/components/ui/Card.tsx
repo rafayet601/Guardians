@@ -17,7 +17,7 @@ export function Card({ padded = true, onPress, style, children, ...rest }: CardP
 
   if (onPress) {
     return (
-      <PressableScale onPress={onPress} scaleTo={motion.cardPressScale}>
+      <PressableScale accessibilityRole="button" onPress={onPress} scaleTo={motion.cardPressScale}>
         {content}
       </PressableScale>
     );
@@ -28,7 +28,8 @@ export function Card({ padded = true, onPress, style, children, ...rest }: CardP
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     ...shadow.card,

@@ -13,13 +13,14 @@ import type { Database } from '@/types/database';
  * - The session persists across launches via `secureStorage`: an encrypted
  *   SecureStore (keychain/keystore) adapter on native, AsyncStorage on web.
  * - autoRefreshToken keeps the access token fresh while the app is foregrounded.
- * - detectSessionInUrl is disabled (that's a web-only OAuth-redirect concern).
+ * - Callback routes explicitly exchange PKCE codes; URL auto-detection stays off.
  */
 export const supabase = createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
   auth: {
     storage: secureStorage,
     autoRefreshToken: true,
     persistSession: true,
+    flowType: 'pkce',
     detectSessionInUrl: false,
   },
 });

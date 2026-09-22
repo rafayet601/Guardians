@@ -5,39 +5,44 @@ gamification engine that power Guardians.
 
 ## Layout
 
-| File                                                | Purpose                                                                                                                      |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `migrations/0001_init.sql`                          | Extensions (PostGIS), enums, tables, indexes                                                                                 |
-| `migrations/0002_functions.sql`                     | Profile bootstrap, gamification, secure transition RPCs                                                                      |
-| `migrations/0003_geo.sql`                           | `nearby_sightings()` radius search                                                                                           |
-| `migrations/0004_rls.sql`                           | Row Level Security + column-level grants                                                                                     |
-| `migrations/0005_storage.sql`                       | `cat-photos` / `avatars` buckets + policies                                                                                  |
-| `migrations/0006_seed_badges.sql`                   | Badge catalog (required reference data)                                                                                      |
-| `migrations/0007_rewards.sql`                       | Rewards marketplace: Kibble wallet, brands/offers/redemptions, sponsored placements, `redeem_reward()` RPC + RLS             |
-| `migrations/0008_seed_rewards.sql`                  | Demo brands, offers, and sponsored placements                                                                                |
-| `migrations/0009_location_privacy.sql`              | `get_sighting_detail()` RPC; precise coords/address gated to reporter + guardian; address geocoding                          |
-| `migrations/0010_push_tokens.sql`                   | `push_tokens` table, `upsert_push_token()` / `tokens_near()` RPCs, `set_push_enabled()`                                      |
-| `migrations/0011_rate_limiting.sql`                 | Insert rate-limit triggers + `rate_limit_check()`                                                                            |
-| `migrations/0012_moderation.sql`                    | `report_content` / `moderate_content` / `block_user` / `unblock_user` / `get_blocked_users`; `is_moderator` role             |
-| `migrations/0013_adoption_analytics.sql`            | Adoption-funnel analytics triggers                                                                                           |
-| `migrations/0014-0023_*.sql`                        | Misc enhancements: AI features, re-id, lost-cat, KB, etc. (see individual files)                                             |
-| `migrations/0024_ai_kb.sql`                         | `kb_chunks` / `kb_documents` tables; `match_kb_chunks()` RPC; RLS; grant to authenticated                                    |
-| `migrations/0025_reid.sql`                          | Re-id (re-identification) schema and RPCs                                                                                    |
-| `migrations/0026_lost_cat.sql`                      | Lost-cat report schema and functions                                                                                         |
-| `migrations/0027_push_ranking.sql`                  | Token-ranking RPCs for push targeting                                                                                        |
-| `migrations/0028_analytics_events.sql`              | `analytics_events` table for self-hosted analytics                                                                           |
-| `migrations/0029_push_lifecycle.sql`                | Lifecycle push triggers: `private.push_config`, `enqueue_push_notification()`, webhook for claimed/rescued/adoption-interest |
-| `migrations/0030_send_push_auth.sql`                | Dual auth (JWT + webhook shared secret) for send-push Edge Function                                                          |
-| `migrations/0031_fix_redeem_reward_search_path.sql` | Prod bug fix: widen `redeem_reward()` search_path to `extensions` schema for pgcrypto                                        |
-| `seed.sql`                                          | Optional demo sightings                                                                                                      |
-| `tests/`                                            | pgTAP behavioral test suites (9 files, 114 tests)                                                                            |
-| `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                  |
+| File                                                | Purpose                                                                                                                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `migrations/0001_init.sql`                          | Extensions (PostGIS), enums, tables, indexes                                                                                                                 |
+| `migrations/0002_functions.sql`                     | Profile bootstrap, gamification, secure transition RPCs                                                                                                      |
+| `migrations/0003_geo.sql`                           | `nearby_sightings()` radius search                                                                                                                           |
+| `migrations/0004_rls.sql`                           | Row Level Security + column-level grants                                                                                                                     |
+| `migrations/0005_storage.sql`                       | `cat-photos` / `avatars` buckets + policies                                                                                                                  |
+| `migrations/0006_seed_badges.sql`                   | Badge catalog (required reference data)                                                                                                                      |
+| `migrations/0007_rewards.sql`                       | Rewards marketplace: Kibble wallet, brands/offers/redemptions, sponsored placements, `redeem_reward()` RPC + RLS                                             |
+| `migrations/0008_seed_rewards.sql`                  | Demo brands, offers, and sponsored placements                                                                                                                |
+| `migrations/0009_location_privacy.sql`              | `get_sighting_detail()` RPC; precise coords/address gated to reporter + guardian; address geocoding                                                          |
+| `migrations/0010_push_tokens.sql`                   | `push_tokens` table, `upsert_push_token()` / `tokens_near()` RPCs, `set_push_enabled()`                                                                      |
+| `migrations/0011_rate_limiting.sql`                 | Insert rate-limit triggers + `rate_limit_check()`                                                                                                            |
+| `migrations/0012_moderation.sql`                    | `report_content` / `moderate_content` / `block_user` / `unblock_user` / `get_blocked_users`; `is_moderator` role                                             |
+| `migrations/0013_adoption_analytics.sql`            | Adoption-funnel analytics triggers                                                                                                                           |
+| `migrations/0014-0023_*.sql`                        | Misc enhancements: AI features, re-id, lost-cat, KB, etc. (see individual files)                                                                             |
+| `migrations/0024_ai_kb.sql`                         | `kb_chunks` / `kb_documents` tables; `match_kb_chunks()` RPC; RLS; grant to authenticated                                                                    |
+| `migrations/0025_reid.sql`                          | Re-id (re-identification) schema and RPCs                                                                                                                    |
+| `migrations/0026_lost_cat.sql`                      | Lost-cat report schema and functions                                                                                                                         |
+| `migrations/0027_push_ranking.sql`                  | Token-ranking RPCs for push targeting                                                                                                                        |
+| `migrations/0028_analytics_events.sql`              | `analytics_events` table for self-hosted analytics                                                                                                           |
+| `migrations/0029_push_lifecycle.sql`                | Lifecycle push triggers: `private.push_config`, `enqueue_push_notification()`, webhook for claimed/rescued/adoption-interest                                 |
+| `migrations/0030_send_push_auth.sql`                | Dual auth (JWT + webhook shared secret) for send-push Edge Function                                                                                          |
+| `migrations/0031_fix_redeem_reward_search_path.sql` | Prod bug fix: widen `redeem_reward()` search_path to `extensions` schema for pgcrypto                                                                        |
+| `migrations/0032_adopter_screening.sql`             | Adopter background check: `adopter_screenings` + private `screening-docs` bucket; `submit`/`get_my`/`review`/`is_cleared` RPCs; hard gate on express/approve |
+| `seed.sql`                                          | Optional demo sightings                                                                                                                                      |
+| `tests/`                                            | pgTAP behavioral test suites (9 files, 114 tests)                                                                                                            |
+| `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                                                  |
 
 ## Option A — hosted Supabase (fastest)
 
 1. Create a project at <https://app.supabase.com>.
-2. Open **SQL Editor** and run each file in `migrations/` **in order**
-   (`0001` → `0031`). Then optionally run `seed.sql`.
+2. For a **new, empty database**, open **SQL Editor** and run every file in
+   `migrations/` **in filename order**, currently through
+   `0035_screening_evidence_reset.sql`. Include suffixed migrations such as
+   `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
+   For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
+   do not replay the full migration set.
 3. In **Project Settings → API**, copy the **Project URL** and **anon public**
    key into the app's `.env`:
    ```
@@ -51,13 +56,17 @@ gamification engine that power Guardians.
 
 ```bash
 brew install supabase/tap/supabase     # or see supabase.com/docs
-supabase init                          # if not already initialized
-supabase link --project-ref <your-ref>
-supabase db push                       # applies migrations/
-# local dev with Docker:
+# This repository already contains supabase/config.toml.
+# Local development with Docker:
 supabase start
-supabase db reset                      # applies migrations + seed.sql
+supabase db reset --local              # destroys local data; reapplies migrations + seed.sql
 ```
+
+For hosted deployments, inspect the linked project's migration history and
+follow [DEPLOY.md](../DEPLOY.md). The existing Guardians project has timestamped
+remote migration entries while this repository uses numeric filenames; a plain
+`supabase db push` can replay already-applied SQL. Apply only confirmed missing
+migrations and reconcile their history as documented in that runbook.
 
 ## Data model at a glance
 
@@ -68,6 +77,11 @@ supabase db reset                      # applies migrations + seed.sql
   (plus `archived`). Status changes only happen via the RPCs below.
 - **sighting_photos / sighting_updates** — photos and the activity timeline.
 - **adoption_interest** — adopters applying for an `available` cat.
+  Expressing interest and approval both require a cleared background check
+  (see `adopter_screenings` below).
+- **adopter_screenings** — one background-check row per user (PII: owner-only
+  via `get_my_screening()`; listers see only the `is_adopter_cleared()` boolean).
+  ID documents live in the private `screening-docs` bucket (`{uid}/...`).
 - **badges / user_badges / point_events** — gamification.
 - **reward_brands / reward_offers / reward_redemptions** — the rewards
   marketplace. Users spend `profiles.kibble_balance` (a spendable currency
@@ -83,8 +97,12 @@ supabase db reset                      # applies migrations + seed.sql
 | `get_sighting_detail(p_sighting)`                            | Full sighting with precise coords + address (RESTRICTED — reporter/guardian only) |
 | `claim_sighting(p_sighting)`                                 | A guardian claims an open cat (+15 pts)                                           |
 | `update_sighting_status(p_sighting, p_new_status, p_note?)`  | Advance lifecycle (+50 on rescue)                                                 |
-| `express_adoption_interest(p_sighting, p_message?)`          | Apply to adopt an available cat                                                   |
-| `approve_adoption(p_interest)`                               | Lister approves an adopter (forever home 🎉)                                      |
+| `express_adoption_interest(p_sighting, p_message?)`          | Apply to adopt an available cat (requires cleared background check)               |
+| `approve_adoption(p_interest)`                               | Lister approves an adopter (forever home 🎉; applicant must be cleared)           |
+| `submit_adopter_screening(p_payload)`                        | Submit background-check questionnaire (deterministic auto-scoring)                |
+| `get_my_screening()`                                         | Owner-only read of my screening (lazy-expires approvals)                          |
+| `is_adopter_cleared(p_user)`                                 | Boolean only (lister-safe, no PII) — cleared = approved + ID verified + unexpired |
+| `review_adopter_screening(p_user, p_decision, p_reason?)`    | Moderator: verify ID + approve/reject (12-month validity)                         |
 | `redeem_reward(p_offer)`                                     | Spend Kibble on a brand offer; issues a discount code                             |
 | `award_points(p_target_user, p_points, p_reason)`            | SECURITY DEFINER points award (moderator only)                                    |
 | `set_push_enabled(p_enabled)`                                | Toggle push notifications for current user                                        |
@@ -127,3 +145,18 @@ supabase db test
 ```
 
 A drift-detection script lives at `scripts/schema_assertions.sql` (psql, not pgTAP).
+
+## Reconciling the September branch migrations
+
+The screening branch already used `0032_adopter_screening.sql`; the production
+hardening branch independently used `0032_push_account_isolation.sql`. The combined
+history keeps screening at `0032` and moves push isolation to `0034`, after account
+erasure `0033`. Evidence invalidation is added in `0035`.
+
+Before updating an existing database, inspect its migration history and applied SQL.
+If push isolation was recorded as `0032`, reconcile that record to `0034` only after
+verifying the function/index definitions, and apply screening separately if absent.
+If screening was recorded as `0032`, apply only missing migrations. Do not blindly
+run `db push` against the timestamped production history or replay push isolation:
+it intentionally disables legacy push registrations. These repository changes do
+not alter any hosted database or deploy Edge Functions.

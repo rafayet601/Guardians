@@ -1,6 +1,6 @@
 # Guardians — Privacy Policy
 
-_Last updated: 2026-07-12_
+_Last updated: 2026-09-20_
 
 Guardians ("we", "us", the "app") helps a community rescue feral and lost cats by
 letting people report sightings on a map, claim and complete rescues, and place
@@ -12,7 +12,8 @@ share it with.
 - **Account data** — your email/auth identifier, username, and profile details.
 - **Location** — the location of a sighting you report, and (if you opt in to
   urgent-help notifications) a coarsened "home area" used to notify you about
-  nearby urgent sightings. Precise coordinates and addresses are available to the reporter and assigned guardian; other users see an approximate area.
+  nearby urgent sightings. The reporter and assigned Guardian can see the precise
+  sighting location. Other users see an approximate location.
 - **Photos** — images you upload for a sighting or your profile.
 - **Content you write** — report titles/descriptions, rescue updates, comments.
 - **Usage/diagnostic data** — in-app product events and (optionally) crash
@@ -53,6 +54,18 @@ AI cannot diagnose or replace a veterinarian.
 Voyage AI processes photos and text for embeddings used in matching and rescue
 guidance. On web, OpenStreetMap receives tile requests and IP addresses to render
 the map. Native map providers are Google Maps or Apple Maps.
+
+## Adoption screening
+
+Applicants provide their legal name, birth date, phone, address, housing and
+household details, pet experience, veterinary references, consent, and optional
+ID document images. We use these to assess adoption suitability and verify
+identity. Supabase stores these records and private documents; authorized
+moderators review them. Other users can check clearance, but cannot read the
+underlying screening details. ID-provider integrations are not yet active.
+Screening records and documents are retained while your account is active and
+removed from active systems when you delete it; backup retention follows the
+policies described below. Screening documents are not sent to the cat-photo AI services.
 
 ## Your choices and rights
 

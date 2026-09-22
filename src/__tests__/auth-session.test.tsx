@@ -1,7 +1,9 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import { setPushAccount, unregisterForPush } from '@/lib/push';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
@@ -44,9 +46,11 @@ beforeEach(async () => {
   });
   await act(async () => {
     tree = create(
-      <AuthProvider>
-        <Probe />
-      </AuthProvider>,
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      </QueryClientProvider>,
     );
   });
 });
@@ -74,6 +78,7 @@ test('account changes discard privileged cache while token refresh preserves it'
     listener('SIGNED_IN', session('bob'));
   });
   expect(auth.user?.id).toBe('bob');
+  expect(setPushAccount).toHaveBeenLastCalledWith('bob');
 });
 
 test('a delayed initial session cannot restore the account after sign-out', async () => {
@@ -92,4 +97,15 @@ test('sign-out failures reach the caller', async () => {
   const error = new Error('offline');
   (supabase.auth.signOut as jest.Mock).mockResolvedValue({ error });
   await expect(auth.signOut()).rejects.toThrow('offline');
+});
+
+test('push unregister failures prevent sign-out and reach the caller', async () => {
+  await act(async () => {
+    listener('SIGNED_IN', session('alice'));
+  });
+  (supabase.auth.signOut as jest.Mock).mockClear();
+  (unregisterForPush as jest.Mock).mockRejectedValueOnce(new Error('push offline'));
+  await expect(auth.signOut()).rejects.toThrow('push offline');
+  expect(unregisterForPush).toHaveBeenLastCalledWith('alice');
+  expect(supabase.auth.signOut).not.toHaveBeenCalled();
 });

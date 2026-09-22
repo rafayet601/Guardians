@@ -8,6 +8,7 @@ import {
   getMyLostCats,
   rejectLostCatMatch,
   triggerLostCatMatch,
+  triggerSightingLostMatch,
 } from '@/api/ai';
 import { AI_FEATURES } from '@/constants/ai';
 import { captureError, track } from '@/lib/observability';
@@ -101,4 +102,22 @@ export function useRejectLostCatMatch(lostCatId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.lostCats });
     },
   });
+}
+
+/**
+ * The other direction of the continuous match loop (AI-M4 #5): after a NEW
+ * sighting is posted, ask the server to match it against open lost-cat posts
+ * (and push the owner on a hit). Fire-and-forget by contract — no-ops when the
+ * flag is off, never throws, never blocks the report. The server verifies the
+ * caller is the sighting's reporter. Call as
+ * `void matchSightingAgainstLostCatsBestEffort(sightingId)`.
+ */
+export async function matchSightingAgainstLostCatsBestEffort(sightingId: string): Promise<void> {
+  if (!AI_FEATURES.lostCatReunion) return;
+  try {
+    await triggerSightingLostMatch(sightingId);
+    track('ai_lost_cat_sighting_match_triggered', { sighting_id: sightingId });
+  } catch (e) {
+    captureError(e, { source: 'sighting-lost-cat-match-trigger' });
+  }
 }

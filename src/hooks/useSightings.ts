@@ -18,6 +18,7 @@ import {
   type CreateSightingInput,
   type NearbyParams,
 } from '@/api/sightings';
+import { screenCommentBestEffort } from '@/hooks/useAiModeration';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
@@ -38,10 +39,15 @@ export function useNearbySightings(params: NearbyParams | null) {
       };
     }, []),
   );
+  // nearby_sightings is granted to `authenticated` only (0016/0027). The map
+  // tab mounts before the root layout redirects a logged-out user to /welcome,
+  // so without this gate every cold start fires the RPC as anon, gets 42501,
+  // and reports a false error to Sentry.
+  const { session } = useAuth();
   return useQuery({
     queryKey: queryKeys.nearby(params ?? {}),
     queryFn: () => getNearby(params as NearbyParams),
-    enabled: !!params && active,
+    enabled: !!params && !!session && active,
     staleTime: 15_000,
     // Refresh through the privacy-preserving RPC, never raw location events.
     refetchInterval: active ? 30_000 : false,
@@ -171,6 +177,12 @@ export function usePostComment(sightingId: string) {
   const { user } = useAuth();
   return useMutation({
     mutationFn: (body: string) => postComment(sightingId, user!.id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.sightingUpdates(sightingId) }),
+    onSuccess: (comment) => {
+      qc.invalidateQueries({ queryKey: queryKeys.sightingUpdates(sightingId) });
+      // 🛡️ Background text screening (AI-M2 #10). Fire-and-forget by contract:
+      // the helper no-ops when its flag is off and swallows its own errors, so
+      // a moderation hiccup can never block or fail the posted comment.
+      void screenCommentBestEffort(comment.id, comment.body ?? '');
+    },
   });
 }

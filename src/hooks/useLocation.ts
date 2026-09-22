@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 export interface Coords {
   lat: number;
@@ -22,28 +22,38 @@ export function useCurrentLocation() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const pending = useRef<Promise<Coords | null> | null>(null);
 
-  const request = useCallback(async (): Promise<Coords | null> => {
-    setStatus('loading');
-    setError(null);
-    try {
-      const { status: perm } = await Location.requestForegroundPermissionsAsync();
-      if (perm !== 'granted') {
+  const request = useCallback((): Promise<Coords | null> => {
+    // Mount recovery and a rapid location-button tap must share one request.
+    if (pending.current) return pending.current;
+    const fetchLocation = async (): Promise<Coords | null> => {
+      setStatus('loading');
+      setError(null);
+      try {
+        const { status: perm } = await Location.requestForegroundPermissionsAsync();
+        if (perm !== 'granted') {
+          setCoords(null);
+          setStatus('denied');
+          return null;
+        }
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCoords(next);
+        setStatus('granted');
+        return next;
+      } catch (e) {
         setStatus('denied');
+        setError(e instanceof Error ? e.message : 'Location unavailable');
         return null;
       }
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setCoords(next);
-      setStatus('granted');
-      return next;
-    } catch (e) {
-      setStatus('denied');
-      setError(e instanceof Error ? e.message : 'Location unavailable');
-      return null;
-    }
+    };
+    pending.current = fetchLocation().finally(() => {
+      pending.current = null;
+    });
+    return pending.current;
   }, []);
 
   // `location` is the primary field; `coords` is kept as a read alias so the

@@ -77,6 +77,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    config: {
+      googleMaps: {
+        apiKey:
+          process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ||
+          process.env.GOOGLE_MAPS_ANDROID_API_KEY,
+      },
+    },
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'CAMERA'],
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',
@@ -92,6 +99,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     ['react-native-maps', mapsPluginOptions(process.env)],
     'expo-secure-store',
+    'expo-web-browser',
     'expo-font',
     'expo-image',
     'expo-status-bar',
@@ -135,7 +143,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     eas: {
-      projectId: process.env.EAS_PROJECT_ID,
+      projectId: process.env.EAS_PROJECT_ID ?? 'f8a869e6-e03d-42f1-b84f-add62b4b23e4',
     },
   },
 });
