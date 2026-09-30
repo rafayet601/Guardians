@@ -87,6 +87,21 @@ export async function getMySightings(userId: string): Promise<Sighting[]> {
   return (data ?? []) as unknown as Sighting[];
 }
 
+/**
+ * Cats the signed-in user is (or was) the assigned Guardian for, newest claim
+ * first. A released claim clears `claimed_by`, so it drops off this list.
+ */
+export async function getMyRescues(userId: string): Promise<Sighting[]> {
+  const { data, error } = await supabase
+    .from('sightings')
+    .select(SIGHTING_SELECT)
+    .eq('claimed_by', userId)
+    .neq('status', 'archived')
+    .order('claimed_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Sighting[];
+}
+
 export interface CreateSightingInput {
   lat: number;
   lng: number;
