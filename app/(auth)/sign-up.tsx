@@ -11,6 +11,7 @@ import { OAuthButtons } from '@/components/OAuthButtons';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
+import { handOffEmail } from '@/lib/signInHandoff';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, layout, motion, spacing } from '@/theme';
 
@@ -54,6 +55,7 @@ export default function SignUpScreen() {
           'Confirm your email',
           'We sent you a confirmation link. Open it in this same browser or app to finish signing in.',
         );
+        handOffEmail(values.email.trim());
         router.replace('/sign-in');
       }
       // otherwise the root layout redirects into the app automatically

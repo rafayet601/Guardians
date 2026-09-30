@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
@@ -10,6 +10,7 @@ import { AuthHeader } from '@/components/AuthHeader';
 import { OAuthButtons } from '@/components/OAuthButtons';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { getErrorMessage } from '@/lib/errors';
+import { clearHandedOffEmail, peekHandedOffEmail } from '@/lib/signInHandoff';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, layout, motion, spacing } from '@/theme';
 
@@ -21,6 +22,10 @@ type FormValues = z.infer<typeof schema>;
 
 export default function SignInScreen() {
   const router = useRouter();
+  // Sign-up hands the email over so someone who has just been asked to confirm
+  // it does not have to type it again. Forgotten when this screen goes away.
+  const [handedOffEmail] = useState(peekHandedOffEmail);
+  useEffect(() => clearHandedOffEmail, []);
   const { signIn, resendConfirmation } = useAuth();
   const [resending, setResending] = useState(false);
   const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
@@ -34,7 +39,7 @@ export default function SignInScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: handedOffEmail, password: '' },
   });
 
   const onSubmit = async (values: FormValues) => {
