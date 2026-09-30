@@ -3,6 +3,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { Button, Card, Text } from '@/components/ui';
 import type { PermissionKind } from '@/lib/permissions';
+import type { PushPromptReason } from '@/lib/pushPrompt';
 import { colors, spacing } from '@/theme';
 
 const COPY: Record<PermissionKind, { icon: string; title: string; body: string }> = {
@@ -28,6 +29,26 @@ const COPY: Record<PermissionKind, { icon: string; title: string; body: string }
   },
 };
 
+/**
+ * The notifications ask is now made at a moment that explains itself, so the
+ * words should say why now. Only promise what is really sent: urgent alerts for
+ * cats nearby, and the claim / rescued / adoption-interest updates.
+ */
+const NOTIFICATION_COPY: Record<PushPromptReason, { title: string; body: string }> = {
+  location: {
+    title: 'Get alerts for cats near you',
+    body: 'Now that we know your neighbourhood, get a notification when a cat within a few kilometres needs urgent help. You can turn alerts off anytime.',
+  },
+  report: {
+    title: 'Know when help arrives',
+    body: "We'll notify you when a Guardian claims your report and when the cat is safe. You can turn alerts off anytime.",
+  },
+  claim: {
+    title: 'Stay ready for the next cat',
+    body: "Get a notification when another cat near you needs urgent help, or when someone wants to adopt a cat you've rescued. You can turn alerts off anytime.",
+  },
+};
+
 const A11Y_KIND: Record<PermissionKind, string> = {
   location: 'location',
   camera: 'camera',
@@ -44,6 +65,8 @@ export interface PermissionPrimerProps {
   onAllow: () => void;
   /** "Not now" — caller marks the primer shown and tracks 'dismissed'. */
   onDismiss: () => void;
+  /** Why the notifications ask is being made now; picks moment-specific copy. */
+  reason?: PushPromptReason;
 }
 
 /**
@@ -51,9 +74,18 @@ export interface PermissionPrimerProps {
  * prompt (P1-1). Themed modal built from the ui primitives; honors reduced
  * motion by skipping the fade entirely.
  */
-export function PermissionPrimer({ visible, kind, onAllow, onDismiss }: PermissionPrimerProps) {
+export function PermissionPrimer({
+  visible,
+  kind,
+  onAllow,
+  onDismiss,
+  reason,
+}: PermissionPrimerProps) {
   const reduced = useReducedMotion() ?? false;
-  const copy = COPY[kind];
+  const copy =
+    kind === 'notifications' && reason
+      ? { ...COPY.notifications, ...NOTIFICATION_COPY[reason] }
+      : COPY[kind];
 
   const content = (
     <View style={styles.overlay}>
