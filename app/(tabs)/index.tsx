@@ -21,24 +21,28 @@ import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { MapView, Marker, MAP_PROVIDER, type Region } from '@/components/PlatformMap';
 import { Text } from '@/components/ui';
-import { STATUS_META } from '@/constants/status';
+import { STATUS_META, isUrgentNow } from '@/constants/status';
+import { useBlockedIds } from '@/hooks/useModeration';
 import { useNearbySightings } from '@/hooks/useSightings';
 import { useCurrentLocation } from '@/hooks/useLocation';
+import { withoutBlocked } from '@/lib/blocking';
 import { confirmAsync, notify } from '@/lib/dialog';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
+import { refreshPushHomeArea } from '@/lib/push';
+import { requestPushPrompt } from '@/lib/pushPrompt';
+import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { CatStatus, NearbySighting } from '@/types/models';
-import { DEFAULT_REGION, radiusFromRegion, regionForRadius } from '@/utils/geo';
+import { DEFAULT_REGION, distanceMeters, radiusFromRegion, regionForRadius } from '@/utils/geo';
 
 type Filter = 'all' | 'needs_help' | 'available';
 
 const FILTERS: { key: Filter; label: string; statuses?: CatStatus[] }[] = [
   { key: 'all', label: 'All cats' },
-  {
-    key: 'needs_help',
-    label: '🆘 Needs help',
-    statuses: ['spotted', 'claimed', 'in_rescue'],
-  },
+  // Cats still waiting for a Guardian. Once one is on the way a cat no longer
+  // needs someone to step up, and a Guardian scanning for a rescue to take
+  // should not have to skip past the ones already claimed.
+  { key: 'needs_help', label: '🆘 Needs a Guardian', statuses: ['spotted'] },
   { key: 'available', label: '🏠 Adoptable', statuses: ['available'] },
 ];
 
@@ -48,6 +52,7 @@ export default function MapScreen() {
   const { height: winH } = useWindowDimensions();
   const mapRef = useRef<ComponentRef<typeof MapView>>(null);
   const { coords, status: locationStatus, error: locationError, request } = useCurrentLocation();
+  const { user } = useAuth();
   const locationActionPending = useRef(false);
 
   const reduced = useReducedMotion() ?? false;
@@ -58,6 +63,9 @@ export default function MapScreen() {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [tracksChanges, setTracksChanges] = useState(true);
+  // True once the person has looked somewhere else on purpose (searched, or
+  // moved the map off the default view), so the "turn on location" nudge stops.
+  const [browsingElsewhere, setBrowsingElsewhere] = useState(false);
   const tracksTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The sheet peeks ~32% of the screen; float controls just above it.
@@ -75,6 +83,21 @@ export default function MapScreen() {
     if (!coords) return;
     const r = regionForRadius(coords.lat, coords.lng, 3000);
     mapRef.current?.animateToRegion(r, 600);
+  }, [coords]);
+
+  // Urgent alerts only reach a device whose alert area is on file, and the area
+  // used to be captured once, at launch, usually before location was granted.
+  // Keep it following the person whenever the map learns where they are. The
+  // helper throttles itself, so repeated fixes cost nothing.
+  useEffect(() => {
+    if (user && coords) void refreshPushHomeArea(user.id, coords);
+  }, [user, coords]);
+
+  // Alerts are about cats near the person, so once we know where they are is a
+  // natural moment to offer them. The root layout decides whether to actually
+  // ask (never twice in a day, never after the OS has refused for good).
+  useEffect(() => {
+    if (coords) requestPushPrompt('location', 1500);
   }, [coords]);
 
   // Only already-granted permissions may auto-center. Every new OS prompt
@@ -133,6 +156,12 @@ export default function MapScreen() {
     };
   }, [pulseTracks]);
 
+  // With no location the map sits on the default city and the nearby list is for
+  // somewhere the person may not be. Say so, instead of leaving them to wonder
+  // why nothing is around them.
+  const showLocationHint = !coords && locationStatus !== 'loading' && !browsingElsewhere;
+  const pillTop = insets.top + 108 + (showLocationHint ? 44 : 0);
+
   const params = useMemo(
     () => ({
       lat: Math.round(region.latitude * 1000) / 1000,
@@ -143,13 +172,10 @@ export default function MapScreen() {
     [region, filter],
   );
 
-  const {
-    data: sightings = [],
-    isPending,
-    isError,
-    isFetching,
-    refetch,
-  } = useNearbySightings(params);
+  const blockedIds = useBlockedIds();
+  const { data: nearby = [], isPending, isError, isFetching, refetch } = useNearbySightings(params);
+  // Blocking a user must actually remove their reports from what you see.
+  const sightings = useMemo(() => withoutBlocked(nearby, blockedIds), [nearby, blockedIds]);
 
   const recenter = async () => {
     if (locationActionPending.current || locationStatus === 'loading') return;
@@ -200,6 +226,7 @@ export default function MapScreen() {
       if (results[0]) {
         const r = regionForRadius(results[0].latitude, results[0].longitude, 3000);
         setRegion(r);
+        setBrowsingElsewhere(true);
         mapRef.current?.animateToRegion(r, 600);
       } else notify('Place not found', 'Try a more specific address or move the map to your area.');
     } catch {
@@ -271,6 +298,11 @@ export default function MapScreen() {
         onRegionChangeComplete={(r) => {
           setRegion(r);
           pulseTracks(800);
+          const fromDefault = distanceMeters(
+            { lat: r.latitude, lng: r.longitude },
+            { lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude },
+          );
+          if (fromDefault > 1000) setBrowsingElsewhere(true);
         }}
       >
         {clusters.map((c) => {
@@ -295,9 +327,13 @@ export default function MapScreen() {
             );
           }
           const s = props.sighting as NearbySighting;
+          const urgent = isUrgentNow(s.status, s.needs_urgent_help);
           return (
             <Marker
-              key={s.id}
+              // Status and urgency are in the key on purpose: markers do not
+              // track view changes once settled, so without it a claimed cat
+              // keeps its old colour until the whole map is remounted.
+              key={`${s.id}:${s.status}:${urgent ? 'u' : 'n'}`}
               coordinate={{ latitude: s.lat, longitude: s.lng }}
               onPress={() => {
                 setSelected(s);
@@ -307,7 +343,7 @@ export default function MapScreen() {
               anchor={{ x: 0.5, y: 1 }}
               accessibilityLabel={`${s.title?.trim() || 'Cat sighting'}, ${
                 STATUS_META[s.status].label
-              }${s.needs_urgent_help ? ', urgent' : ''}`}
+              }${urgent ? ', urgent' : ''}`}
               accessibilityState={{ selected: selected?.id === s.id }}
             >
               <MapPin sighting={s} active={selected?.id === s.id} />
@@ -353,13 +389,26 @@ export default function MapScreen() {
             );
           })}
         </ScrollView>
+        {showLocationHint ? (
+          <PressableScale
+            onPress={recenter}
+            style={styles.locationHint}
+            accessibilityRole="button"
+            accessibilityLabel="Turn on location to see cats near you"
+          >
+            <Ionicons name="location-outline" size={16} color={colors.primary} />
+            <Text variant="smallStrong" color={colors.primary}>
+              Turn on location to see cats near you
+            </Text>
+          </PressableScale>
+        ) : null}
       </View>
 
       {/* Updating pill */}
       {isFetching ? (
         <Animated.View
           entering={reduced ? undefined : FadeIn.duration(motion.enter)}
-          style={[styles.fetching, { top: insets.top + 108, pointerEvents: 'none' }]}
+          style={[styles.fetching, { top: pillTop, pointerEvents: 'none' }]}
           accessibilityLiveRegion="polite"
         >
           <Text variant="caption" color={colors.white}>
@@ -371,7 +420,7 @@ export default function MapScreen() {
       {isError && !isFetching ? (
         <PressableScale
           onPress={() => void refetch()}
-          style={[styles.fetching, { top: insets.top + 108 }]}
+          style={[styles.fetching, { top: pillTop }]}
           accessibilityRole="button"
           accessibilityLabel="Sightings could not refresh. Tap to retry."
         >
@@ -465,7 +514,9 @@ function ClusterBubble({ count }: { count: number }) {
 
 function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolean }) {
   const meta = STATUS_META[sighting.status];
-  const urgent = sighting.needs_urgent_help;
+  // Urgent only while the cat is still waiting for a Guardian; afterwards the
+  // pin shows its real status colour so open emergencies stand out.
+  const urgent = isUrgentNow(sighting.status, sighting.needs_urgent_help);
   const color = urgent ? colors.urgent : meta.fg;
   return (
     <View style={[styles.pinWrap, active && styles.pinWrapActive]}>
@@ -497,6 +548,20 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  locationHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginLeft: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.card,
+  },
   recenter: {
     position: 'absolute',
     right: spacing.lg,

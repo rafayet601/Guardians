@@ -16,7 +16,10 @@ import { SightingCard } from '@/components/SightingCard';
 import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { SponsoredCard } from '@/components/SponsoredCard';
 import { EmptyState, Loading, PageHeader, Text } from '@/components/ui';
+import { isUrgentNow } from '@/constants/status';
+import { useBlockedIds } from '@/hooks/useModeration';
 import { useFeed } from '@/hooks/useSightings';
+import { withoutBlocked } from '@/lib/blocking';
 import { colors, layout, motion, radius, spacing } from '@/theme';
 import type { CatStatus } from '@/types/models';
 
@@ -47,7 +50,8 @@ export default function FeedScreen() {
     hasNextPage,
     isFetchingNextPage,
   } = useFeed(statuses);
-  const items = data?.pages.flatMap((p) => p.items) ?? [];
+  const blockedIds = useBlockedIds();
+  const items = withoutBlocked(data?.pages.flatMap((p) => p.items) ?? [], blockedIds);
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
@@ -157,7 +161,7 @@ export default function FeedScreen() {
                 temperament={item.temperament}
                 color={item.color}
                 isInjured={item.is_injured}
-                needsUrgentHelp={item.needs_urgent_help}
+                needsUrgentHelp={isUrgentNow(item.status, item.needs_urgent_help)}
                 thumbnailUrl={item.photos?.[0]?.url ?? null}
                 demoPhoto={getDemoSightingPhoto(item)}
                 seed={item.id}

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createContext } from 'react';
+import { createContext, useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
@@ -26,8 +26,14 @@ jest.mock('@/providers/AuthProvider', () => ({
 
 const params = { lat: 40, lng: -74, radiusM: 3000 };
 
+const probe: { result?: ReturnType<typeof useNearbySightings> } = {};
+
 function Probe({ nearbyParams }: { nearbyParams: NearbyParams | null }) {
-  useNearbySightings(nearbyParams);
+  const result = useNearbySightings(nearbyParams);
+  // Captured in an effect, not during render, so the test can inspect the hook's state.
+  useEffect(() => {
+    probe.result = result;
+  });
   return null;
 }
 
@@ -143,4 +149,54 @@ test('missing search parameters never fetch', async () => {
   await render(true, null);
   await advance(90_000);
   expect(getNearby).not.toHaveBeenCalled();
+});
+
+describe('keeping pins on screen while the map moves', () => {
+  const pin = (id: string) => ({ id }) as unknown as Awaited<ReturnType<typeof getNearby>>[number];
+
+  function deferred() {
+    let resolve!: (rows: Awaited<ReturnType<typeof getNearby>>) => void;
+    const promise = new Promise<Awaited<ReturnType<typeof getNearby>>>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  test('a pan keeps the previous pins until the new area answers', async () => {
+    jest.mocked(getNearby).mockResolvedValueOnce([pin('a')]);
+    await render();
+    await advance(1);
+    expect(probe.result?.data).toEqual([pin('a')]);
+
+    const next = deferred();
+    jest.mocked(getNearby).mockReturnValueOnce(next.promise);
+    await render(true, { ...params, lat: 41 });
+    await advance(1);
+    expect(probe.result?.isPlaceholderData).toBe(true);
+    expect(probe.result?.data).toEqual([pin('a')]);
+    expect(probe.result?.isPending).toBe(false);
+
+    await act(async () => next.resolve([pin('b')]));
+    await advance(1);
+    expect(probe.result?.isPlaceholderData).toBe(false);
+    expect(probe.result?.data).toEqual([pin('b')]);
+  });
+
+  test('a filter change never shows cats from the previous filter', async () => {
+    jest.mocked(getNearby).mockResolvedValueOnce([pin('a')]);
+    await render();
+    await advance(1);
+    expect(probe.result?.data).toEqual([pin('a')]);
+
+    const next = deferred();
+    jest.mocked(getNearby).mockReturnValueOnce(next.promise);
+    await render(true, { ...params, statuses: ['spotted'] });
+    await advance(1);
+    expect(probe.result?.data).toBeUndefined();
+    expect(probe.result?.isPending).toBe(true);
+
+    await act(async () => next.resolve([pin('c')]));
+    await advance(1);
+    expect(probe.result?.data).toEqual([pin('c')]);
+  });
 });

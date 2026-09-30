@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -15,9 +15,12 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { SightingCard } from '@/components/SightingCard';
 import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { Button, EmptyState, Loading, Text } from '@/components/ui';
+import { isUrgentNow } from '@/constants/status';
 import type { Coords } from '@/hooks/useLocation';
 import { colors, motion, radius, shadow, spacing } from '@/theme';
 import type { NearbySighting } from '@/types/models';
+import { distanceMeters } from '@/utils/geo';
+import { sortForTriage } from '@/utils/triage';
 
 interface NearbySheetProps {
   sightings: NearbySighting[];
@@ -85,15 +88,21 @@ export function NearbySheet({
     translateY.value = reduced ? target : withSpring(target, SPRING);
   }, [collapsedY, minimizedY, translateY, snap, reduced]);
 
-  // Selecting a pin lifts the sheet so its row is visible.
+  // Selecting a pin brings that cat's row into view WITHOUT throwing the sheet
+  // over the map: whoever tapped the pin still needs to see it, along with the
+  // filters and controls. A sheet the user tucked away comes back to the peek height,
+  // one they expanded stays as it is.
+  const listRef = useRef<ScrollView>(null);
+  const rowOffsets = useRef<Record<string, number>>({});
   useEffect(() => {
-    if (selectedId) {
-      // Synchronize the accessible control with the imperative map-pin expansion.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSnap('expanded');
-      translateY.value = reduced ? 0 : withSpring(0, SPRING);
+    if (!selectedId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSnap((current) => (current === 'minimized' ? 'peek' : current));
+    const y = rowOffsets.current[selectedId];
+    if (y !== undefined) {
+      listRef.current?.scrollTo({ y: Math.max(0, y - spacing.sm), animated: !reduced });
     }
-  }, [selectedId, translateY, reduced]);
+  }, [selectedId, reduced]);
 
   const toggleList = () => {
     const expanding = snap !== 'expanded';
@@ -126,10 +135,16 @@ export function NearbySheet({
 
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
 
-  const rows = useMemo(
-    () => [...sightings].sort((a, b) => a.distance_m - b.distance_m).slice(0, MAX_ROWS),
-    [sightings],
-  );
+  // Most actionable first, nearest first within a tier. The list is capped, so a
+  // plain distance sort would let resolved cats push urgent ones off the end.
+  // The selected cat is always kept so a tapped pin always has a row.
+  const ordered = useMemo(() => sortForTriage(sightings), [sightings]);
+  const rows = useMemo(() => {
+    const top = ordered.slice(0, MAX_ROWS);
+    const selected = selectedId ? ordered.find((s) => s.id === selectedId) : undefined;
+    return selected && !top.includes(selected) ? [...top, selected] : top;
+  }, [ordered, selectedId]);
+  const hiddenCount = Math.max(0, sightings.length - rows.length);
 
   return (
     <Animated.View style={[styles.sheet, { height: expandedH }, sheetStyle]}>
@@ -144,7 +159,13 @@ export function NearbySheet({
             <View style={styles.headerCopy}>
               <Text variant="heading">Cats nearby</Text>
               <Text variant="caption" color={colors.primary}>
-                {loading ? 'Loading…' : failed ? 'Not updated' : `${sightings.length} in this area`}
+                {loading
+                  ? 'Loading…'
+                  : failed
+                    ? 'Not updated'
+                    : hiddenCount > 0
+                      ? `${rows.length} of ${sightings.length} · most urgent first`
+                      : `${sightings.length} in this area`}
               </Text>
             </View>
             <Button
@@ -163,6 +184,7 @@ export function NearbySheet({
 
       {snap !== 'minimized' ? (
         <ScrollView
+          ref={listRef}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + spacing.lg }]}
           showsVerticalScrollIndicator={false}
         >
@@ -206,6 +228,9 @@ export function NearbySheet({
                         .damping(motion.damping)
                 }
                 style={[styles.rowWrap, selectedId === s.id && styles.rowSelected]}
+                onLayout={(event) => {
+                  rowOffsets.current[s.id] = event.nativeEvent.layout.y;
+                }}
               >
                 <SightingCard
                   title={s.title}
@@ -213,17 +238,26 @@ export function NearbySheet({
                   temperament={s.temperament}
                   color={s.color}
                   isInjured={s.is_injured}
-                  needsUrgentHelp={s.needs_urgent_help}
+                  needsUrgentHelp={isUrgentNow(s.status, s.needs_urgent_help)}
                   thumbnailUrl={s.thumbnail_url}
                   demoPhoto={getDemoSightingPhoto(s)}
                   seed={s.id}
-                  distanceM={coords ? s.distance_m : null}
+                  // "X away" means away from the person. The server's distance is
+                  // measured from the centre of the map, which reads as wrong the
+                  // moment the map is panned.
+                  distanceM={coords ? distanceMeters(coords, s) : null}
                   createdAt={s.created_at}
                   onPress={() => onSelect(s.id)}
                 />
               </Animated.View>
             ))
           )}
+          {hiddenCount > 0 ? (
+            <Text variant="small" muted center>
+              {hiddenCount} more {hiddenCount === 1 ? 'cat' : 'cats'} in this area. Zoom in to see
+              them.
+            </Text>
+          ) : null}
         </ScrollView>
       ) : null}
     </Animated.View>
