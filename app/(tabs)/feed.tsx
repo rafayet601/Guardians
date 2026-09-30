@@ -13,10 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
 import { SightingCard } from '@/components/SightingCard';
+import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { SponsoredCard } from '@/components/SponsoredCard';
 import { Button, EmptyState, Loading, Text } from '@/components/ui';
+import { isUrgentNow } from '@/constants/status';
+import { useBlockedIds } from '@/hooks/useModeration';
 import { useFeed } from '@/hooks/useSightings';
-import { colors, motion, radius, spacing } from '@/theme';
+import { withoutBlocked } from '@/lib/blocking';
+import { colors, layout, motion, radius, spacing } from '@/theme';
 import type { CatStatus } from '@/types/models';
 
 type Filter = { key: string; label: string; statuses?: CatStatus[] };
@@ -47,7 +51,8 @@ export default function FeedScreen() {
     isFetchingNextPage,
     isFetchNextPageError,
   } = useFeed(statuses);
-  const items = data?.pages.flatMap((p) => p.items) ?? [];
+  const blockedIds = useBlockedIds();
+  const items = withoutBlocked(data?.pages.flatMap((p) => p.items) ?? [], blockedIds);
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
@@ -97,8 +102,8 @@ export default function FeedScreen() {
         <EmptyState
           title="Could not load sightings"
           message="Check your connection and try again."
-          actionLabel="Try again"
-          onAction={() => refetch()}
+          actionLabel={isRefetching ? 'Retrying…' : 'Try again'}
+          onAction={isRefetching ? undefined : () => void refetch()}
         />
       ) : (
         <FlatList
@@ -181,13 +186,15 @@ export default function FeedScreen() {
               }
             >
               <SightingCard
+                variant="feature"
                 title={item.title}
                 status={item.status}
                 temperament={item.temperament}
                 color={item.color}
                 isInjured={item.is_injured}
-                needsUrgentHelp={item.needs_urgent_help}
+                needsUrgentHelp={isUrgentNow(item.status, item.needs_urgent_help)}
                 thumbnailUrl={item.photos?.[0]?.url ?? null}
+                demoPhoto={getDemoSightingPhoto(item)}
                 seed={item.id}
                 createdAt={item.created_at}
                 onPress={() => router.push(`/sighting/${item.id}`)}
@@ -202,21 +209,35 @@ export default function FeedScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: 2 },
+  header: {},
   // Explicit height + centered items so the horizontal bar can never collapse
   // and clip the chips (which crowded the sponsored card below).
-  filterList: { flexGrow: 0, height: 48, marginTop: spacing.md, marginBottom: spacing.xs },
-  filterRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
+  filterList: {
+    flexGrow: 0,
+    height: 52,
+    marginBottom: spacing.xs,
+    width: '100%',
+    maxWidth: layout.contentMax,
+    alignSelf: 'center',
+  },
+  filterRow: { paddingHorizontal: spacing.xl, gap: spacing.sm, alignItems: 'center' },
   chip: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderRadius: radius.pill,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  listContent: { padding: spacing.lg, flexGrow: 1 },
+  listContent: {
+    padding: spacing.xl,
+    paddingBottom: spacing.bottomClearance,
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: layout.contentMax,
+    alignSelf: 'center',
+  },
   sep: { height: spacing.md },
   feedAd: { marginBottom: spacing.md },
   footerLoader: { paddingVertical: spacing.lg },

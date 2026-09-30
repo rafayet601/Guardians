@@ -17,3 +17,12 @@ export function getErrorMessage(
   }
   return fallback;
 }
+
+/**
+ * `claim_sighting` raises this when another Guardian claimed the cat first.
+ * Urgent alerts fan out to every Guardian nearby at once, so losing this race
+ * is a normal outcome that deserves a kind message rather than a raw error.
+ */
+export function isClaimLostError(error: unknown): boolean {
+  return /no longer available to claim/i.test(getErrorMessage(error, ''));
+}

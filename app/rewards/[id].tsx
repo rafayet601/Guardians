@@ -13,7 +13,7 @@ import { Button, Card, Loading, Pill, Text } from '@/components/ui';
 import { getErrorMessage } from '@/lib/errors';
 import { useUserBadges } from '@/hooks/useGamification';
 import { useMyProfile } from '@/hooks/useProfile';
-import { useOffers, useRedeemReward } from '@/hooks/useRewards';
+import { useMyRedemptions, useOffers, useRedeemReward } from '@/hooks/useRewards';
 import { confirmAsync, notify } from '@/lib/dialog';
 import { colors, palette, radius, shadow, spacing } from '@/theme';
 import { compactNumber } from '@/utils/format';
@@ -35,6 +35,7 @@ export default function OfferDetailScreen() {
   const router = useRouter();
 
   const { data: offers, isLoading } = useOffers();
+  const { data: redemptions } = useMyRedemptions();
   const { data: profile } = useMyProfile();
   const { data: earned = [] } = useUserBadges(profile?.id);
   const redeem = useRedeemReward();
@@ -57,7 +58,9 @@ export default function OfferDetailScreen() {
   }
 
   const earnedIds = new Set(earned.map((b) => b.badge_id));
-  const eligibility = checkEligibility(offer, profile, earnedIds);
+  const eligibility = checkEligibility(offer, profile, earnedIds, {
+    redeemedOfferIds: new Set((redemptions ?? []).map((redemption) => redemption.offer_id)),
+  });
 
   const onRedeem = async () => {
     tapFeedback();

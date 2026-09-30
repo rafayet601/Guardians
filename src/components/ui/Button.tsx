@@ -7,7 +7,12 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  useReducedMotion,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { colors, fontFamily, radius, shadow, spacing } from '@/theme';
 
@@ -43,18 +48,20 @@ export function Button({
   const isDisabled = disabled || loading;
   const v = VARIANTS[variant];
   const scale = useSharedValue(1);
+  const reduced = useReducedMotion();
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <AnimatedPressable
       accessibilityRole="button"
+      accessibilityLabel={title}
       accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
       disabled={isDisabled}
       onPressIn={() => {
-        scale.value = withSpring(0.96, { damping: 18, stiffness: 340 });
+        scale.value = reduced ? 1 : withSpring(0.98, { duration: 150, dampingRatio: 1 });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, { damping: 13, stiffness: 240 });
+        scale.value = reduced ? 1 : withSpring(1, { duration: 150, dampingRatio: 1 });
       }}
       style={[
         styles.base,
@@ -95,7 +102,8 @@ const VARIANTS: Record<ButtonVariant, { bg: string; fg: string; border?: string 
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,

@@ -32,7 +32,7 @@ export default function ForgotPasswordScreen() {
       await resetPassword(values.email);
       notify(
         'Check your email',
-        'If an account exists for that address, we sent a link to reset your password.',
+        'If an account exists for that address, we sent a link to reset your password. Open it in this same browser or app.',
       );
       router.back();
     } catch (e) {

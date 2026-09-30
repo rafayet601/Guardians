@@ -13,6 +13,7 @@ import { NEXT_STEP } from '@/constants/journey';
 import { useMyProfile } from '@/hooks/useProfile';
 import { useMyActivity } from '@/hooks/useSightings';
 import { colors, motion, radius, spacing } from '@/theme';
+import { getDemoSightingPhoto } from '@/utils/demoSightings';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -164,6 +165,7 @@ export default function HomeScreen() {
                 status={sighting.status}
                 temperament={sighting.temperament}
                 thumbnailUrl={sighting.photos?.[0]?.url}
+                demoPhoto={getDemoSightingPhoto(sighting)}
                 needsUrgentHelp={sighting.needs_urgent_help}
                 isInjured={sighting.is_injured}
                 createdAt={sighting.updated_at}

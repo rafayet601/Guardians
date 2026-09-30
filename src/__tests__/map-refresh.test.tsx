@@ -1,74 +1,202 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createContext, useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
-import { getNearby } from '@/api/sightings';
+import { getNearby, type NearbyParams } from '@/api/sightings';
 import { useNearbySightings } from '@/hooks/useSightings';
 
+const mockFocusContext = createContext(true);
+let mockSignedIn = true;
+
 jest.mock('expo-router', () => ({
-  useFocusEffect: (callback: () => () => void) => require('react').useEffect(callback, [callback]),
+  useFocusEffect: (callback: () => () => void) => {
+    const React = require('react');
+    const focused = React.useContext(mockFocusContext);
+    React.useEffect(() => (focused ? callback() : undefined), [callback, focused]);
+  },
 }));
 jest.mock('@/api/sightings', () => ({ getNearby: jest.fn() }));
 jest.mock('@/lib/supabase', () => ({ supabase: {} }));
 jest.mock('@/lib/observability', () => ({ track: jest.fn() }));
-jest.mock('@/providers/AuthProvider', () => ({ useAuth: jest.fn() }));
+jest.mock('@/hooks/useAiModeration', () => ({ screenCommentBestEffort: jest.fn() }));
+jest.mock('@/providers/AuthProvider', () => ({
+  useAuth: () => ({ session: mockSignedIn ? { user: { id: 'guardian' } } : null }),
+}));
 
-function Probe() {
-  useNearbySightings({ lat: 40, lng: -74, radiusM: 3000 });
+const params = { lat: 40, lng: -74, radiusM: 3000 };
+
+const probe: { result?: ReturnType<typeof useNearbySightings> } = {};
+
+function Probe({ nearbyParams }: { nearbyParams: NearbyParams | null }) {
+  const result = useNearbySightings(nearbyParams);
+  // Captured in an effect, not during render, so the test can inspect the hook's state.
+  useEffect(() => {
+    probe.result = result;
+  });
   return null;
 }
 
-test('visible map refreshes other users sightings and suspends polling in the background', async () => {
+let client: QueryClient;
+let tree: ReactTestRenderer | undefined;
+let previousState: AppStateStatus;
+let changeState: (state: AppStateStatus) => void;
+let remove: jest.Mock;
+let listener: jest.SpyInstance;
+
+beforeEach(() => {
   jest.useFakeTimers();
-  const previousState = AppState.currentState;
+  previousState = AppState.currentState;
   AppState.currentState = 'active';
-  (getNearby as jest.Mock).mockResolvedValue([]);
-  let changeState: (state: AppStateStatus) => void = () => {};
-  const remove = jest.fn();
-  const listener = jest
-    .spyOn(AppState, 'addEventListener')
-    .mockImplementation((_event, callback) => {
-      changeState = callback;
-      return { remove };
+  mockSignedIn = true;
+  jest.mocked(getNearby).mockReset().mockResolvedValue([]);
+  changeState = () => {};
+  remove = jest.fn();
+  listener = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+    changeState = callback;
+    return { remove };
+  });
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+});
+
+afterEach(async () => {
+  await act(async () => tree?.unmount());
+  tree = undefined;
+  client.clear();
+  AppState.currentState = previousState;
+  listener.mockRestore();
+  jest.useRealTimers();
+});
+
+async function render(focused = true, nearbyParams: NearbyParams | null = params) {
+  await act(async () => {
+    const element = (
+      <QueryClientProvider client={client}>
+        <mockFocusContext.Provider value={focused}>
+          <Probe nearbyParams={nearbyParams} />
+        </mockFocusContext.Provider>
+      </QueryClientProvider>
+    );
+    if (tree) tree.update(element);
+    else tree = create(element);
+  });
+}
+
+async function advance(ms: number) {
+  await act(async () => jest.advanceTimersByTimeAsync(ms));
+}
+
+test('visible map refreshes sightings and suspends polling in the background', async () => {
+  await render();
+  expect(getNearby).toHaveBeenCalledTimes(1);
+  await advance(30_000);
+  expect(getNearby).toHaveBeenCalledTimes(2);
+  await act(async () => changeState('background'));
+  await advance(90_000);
+  expect(getNearby).toHaveBeenCalledTimes(2);
+  await act(async () => changeState('active'));
+  expect(getNearby).toHaveBeenCalledTimes(3);
+  await act(async () => tree?.unmount());
+  tree = undefined;
+  expect(remove).toHaveBeenCalledTimes(1);
+});
+
+test('leaving the map stops polling until it regains focus', async () => {
+  await render();
+  expect(getNearby).toHaveBeenCalledTimes(1);
+  await render(false);
+  expect(remove).toHaveBeenCalledTimes(1);
+  await advance(90_000);
+  expect(getNearby).toHaveBeenCalledTimes(1);
+  await render(true);
+  expect(getNearby).toHaveBeenCalledTimes(2);
+});
+
+test('mounting an unfocused map does not fetch', async () => {
+  await render(false);
+  await advance(90_000);
+  expect(getNearby).not.toHaveBeenCalled();
+  expect(listener).not.toHaveBeenCalled();
+});
+
+test('mounting in the background waits for foreground activation', async () => {
+  AppState.currentState = 'background';
+  await render();
+  await advance(90_000);
+  expect(getNearby).not.toHaveBeenCalled();
+  await act(async () => changeState('active'));
+  expect(getNearby).toHaveBeenCalledTimes(1);
+});
+
+test('signed-out users never fetch, including after foregrounding or signing out', async () => {
+  mockSignedIn = false;
+  await render();
+  await advance(30_000);
+  await act(async () => changeState('background'));
+  await act(async () => changeState('active'));
+  expect(getNearby).not.toHaveBeenCalled();
+
+  mockSignedIn = true;
+  await render();
+  expect(getNearby).toHaveBeenCalledTimes(1);
+  mockSignedIn = false;
+  await render();
+  await advance(90_000);
+  expect(getNearby).toHaveBeenCalledTimes(1);
+});
+
+test('missing search parameters never fetch', async () => {
+  await render(true, null);
+  await advance(90_000);
+  expect(getNearby).not.toHaveBeenCalled();
+});
+
+describe('keeping pins on screen while the map moves', () => {
+  const pin = (id: string) => ({ id }) as unknown as Awaited<ReturnType<typeof getNearby>>[number];
+
+  function deferred() {
+    let resolve!: (rows: Awaited<ReturnType<typeof getNearby>>) => void;
+    const promise = new Promise<Awaited<ReturnType<typeof getNearby>>>((r) => {
+      resolve = r;
     });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  let tree: ReactTestRenderer | undefined;
-  try {
-    await act(async () => {
-      tree = create(
-        <QueryClientProvider client={client}>
-          <Probe />
-        </QueryClientProvider>,
-      );
-    });
-    expect(getNearby).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(30_000);
-    });
-    expect(getNearby).toHaveBeenCalledTimes(2);
-    await act(async () => {
-      changeState('background');
-    });
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(90_000);
-    });
-    expect(getNearby).toHaveBeenCalledTimes(2);
-    await act(async () => {
-      changeState('active');
-    });
-    expect(getNearby).toHaveBeenCalledTimes(3);
-    await act(async () => {
-      tree?.unmount();
-    });
-    expect(remove).toHaveBeenCalled();
-    tree = undefined;
-  } finally {
-    await act(async () => {
-      tree?.unmount();
-    });
-    client.clear();
-    AppState.currentState = previousState;
-    listener.mockRestore();
-    jest.useRealTimers();
+    return { promise, resolve };
   }
+
+  test('a pan keeps the previous pins until the new area answers', async () => {
+    jest.mocked(getNearby).mockResolvedValueOnce([pin('a')]);
+    await render();
+    await advance(1);
+    expect(probe.result?.data).toEqual([pin('a')]);
+
+    const next = deferred();
+    jest.mocked(getNearby).mockReturnValueOnce(next.promise);
+    await render(true, { ...params, lat: 41 });
+    await advance(1);
+    expect(probe.result?.isPlaceholderData).toBe(true);
+    expect(probe.result?.data).toEqual([pin('a')]);
+    expect(probe.result?.isPending).toBe(false);
+
+    await act(async () => next.resolve([pin('b')]));
+    await advance(1);
+    expect(probe.result?.isPlaceholderData).toBe(false);
+    expect(probe.result?.data).toEqual([pin('b')]);
+  });
+
+  test('a filter change never shows cats from the previous filter', async () => {
+    jest.mocked(getNearby).mockResolvedValueOnce([pin('a')]);
+    await render();
+    await advance(1);
+    expect(probe.result?.data).toEqual([pin('a')]);
+
+    const next = deferred();
+    jest.mocked(getNearby).mockReturnValueOnce(next.promise);
+    await render(true, { ...params, statuses: ['spotted'] });
+    await advance(1);
+    expect(probe.result?.data).toBeUndefined();
+    expect(probe.result?.isPending).toBe(true);
+
+    await act(async () => next.resolve([pin('c')]));
+    await advance(1);
+    expect(probe.result?.data).toEqual([pin('c')]);
+  });
 });

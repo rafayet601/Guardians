@@ -12,6 +12,20 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
   return (data ?? []).map((row, i) => ({ ...row, rank: i + 1 }) as LeaderboardEntry);
 }
 
+/**
+ * Where a user with `points` stands: one more than the number of people with
+ * strictly more points (ties share a rank). The top-50 list can't say this for
+ * anyone below it, which is most people.
+ */
+export async function getMyRank(points: number): Promise<number> {
+  const { count, error } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .gt('points', points);
+  if (error) throw error;
+  return (count ?? 0) + 1;
+}
+
 export async function getAllBadges(): Promise<Badge[]> {
   const { data, error } = await supabase
     .from('badges')

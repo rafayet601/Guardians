@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
 import { Text } from '@/components/ui';
-import { colors, fontFamily, radius, shadow, spacing } from '@/theme';
+import { colors, fontFamily, layout, radius, shadow, spacing } from '@/theme';
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -26,7 +26,10 @@ export default function TabsLayout() {
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: [
             styles.tabBar,
-            { height: 64 + insets.bottom, paddingBottom: spacing.sm + insets.bottom },
+            {
+              height: layout.tabHeight + insets.bottom,
+              paddingBottom: Math.max(insets.bottom, spacing.sm),
+            },
           ],
           tabBarLabelStyle: styles.tabLabel,
         }}
@@ -42,7 +45,11 @@ export default function TabsLayout() {
           name="map"
           options={{
             title: 'Map',
-            tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name={focused ? 'map' : 'map-outline'} size={22} color={color} />
+              </View>
+            ),
           }}
         />
         <Tabs.Screen
@@ -56,7 +63,11 @@ export default function TabsLayout() {
           name="feed"
           options={{
             title: 'Community',
-            tabBarIcon: ({ color, size }) => <Ionicons name="paw" size={size} color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name={focused ? 'paw' : 'paw-outline'} size={22} color={color} />
+              </View>
+            ),
           }}
         />
         <Tabs.Screen
@@ -72,14 +83,22 @@ export default function TabsLayout() {
           options={{
             href: null,
             title: 'Rewards',
-            tabBarIcon: ({ color, size }) => <Ionicons name="gift" size={size} color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name={focused ? 'gift' : 'gift-outline'} size={22} color={color} />
+              </View>
+            ),
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',
-            tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+              </View>
+            ),
           }}
         />
       </Tabs>
@@ -92,7 +111,7 @@ export default function TabsLayout() {
           entering={
             reduced ? undefined : FadeInDown.delay(180).duration(520).springify().damping(12)
           }
-          style={[styles.fabWrap, { bottom: 64 + spacing.lg + insets.bottom }]}
+          style={[styles.fabWrap, { bottom: layout.tabHeight + spacing.lg + insets.bottom }]}
         >
           <PressableScale
             accessibilityRole="button"
@@ -101,9 +120,9 @@ export default function TabsLayout() {
             style={styles.fab}
             scaleTo={0.9}
           >
-            <Ionicons name="add" size={28} color={colors.white} />
+            <Ionicons name="add" size={22} color={colors.white} />
             <Text variant="caption" color={colors.white} style={styles.fabLabel}>
-              REPORT
+              Report a cat
             </Text>
           </PressableScale>
         </Animated.View>
@@ -117,22 +136,30 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: colors.surface,
     borderTopColor: colors.divider,
-    height: 64,
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingTop: spacing.sm,
   },
   tabLabel: { fontSize: 11, fontFamily: fontFamily.bodySemibold, fontWeight: '600' },
-  fabWrap: { position: 'absolute', right: spacing.lg },
-  fab: {
-    backgroundColor: colors.primary,
-    width: 62,
-    height: 62,
+  tabIcon: {
+    width: 48,
+    height: 30,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
+  },
+  tabIconActive: { backgroundColor: colors.primaryTint },
+  fabWrap: { position: 'absolute', right: spacing.lg },
+  fab: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    minHeight: 52,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
     borderColor: colors.surface,
     ...shadow.floating,
   },
-  fabLabel: { marginTop: -3, letterSpacing: 0.5, fontSize: 9 },
+  fabLabel: { letterSpacing: 0 },
 });

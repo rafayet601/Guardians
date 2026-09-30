@@ -15,11 +15,12 @@
 // Clustering is NOT handled here: supercluster already runs in JS inside the
 // map screen, so it carries over to web unchanged.
 //
-// STAGE 1 SCOPE — deliberately not yet implemented:
-//   • Marker `draggable` / `onDragEnd` (the report.tsx pin-drag flow). Tapping
-//     the map to place a pin DOES work — onPress emits the RN event shape.
-//   • `tracksViewChanges` is accepted and ignored (a native rendering hint with
-//     no web equivalent).
+// Supported: tap-to-place (onPress), draggable markers with
+// onDragStart/onDrag/onDragEnd, meter-radius circles, showsUserLocation, and
+// imperative animateToRegion/fitToCoordinates.
+//
+// `tracksViewChanges` is accepted and ignored — it is a native rendering hint
+// with no web equivalent.
 import 'leaflet/dist/leaflet.css';
 
 import L from 'leaflet';
@@ -197,21 +198,46 @@ export function Marker(props: {
   children?: ReactNode;
   anchor?: { x: number; y: number };
   pinColor?: string;
+  draggable?: boolean;
   onPress?: () => void;
+  onDragStart?: (e: MapPressEvent) => void;
+  onDrag?: (e: MapPressEvent) => void;
+  onDragEnd?: (e: MapPressEvent) => void;
   accessibilityLabel?: string;
   [key: string]: unknown;
 }) {
-  const { coordinate, children, anchor, pinColor, onPress, accessibilityLabel } = props;
+  const {
+    coordinate,
+    children,
+    anchor,
+    pinColor,
+    draggable,
+    onPress,
+    onDragStart,
+    onDrag,
+    onDragEnd,
+    accessibilityLabel,
+  } = props;
   const map = useContext(MapContext);
+
+  // Latest-callback refs: Leaflet handlers are bound once at creation, so they
+  // must not close over a stale render's props.
   const onPressRef = useRef(onPress);
+  const onDragStartRef = useRef(onDragStart);
+  const onDragRef = useRef(onDrag);
+  const onDragEndRef = useRef(onDragEnd);
   useEffect(() => {
     onPressRef.current = onPress;
+    onDragStartRef.current = onDragStart;
+    onDragRef.current = onDrag;
+    onDragEndRef.current = onDragEnd;
   });
 
   // We own the marker's DOM node rather than reading it back off Leaflet after
   // mount. That means the portal target exists on first render, so no
   // state-in-effect round-trip is needed to show the marker.
   const [host] = useState(() => document.createElement('div'));
+  const markerRef = useRef<L.Marker | null>(null);
 
   // iconSize [0,0] puts the node's top-left exactly on the coordinate; the
   // wrapper's transform then applies react-native-maps' fractional `anchor`
@@ -219,29 +245,62 @@ export function Marker(props: {
   const ax = anchor?.x ?? 0.5;
   const ay = anchor?.y ?? 1;
 
+  // Created ONCE per map. Position and draggability are synced by the effects
+  // below rather than being creation deps — otherwise the drop at the end of a
+  // drag (onDragEnd → setState → new coordinate) would tear the marker down and
+  // rebuild it underneath the user's cursor.
   useEffect(() => {
     if (!map) return;
     const marker = L.marker([coordinate.latitude, coordinate.longitude], {
       icon: L.divIcon({ className: 'guardians-marker', html: host, iconSize: [0, 0] }),
       interactive: true,
       keyboard: false,
-      alt: accessibilityLabel ?? '',
     }).addTo(map);
+    markerRef.current = marker;
+
     marker.on('click', (e: L.LeafletMouseEvent) => {
       L.DomEvent.stopPropagation(e); // don't also fire the map's onPress
       onPressRef.current?.();
     });
+
+    const emit = (cb?: (e: MapPressEvent) => void) => {
+      const ll = marker.getLatLng();
+      cb?.({ nativeEvent: { coordinate: { latitude: ll.lat, longitude: ll.lng } } });
+    };
+    marker.on('dragstart', () => emit(onDragStartRef.current));
+    marker.on('drag', () => emit(onDragRef.current));
+    marker.on('dragend', () => emit(onDragEndRef.current));
+
     return () => {
       marker.remove();
+      markerRef.current = null;
     };
-  }, [map, host, coordinate.latitude, coordinate.longitude, accessibilityLabel]);
+    // coordinate is intentionally excluded — see the comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, host]);
+
+  // Follow prop-driven position changes (including the controlled write-back
+  // after a drag, which is a no-op since Leaflet already moved the marker).
+  useEffect(() => {
+    markerRef.current?.setLatLng([coordinate.latitude, coordinate.longitude]);
+  }, [coordinate.latitude, coordinate.longitude]);
+
+  // Leaflet always builds the drag handler for an interactive marker, so this
+  // can toggle freely regardless of the value passed at creation.
+  useEffect(() => {
+    const dragging = markerRef.current?.dragging;
+    if (!dragging) return;
+    if (draggable) dragging.enable();
+    else dragging.disable();
+  }, [draggable]);
 
   return createPortal(
     <div
+      aria-label={accessibilityLabel}
       style={{
         transform: `translate(${-ax * 100}%, ${-ay * 100}%)`,
         width: 'max-content',
-        cursor: onPress ? 'pointer' : 'default',
+        cursor: draggable ? 'grab' : onPress ? 'pointer' : 'default',
       }}
     >
       {children ?? <DefaultPin color={pinColor} />}

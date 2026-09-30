@@ -44,9 +44,9 @@ export function useConfirmSightingLink(sightingId: string) {
     onSuccess: (_result, linkId) => {
       track('ai_reid_link_confirmed', { sightingId, linkId });
       qc.invalidateQueries({ queryKey: queryKeys.reidCandidates(sightingId) });
-      // A newly confirmed link changes the journey of every sighting in the
-      // chain — invalidate the whole family, not just this sighting's key.
-      qc.invalidateQueries({ queryKey: ['ai', 'journey'] });
+      // A newly confirmed link adds a stop to this sighting's journey — use the
+      // real registered key (`['journey-timeline', id]`), not a made-up one.
+      qc.invalidateQueries({ queryKey: queryKeys.journeyTimeline(sightingId) });
     },
   });
 }
@@ -64,7 +64,7 @@ export function useRejectSightingLink(sightingId: string) {
       track('ai_reid_link_rejected', { sightingId, linkId });
       qc.invalidateQueries({ queryKey: queryKeys.reidCandidates(sightingId) });
       // Rejecting a previously confirmed link removes a journey stop.
-      qc.invalidateQueries({ queryKey: ['ai', 'journey'] });
+      qc.invalidateQueries({ queryKey: queryKeys.journeyTimeline(sightingId) });
     },
   });
 }

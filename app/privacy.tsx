@@ -10,7 +10,7 @@ export default function PrivacyScreen() {
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       <Text variant="display">Privacy Policy</Text>
       <Text variant="caption" muted style={styles.updated}>
-        Last updated: September 8, 2026
+        Last updated: September 20, 2026
       </Text>
 
       <Text variant="body" style={styles.para}>
@@ -32,9 +32,9 @@ export default function PrivacyScreen() {
         <Text variant="body">
           {' '}
           — the location of a sighting you report, and (if you opt in to urgent-help notifications)
-          a coarsened &quot;home area&quot; used to notify you about nearby urgent sightings.
-          Precise sighting coordinates and addresses are available to the reporter and assigned
-          guardian. Other users see an approximate area.
+          a coarsened &quot;home area&quot; used to notify you about nearby urgent sightings. The
+          reporter and assigned Guardian can see the precise sighting location. Other users see an
+          approximate location.
         </Text>
       </Bullet>
       <Bullet>
@@ -98,6 +98,19 @@ export default function PrivacyScreen() {
         personal information in uploads. Report suggestions need your review. Automated moderation
         may temporarily hide flagged content for human review. AI cannot diagnose or replace a
         veterinarian.
+      </Text>
+
+      <Text variant="heading" style={styles.h2}>
+        Adoption screening
+      </Text>
+      <Text variant="body" style={styles.para}>
+        Applicants provide legal name, birth date, phone, address, housing and household details,
+        pet experience, veterinary references, consent, and optional ID document images. Supabase
+        stores these records and private documents for identity and adoption suitability review by
+        authorized moderators. Other users can check clearance but cannot read screening details.
+        ID-provider integrations are not yet active. Screening records and documents are retained
+        while your account is active and removed from active systems when you delete it, subject to
+        backup retention. Screening documents are not sent to the cat-photo AI services.
       </Text>
 
       <Text variant="heading" style={styles.h2}>

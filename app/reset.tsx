@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 import { z } from 'zod';
 
 import { Button, Input, Loading, Screen, Text } from '@/components/ui';
+import { scrubAuthCallbackUrl, useAuthCallbackUrl } from '@/hooks/useAuthCallbackUrl';
 import { sessionFromUrl } from '@/lib/authLink';
 import { notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
@@ -26,8 +26,11 @@ type FormValues = z.infer<typeof schema>;
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const url = Linking.useURL();
-  const { session, updatePassword } = useAuth();
+  const { url, ready } = useAuthCallbackUrl();
+  const { updatePassword } = useAuth();
+  const [attempt, setAttempt] = useState(0);
+  const [processedUrl, setProcessedUrl] = useState<string | null>(null);
+  const exchange = useRef<{ url: string; attempt: number; promise: Promise<boolean> } | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'invalid'>('loading');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -40,24 +43,41 @@ export default function ResetPasswordScreen() {
     defaultValues: { password: '', confirm: '' },
   });
 
-  // Establish the recovery session from the email deep link.
+  // A pre-existing session must never authorize an invalid explicit recovery link.
   useEffect(() => {
+    if (!ready) return;
     let active = true;
-    (async () => {
+    const verify = async () => {
       try {
-        const ok = url ? await sessionFromUrl(url) : false;
-        if (!active) return;
-        setStatus(ok || session ? 'ready' : 'invalid');
-      } catch (err) {
-        console.error('Failed to parse reset URL:', err);
-        if (!active) return;
-        setStatus('invalid');
+        if (!url) {
+          if (active) {
+            setProcessedUrl(url);
+            setStatus('invalid');
+          }
+          return;
+        }
+        if (exchange.current?.url !== url || exchange.current.attempt !== attempt) {
+          exchange.current = { url, attempt, promise: sessionFromUrl(url, 'recovery') };
+        }
+        const ok = await exchange.current.promise;
+        scrubAuthCallbackUrl(url);
+        if (active) {
+          setProcessedUrl(url);
+          setStatus(ok ? 'ready' : 'invalid');
+        }
+      } catch {
+        scrubAuthCallbackUrl(url);
+        if (active) {
+          setProcessedUrl(url);
+          setStatus('invalid');
+        }
       }
-    })();
+    };
+    void verify();
     return () => {
       active = false;
     };
-  }, [url, session]);
+  }, [url, ready, attempt]);
 
   const onSubmit = async (values: FormValues) => {
     setFormError(null);
@@ -70,19 +90,32 @@ export default function ResetPasswordScreen() {
     }
   };
 
-  if (status === 'loading') return <Loading label="Verifying your reset link…" />;
+  if (!ready || processedUrl !== url || status === 'loading')
+    return <Loading label="Verifying your reset link…" />;
 
   if (status === 'invalid') {
     return (
       <Screen scroll>
         <Text style={styles.logo}>⚠️</Text>
         <Text variant="title" center>
-          Reset link expired
+          Reset link could not be verified
         </Text>
         <Text variant="body" muted center style={styles.sub}>
-          This password-reset link is invalid or has expired. Request a new one from the sign-in
-          screen.
+          Check your connection and try again. If this link has expired or already been used,
+          request a new password-reset email from sign in.
         </Text>
+        {url ? (
+          <Button
+            title="Try again"
+            size="lg"
+            fullWidth
+            style={styles.submit}
+            onPress={() => {
+              setStatus('loading');
+              setAttempt((value) => value + 1);
+            }}
+          />
+        ) : null}
         <Button
           title="Back to sign in"
           size="lg"
