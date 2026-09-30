@@ -85,6 +85,33 @@ begin
     raise exception 'DRIFT: nearby_sightings lost its is_hidden filter — hidden cats would reappear on the map';
   end if;
 
+  -- ── 4b. Blocking must hide the blocked user's content server-side (0036) ──
+  -- 0027's `alter policy` once reset the comment policy and silently dropped the
+  -- block clause 0012/0017 had, and reports were never filtered at all.
+  select count(*) into v from pg_policies
+  where schemaname='public' and tablename='sightings'
+    and policyname='sightings are viewable by authenticated'
+    and qual like '%user_blocks%';
+  if v = 0 then
+    raise exception 'DRIFT: sightings SELECT policy ignores user_blocks — blocked users'' reports stay visible (apply migration 0036)';
+  end if;
+
+  select count(*) into v from pg_policies
+  where schemaname='public' and tablename='sighting_updates'
+    and policyname='updates are viewable by authenticated'
+    and qual like '%user_blocks%';
+  if v = 0 then
+    raise exception 'DRIFT: sighting_updates SELECT policy ignores user_blocks — blocked users'' comments stay visible (apply migration 0036)';
+  end if;
+
+  select (pg_get_functiondef(p.oid) like '%user_blocks%'
+          and pg_get_functiondef(p.oid) like '%c_coarse%') into v_bool
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname='public' and p.proname='nearby_sightings';
+  if v_bool is not true then
+    raise exception 'DRIFT: nearby_sightings does not skip blocked users and measure against the coarsened point — exact locations can be solved from its distances (apply migration 0036)';
+  end if;
+
   -- ── 5. SECURITY DEFINER functions must pin search_path (0014) ─────────────
   select count(*) into v
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
