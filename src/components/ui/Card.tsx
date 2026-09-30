@@ -17,7 +17,13 @@ export function Card({ padded = true, onPress, style, children, ...rest }: CardP
 
   if (onPress) {
     return (
-      <PressableScale onPress={onPress} scaleTo={motion.cardPressScale}>
+      <PressableScale
+        onPress={onPress}
+        scaleTo={motion.cardPressScale}
+        accessibilityRole="button"
+        accessibilityLabel={rest.accessibilityLabel}
+        accessibilityHint={rest.accessibilityHint}
+      >
         {content}
       </PressableScale>
     );

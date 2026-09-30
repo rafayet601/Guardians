@@ -17,8 +17,9 @@ import { JourneyTimeline } from '@/components/JourneyTimeline';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { ReidSuggestions } from '@/components/ReidSuggestions';
 import { RescueCopilot } from '@/components/RescueCopilot';
+import { RescueProgress } from '@/components/RescueProgress';
 import { StatusPill } from '@/components/StatusPill';
-import { Avatar, Button, Card, Input, Loading, Pill, Text } from '@/components/ui';
+import { Avatar, Button, Card, EmptyState, Input, Loading, Pill, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
 import { CLAIM_TO_RESCUE_TOTAL } from '@/constants/points';
 import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
@@ -45,7 +46,7 @@ export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
 
-  const { data: sighting, isLoading } = useSighting(id);
+  const { data: sighting, isLoading, isError, refetch } = useSighting(id);
   const { data: updates = [] } = useSightingUpdates(id);
   const { data: interests = [] } = useAdoptionInterest(id);
 
@@ -60,7 +61,16 @@ export default function SightingDetailScreen() {
   const reduced = useReducedMotion() ?? false;
   const [comment, setComment] = useState('');
 
-  if (isLoading || !sighting) return <Loading label="Loading…" />;
+  if (isLoading) return <Loading label="Opening the rescue journey…" />;
+  if (isError || !sighting)
+    return (
+      <EmptyState
+        title="This report couldn’t load"
+        message="It may no longer be available, or your connection needs a moment."
+        actionLabel="Try again"
+        onAction={() => refetch()}
+      />
+    );
 
   const isOwner = !!user && user.id === sighting.reporter_id;
   const isClaimer = !!user && user.id === sighting.claimed_by;
@@ -72,12 +82,20 @@ export default function SightingDetailScreen() {
   const nextStatuses = canManage ? (NEXT_STATUSES[sighting.status] ?? []) : [];
   const myInterest = interests.find((i) => i.user_id === user?.id);
 
-  const onClaim = () =>
+  const onClaim = async () => {
+    const ok = await confirmAsync({
+      title: 'Become this cat’s Guardian?',
+      message:
+        'Claiming lets the community know you’re coordinating this rescue. Only continue if you can safely help, and keep the timeline updated.',
+      confirmLabel: 'Claim rescue',
+    });
+    if (!ok) return;
     claim.mutate(sighting.id, {
       onSuccess: () =>
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
       onError: (e) => notify('Could not claim', errMsg(e)),
     });
+  };
 
   const onAdvance = async (status: CatStatus) => {
     const isClose = status === 'archived';
@@ -169,7 +187,10 @@ export default function SightingDetailScreen() {
             <Image source={{ uri: heroPhoto }} style={styles.hero} contentFit="cover" />
           ) : (
             <View style={[styles.hero, styles.heroFallback]}>
-              <Text style={styles.heroEmoji}>{temp.icon}</Text>
+              <Ionicons name="paw-outline" size={64} color={colors.primaryDark} />
+              <Text variant="small" muted>
+                No photo yet
+              </Text>
             </View>
           )}
         </Animated.View>
@@ -208,6 +229,8 @@ export default function SightingDetailScreen() {
               {meta.description}
             </Text>
           </Animated.View>
+
+          <RescueProgress status={sighting.status} canManage={canManage} />
 
           {/* Description */}
           {sighting.description ? (
@@ -671,8 +694,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: spacing.xxxl },
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
-  heroFallback: { alignItems: 'center', justifyContent: 'center' },
-  heroEmoji: { fontSize: 96 },
+  heroFallback: { height: 180, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   body: {
     padding: spacing.lg,
     gap: spacing.md,

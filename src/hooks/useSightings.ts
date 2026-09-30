@@ -9,6 +9,7 @@ import {
   createSighting,
   getFeed,
   getMySightings,
+  getMyActivity,
   getNearby,
   getSighting,
   getUpdates,
@@ -22,7 +23,7 @@ import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import type { CatStatus } from '@/types/models';
+import type { CatStatus, CatTemperament } from '@/types/models';
 
 export function useNearbySightings(params: NearbyParams | null) {
   const [active, setActive] = useState(false);
@@ -50,12 +51,21 @@ export function useNearbySightings(params: NearbyParams | null) {
   });
 }
 
-export function useFeed(statuses?: CatStatus[]) {
+export function useFeed(statuses?: CatStatus[], temperament?: CatTemperament) {
   return useInfiniteQuery({
-    queryKey: queryKeys.feed({ statuses }),
-    queryFn: ({ pageParam }) => getFeed(statuses, pageParam),
+    queryKey: queryKeys.feed({ statuses, temperament }),
+    queryFn: ({ pageParam }) => getFeed(statuses, pageParam, 20, temperament),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+export function useMyActivity() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.myActivity(user?.id),
+    queryFn: () => getMyActivity(user!.id),
+    enabled: !!user,
   });
 }
 

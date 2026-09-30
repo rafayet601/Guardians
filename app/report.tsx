@@ -241,7 +241,7 @@ export default function ReportScreen() {
         });
         photoUrls.push(url);
       }
-      await createSighting.mutateAsync({
+      const sighting = await createSighting.mutateAsync({
         lat: marker.latitude,
         lng: marker.longitude,
         title: title.trim() || undefined,
@@ -255,7 +255,11 @@ export default function ReportScreen() {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
-      router.back();
+      router.replace(`/sighting/${sighting.id}`);
+      notify(
+        'Your sighting is posted',
+        'Follow this report to see rescue updates and share new observations in the timeline.',
+      );
     } catch (e) {
       notify('Could not post', getErrorMessage(e, 'Please try again.'));
     } finally {

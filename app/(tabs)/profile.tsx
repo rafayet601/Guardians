@@ -144,6 +144,12 @@ export default function ProfileScreen() {
         </Card>
       </Animated.View>
 
+      <Button
+        title="See community impact & rankings"
+        variant="outline"
+        onPress={() => router.push('/leaderboard')}
+      />
+
       {/* Moderation (moderators/admins only) */}
       {isModerator ? (
         <Animated.View

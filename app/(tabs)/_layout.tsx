@@ -12,9 +12,8 @@ export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion() ?? false;
-  // The Map tab renders its own "+ Report" pill above the nearby sheet, so the
-  // global FAB is shown only on the other four tabs (an allowlist, so it never
-  // leaks onto the map or over a pushed modal/detail route).
+  // Home and Map have prominent report actions; the floating action stays out
+  // of adoption discovery and pushed detail routes.
   const pathname = usePathname();
   const showReportFab = ['/feed', '/leaderboard', '/rewards', '/profile'].includes(pathname);
 
@@ -23,36 +22,55 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primary,
+          tabBarActiveTintColor: colors.primaryDark,
           tabBarInactiveTintColor: colors.textMuted,
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: [
+            styles.tabBar,
+            { height: 64 + insets.bottom, paddingBottom: spacing.sm + insets.bottom },
+          ],
           tabBarLabelStyle: styles.tabLabel,
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
+            title: 'Home',
+            tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="map"
+          options={{
             title: 'Map',
             tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
+          name="adopt"
+          options={{
+            title: 'Adopt',
+            tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
           name="feed"
           options={{
-            title: 'Feed',
+            title: 'Community',
             tabBarIcon: ({ color, size }) => <Ionicons name="paw" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="leaderboard"
           options={{
-            title: 'Ranks',
+            href: null,
+            title: 'Community impact',
             tabBarIcon: ({ color, size }) => <Ionicons name="trophy" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="rewards"
           options={{
+            href: null,
             title: 'Rewards',
             tabBarIcon: ({ color, size }) => <Ionicons name="gift" size={size} color={color} />,
           }}
@@ -74,7 +92,7 @@ export default function TabsLayout() {
           entering={
             reduced ? undefined : FadeInDown.delay(180).duration(520).springify().damping(12)
           }
-          style={[styles.fabWrap, { bottom: spacing.lg + insets.bottom }]}
+          style={[styles.fabWrap, { bottom: 64 + spacing.lg + insets.bottom }]}
         >
           <PressableScale
             accessibilityRole="button"

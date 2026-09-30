@@ -32,6 +32,7 @@ export const queryKeys = {
   sightingUpdates: (id: string) => ['sighting', id, 'updates'] as const,
   sightingPhotos: (id: string) => ['sighting', id, 'photos'] as const,
   mySightings: (id?: string) => ['sightings', 'mine', id] as const,
+  myActivity: (id?: string) => ['sightings', 'activity', id] as const,
   feed: (params: object) => ['sightings', 'feed', params] as const,
   leaderboard: ['leaderboard'] as const,
   badges: (id?: string) => ['badges', id] as const,

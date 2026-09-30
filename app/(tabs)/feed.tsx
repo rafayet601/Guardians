@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '@/components/PressableScale';
 import { SightingCard } from '@/components/SightingCard';
 import { SponsoredCard } from '@/components/SponsoredCard';
-import { EmptyState, Loading, Text } from '@/components/ui';
+import { Button, EmptyState, Loading, Text } from '@/components/ui';
 import { useFeed } from '@/hooks/useSightings';
 import { colors, motion, radius, spacing } from '@/theme';
 import type { CatStatus } from '@/types/models';
@@ -45,6 +45,7 @@ export default function FeedScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
   } = useFeed(statuses);
   const items = data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -58,9 +59,9 @@ export default function FeedScreen() {
         }
         style={styles.header}
       >
-        <Text variant="title">Recent cats</Text>
+        <Text variant="title">Our community</Text>
         <Text variant="small" muted>
-          The latest reports from your community.
+          Small acts of care, and the journeys they make possible.
         </Text>
       </Animated.View>
 
@@ -92,7 +93,7 @@ export default function FeedScreen() {
 
       {isLoading ? (
         <Loading label="Loading sightings…" />
-      ) : isError ? (
+      ) : isError && items.length === 0 ? (
         <EmptyState
           title="Could not load sightings"
           message="Check your connection and try again."
@@ -108,32 +109,64 @@ export default function FeedScreen() {
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
+              refreshing={isRefetching && !isFetchingNextPage}
               onRefresh={refetch}
               tintColor={colors.primary}
             />
           }
           onEndReachedThreshold={0.5}
           onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+            if (hasNextPage && !isFetchingNextPage && !isError) fetchNextPage();
           }}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
           windowSize={11}
           removeClippedSubviews
-          ListHeaderComponent={<SponsoredCard slot="feed_card" style={styles.feedAd} />}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+          ListHeaderComponent={
+            isError && !isFetchNextPageError ? (
+              <Button
+                title="Refresh failed — try again"
+                variant="outline"
+                onPress={() => refetch()}
+                style={styles.feedAd}
+              />
             ) : null
+          }
+          ListFooterComponent={
+            <View>
+              {isFetchingNextPage ? (
+                <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+              ) : isFetchNextPageError ? (
+                <Button
+                  title="Load more journeys — try again"
+                  variant="outline"
+                  onPress={() => fetchNextPage()}
+                />
+              ) : hasNextPage ? (
+                <Button
+                  title="See more journeys"
+                  variant="outline"
+                  onPress={() => fetchNextPage()}
+                />
+              ) : null}
+              {items.length > 0 ? <SponsoredCard slot="feed_card" style={styles.feedAd} /> : null}
+            </View>
           }
           ListEmptyComponent={
             <EmptyState
               icon="🐾"
-              title="No cats here yet"
-              message="When cats are reported in this category they'll show up here."
-              actionLabel="Report a cat"
-              onAction={() => router.push('/report')}
+              title={
+                filterKey === 'all'
+                  ? 'Be part of the first story'
+                  : 'No journeys in this chapter yet'
+              }
+              message={
+                filterKey === 'all'
+                  ? 'A clear sighting can help your community start a rescue.'
+                  : 'Try another chapter to see how your community is helping.'
+              }
+              actionLabel={filterKey === 'all' ? 'Report a cat' : 'See all journeys'}
+              onAction={() => (filterKey === 'all' ? router.push('/report') : setFilterKey('all'))}
             />
           }
           renderItem={({ item, index }) => (
