@@ -18,10 +18,13 @@ export function notificationSightingId(data: unknown): string | null {
 /**
  * Where tapping a push should go. A lost-cat match carries the sighting id too,
  * but the owner's confirm/reject controls live on the lost-cat screen, not on
- * the sighting, so that type must win.
+ * the sighting, so that type must win. A background-check decision is about
+ * the person, not a cat, and opens their screening.
  */
 export function notificationRoute(data: unknown): string | null {
-  if (asData(data).type === 'lost_cat_match') return '/lost-cat';
+  const { type } = asData(data);
+  if (type === 'lost_cat_match') return '/lost-cat';
+  if (type === 'screening_decided') return '/adopt/screening';
   const sightingId = notificationSightingId(data);
   return sightingId ? `/sighting/${sightingId}` : null;
 }

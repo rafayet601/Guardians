@@ -7,10 +7,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * single cat and stacked on top of the location primer. Alerts are the loop's
  * ALERT step, so they matter, but the right moment is one where the value is
  * obvious: after the app knows where they are (alerts are about cats near
- * them), after they post a report (they want to know who helps), or after they
- * claim a cat. The Settings toggle is always available regardless.
+ * them), after they post a report (they want to know who helps), after they
+ * claim a cat, or after they apply to adopt (they are waiting on a decision).
+ * The Settings toggle is always available regardless.
  */
-export type PushPromptReason = 'location' | 'report' | 'claim';
+export type PushPromptReason = 'location' | 'report' | 'claim' | 'adopt';
 
 /** Two asks in total: the first, and one more at a later high-intent moment. */
 export const MAX_PUSH_ASKS = 2;
@@ -26,8 +27,8 @@ export interface PushAskState {
 }
 
 /**
- * Whether to show the notifications primer now. Reporting a cat or claiming a
- * rescue are deliberate acts and may ask even soon after a previous ask; the
+ * Whether to show the notifications primer now. Reporting a cat, claiming a
+ * rescue or applying to adopt are deliberate acts and may ask even soon after a previous ask; the
  * passive location trigger waits out a cooldown so it never nags.
  */
 export function shouldAskForPush(

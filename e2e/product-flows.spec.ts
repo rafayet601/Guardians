@@ -76,6 +76,8 @@ async function signIn(
     sighting?: Sighting | (() => Sighting);
     rpc?: Record<string, RpcHandler>;
     blocks?: unknown[];
+    /** Reads of a table, keyed by table name (e.g. adoption_interest). */
+    tables?: Record<string, () => unknown>;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -106,6 +108,26 @@ async function signIn(
     }
     if (path.endsWith('/auth/v1/user')) return route.fulfill({ json: USER });
     if (path.endsWith('/user_blocks')) return route.fulfill({ json: options.blocks ?? [] });
+    const table = path.split('/rest/v1/')[1];
+    if (table && options.tables?.[table] && request.method() === 'GET') {
+      return route.fulfill({ json: options.tables[table]() });
+    }
+    // Signed links to private files (ID photos): sign, then serve an image.
+    if (path.includes('/storage/v1/object/sign/')) {
+      if (request.method() === 'POST') {
+        const bucket = path.split('/storage/v1/object/sign/')[1];
+        const { paths = [] } = (request.postDataJSON() ?? {}) as { paths?: string[] };
+        calls.push({ fn: 'storage.sign', body: { bucket, paths } });
+        return route.fulfill({
+          json: paths.map((p) => ({
+            path: p,
+            signedURL: `/object/sign/${bucket}/${p}?token=test`,
+            error: null,
+          })),
+        });
+      }
+      return route.fulfill({ contentType: 'image/png', body: PNG_1X1 });
+    }
     if (path.includes('/storage/v1/object/')) {
       return route.fulfill({ json: { Key: path.split('/storage/v1/object/')[1] } });
     }
@@ -516,5 +538,281 @@ test.describe('without location', () => {
     await signIn(page, { rpc: { nearby_sightings: () => ({ json: [] }) } });
     await page.goto('/');
     await expect(page.getByText('Turn on location to see cats near you')).toBeVisible();
+  });
+});
+
+test.describe('adoption', () => {
+  const APPLICANT = '00000000-0000-4000-8000-000000000004';
+
+  function applicant(overrides: Record<string, unknown> = {}) {
+    return {
+      user_id: APPLICANT,
+      username: 'jordan',
+      status: 'pending',
+      id_status: 'pending',
+      full_name: 'Jordan Rivera',
+      dob: '1990-01-01',
+      age: 35,
+      city: 'Dhaka',
+      postal: '1207',
+      housing: 'rent',
+      landlord_permission: true,
+      household_adults: 2,
+      household_children: 1,
+      other_pets: false,
+      pets_details: null,
+      vet_name: null,
+      vet_phone: null,
+      experience: 'Grew up with cats',
+      hours_alone: 6,
+      home_visit_consent: true,
+      cruelty_attestation: true,
+      score: 100,
+      reasons: [],
+      id_doc_paths: [`${APPLICANT}/front.jpg`],
+      submitted_at: hoursAgo(30),
+      ...overrides,
+    };
+  }
+
+  const moderator = { is_moderator: () => ({ json: true }) };
+
+  test('a moderator can see an ID and clear an applicant, and must explain anything else', async ({
+    page,
+  }) => {
+    const { calls } = await signIn(page, {
+      rpc: {
+        ...moderator,
+        list_screening_queue: () => ({ json: [applicant()] }),
+        review_adopter_screening: () => ({ json: {} }),
+      },
+    });
+    const dialogs = acceptDialogs(page);
+
+    await page.goto('/moderation');
+    await page.getByRole('tab', { name: /Background checks \(1\)/ }).click();
+    await expect(page.getByText('Jordan Rivera', { exact: true })).toBeVisible();
+    await expect(page.getByText('Born 1990-01-01 (age 35) · Dhaka 1207')).toBeVisible();
+    await expect(page.getByText('Rents, landlord allows cats · 2 adults, 1 child')).toBeVisible();
+    await expect(page.getByRole('button', { name: /ID photo 1/ })).toBeVisible();
+    expect(rpcCalls(calls, 'storage.sign')[0].body).toEqual({
+      bucket: 'screening-docs',
+      paths: [`${APPLICANT}/front.jpg`],
+    });
+
+    // Asking for more information without saying what is refused.
+    await page.getByRole('button', { name: 'Ask for more' }).click();
+    await expect.poll(() => dialogs.length).toBe(1);
+    expect(dialogs[0]).toContain('Add a note for the applicant');
+    expect(rpcCalls(calls, 'review_adopter_screening')).toHaveLength(0);
+
+    await page
+      .getByLabel('Note to the applicant')
+      .fill('Please add a photo of the back of your ID.');
+    await page.getByRole('button', { name: 'Ask for more' }).click();
+    await expect.poll(() => rpcCalls(calls, 'review_adopter_screening').length).toBe(1);
+    expect(dialogs[1]).toContain('Please add a photo of the back of your ID.');
+    expect(rpcCalls(calls, 'review_adopter_screening')[0].body).toEqual({
+      p_user: APPLICANT,
+      p_decision: 'needs_review',
+      p_reason: 'Please add a photo of the back of your ID.',
+    });
+
+    await page.getByRole('button', { name: 'Clear to adopt' }).click();
+    await expect.poll(() => rpcCalls(calls, 'review_adopter_screening').length).toBe(2);
+    expect(dialogs[2]).toContain(
+      'Only approve if the ID photo shows Jordan Rivera, born 1990-01-01',
+    );
+    expect(rpcCalls(calls, 'review_adopter_screening')[1].body).toMatchObject({
+      p_user: APPLICANT,
+      p_decision: 'approved',
+    });
+  });
+
+  test('approval stays off until there is an ID photo to check', async ({ page }) => {
+    await signIn(page, {
+      rpc: {
+        ...moderator,
+        list_screening_queue: () => ({
+          json: [applicant({ status: 'needs_review', id_doc_paths: [] })],
+        }),
+      },
+    });
+    await page.goto('/moderation');
+    await page.getByRole('tab', { name: /Background checks/ }).click();
+    await expect(
+      page.getByText('None uploaded. Ask the applicant for a photo of their ID.'),
+    ).toBeVisible();
+    await expect(page.getByText(/Can't approve yet: No ID photo uploaded yet/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear to adopt' })).toBeDisabled();
+  });
+
+  test('a lister can decline one request without adopting the cat out', async ({ page }) => {
+    const interest = (id: string, user: string, name: string) => ({
+      id,
+      sighting_id: SIGHTING_ID,
+      user_id: user,
+      message: `${name} would love this cat`,
+      status: 'pending',
+      created_at: hoursAgo(4),
+      applicant: { id: user, username: name, avatar_url: null, level: 2 },
+    });
+    const { calls } = await signIn(page, {
+      sighting: sighting({
+        status: 'available',
+        reporter_id: ME,
+        reporter: { id: ME, username: 'Flow tester', avatar_url: null, level: 1 },
+        is_precise: true,
+      }),
+      tables: {
+        adoption_interest: () => [
+          interest('i-1', APPLICANT, 'Jordan'),
+          interest('i-2', BLOCKED, 'Sam'),
+        ],
+      },
+      rpc: {
+        is_adopter_cleared: () => ({ json: true }),
+        decline_adoption_interest: () => ({ json: {} }),
+      },
+    });
+    const dialogs = acceptDialogs(page);
+
+    await page.goto(`/sighting/${SIGHTING_ID}`);
+    await expect(page.getByText('Adoption requests (2)')).toBeVisible();
+    await page.getByRole('button', { name: 'Decline' }).first().click();
+
+    await expect.poll(() => rpcCalls(calls, 'decline_adoption_interest').length).toBe(1);
+    expect(dialogs[0]).toContain('Decline Jordan?');
+    expect(rpcCalls(calls, 'decline_adoption_interest')[0].body).toEqual({ p_interest: 'i-1' });
+    expect(rpcCalls(calls, 'approve_adoption')).toHaveLength(0);
+  });
+
+  test('a cleared adopter can ask to adopt without being sent back to screening', async ({
+    page,
+  }) => {
+    const { calls } = await signIn(page, {
+      sighting: sighting({ status: 'available', reporter_id: OTHER }),
+      rpc: {
+        // The client used to call this detached from supabase, so it threw
+        // before any request and even cleared adopters looked uncleared.
+        get_my_screening: () => ({
+          json: {
+            ...applicant({ user_id: ME, status: 'approved', id_status: 'verified' }),
+            id: 'scr-1',
+            expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+          },
+        }),
+        express_adoption_interest: () => ({ json: {} }),
+      },
+    });
+    const dialogs = acceptDialogs(page);
+
+    await page.goto(`/sighting/${SIGHTING_ID}`);
+    await expect(page.getByText(/Your background check is cleared/)).toBeVisible();
+    await expect(page.getByText(/Adopters need a cleared background check/)).toHaveCount(0);
+    await page.getByRole('button', { name: /I want to adopt/ }).click();
+
+    await expect.poll(() => rpcCalls(calls, 'express_adoption_interest').length).toBe(1);
+    expect(rpcCalls(calls, 'express_adoption_interest')[0].body).toMatchObject({
+      p_sighting: SIGHTING_ID,
+    });
+    // The request is recorded when it leaves; the confirmation follows the response.
+    await expect.poll(() => dialogs[0] ?? '').toContain('Interest sent!');
+    await expect(page).toHaveURL(new RegExp(`/sighting/${SIGHTING_ID}$`));
+  });
+
+  test('an adopter can withdraw a pending request and later ask again', async ({ page }) => {
+    let status = 'pending';
+    const { calls } = await signIn(page, {
+      sighting: sighting({ status: 'available', reporter_id: OTHER }),
+      tables: {
+        adoption_interest: () => [
+          {
+            id: 'i-mine',
+            sighting_id: SIGHTING_ID,
+            user_id: ME,
+            message: null,
+            status,
+            created_at: hoursAgo(2),
+            applicant: { id: ME, username: 'Flow tester', avatar_url: null, level: 1 },
+          },
+        ],
+      },
+      rpc: {
+        withdraw_adoption_interest: () => {
+          status = 'withdrawn';
+          return { json: null };
+        },
+      },
+    });
+    const dialogs = acceptDialogs(page);
+
+    await page.goto(`/sighting/${SIGHTING_ID}`);
+    await expect(page.getByText('Request pending')).toBeVisible();
+    await page.getByRole('button', { name: 'Withdraw request' }).click();
+
+    await expect.poll(() => rpcCalls(calls, 'withdraw_adoption_interest').length).toBe(1);
+    expect(dialogs[0]).toContain('Withdraw your request?');
+    expect(rpcCalls(calls, 'withdraw_adoption_interest')[0].body).toEqual({
+      p_sighting: SIGHTING_ID,
+    });
+    await expect(page.getByText('Request withdrawn')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ask to adopt again' })).toBeVisible();
+  });
+
+  test('the background check starts from the last submission and keeps the ID on file', async ({
+    page,
+  }) => {
+    const onFile = [`${ME}/front.jpg`, `${ME}/back.jpg`];
+    const { calls } = await signIn(page, {
+      rpc: {
+        get_my_screening: () => ({
+          json: {
+            ...applicant({ user_id: ME, status: 'needs_review', id_doc_paths: onFile }),
+            id: 'scr-1',
+            phone: '+880 1700 000000',
+            address_line: '12 Lake Road',
+            consent: true,
+            consent_at: hoursAgo(30),
+            consent_version: 'v1',
+            id_provider: 'manual',
+            id_session_id: 'sess-1',
+            verified_at: null,
+            expires_at: null,
+            reasons: ['Please add a vet reference.'],
+            created_at: hoursAgo(30),
+            updated_at: hoursAgo(30),
+          },
+        }),
+        submit_adopter_screening: (body) => ({
+          json: { ...(body.p_payload as object), status: 'pending', reasons: [] },
+        }),
+      },
+    });
+    acceptDialogs(page);
+
+    await page.goto('/adopt/screening');
+    await expect(page.getByText('📝 A reviewer needs a little more')).toBeVisible();
+    await expect(page.getByText('• Please add a vet reference.')).toBeVisible();
+    await expect(page.getByText('Your 2 ID photos are on file.', { exact: false })).toBeVisible();
+    await expect(page.getByLabel('Full legal name')).toHaveValue('Jordan Rivera');
+    await expect(page.getByLabel('Street address')).toHaveValue('12 Lake Road');
+
+    // Only the change the reviewer asked for, plus consent for this submission.
+    await page.getByLabel('Vet reference (required with other pets)').fill('Lake Road Vets');
+    await page
+      .getByRole('switch', { name: /I consent to this background check/ })
+      .first()
+      .click();
+    await page.getByRole('button', { name: 'Submit background check' }).click();
+
+    await expect.poll(() => rpcCalls(calls, 'submit_adopter_screening').length).toBe(1);
+    expect(rpcCalls(calls, 'submit_adopter_screening')[0].body.p_payload).toMatchObject({
+      full_name: 'Jordan Rivera',
+      address_line: '12 Lake Road',
+      vet_name: 'Lake Road Vets',
+      consent: true,
+      id_doc_paths: onFile,
+    });
   });
 });

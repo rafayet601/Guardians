@@ -39,6 +39,9 @@ export const queryKeys = {
   adoptionInterest: (sightingId: string) => ['adoption-interest', sightingId] as const,
   screening: ['screening', 'mine'] as const,
   screeningCleared: (userId: string) => ['screening', 'cleared', userId] as const,
+  screeningQueue: ['screening', 'queue'] as const,
+  screeningDocs: (userId: string, paths: readonly string[]) =>
+    ['screening', 'docs', userId, ...paths] as const,
   offers: ['rewards', 'offers'] as const,
   myRedemptions: (id?: string) => ['rewards', 'redemptions', id] as const,
   wallet: (id?: string) => ['rewards', 'wallet', id] as const,

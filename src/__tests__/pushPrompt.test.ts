@@ -20,7 +20,7 @@ const now = 1_000_000_000_000;
 
 describe('shouldAskForPush', () => {
   it('asks a brand-new user at every kind of moment', () => {
-    for (const reason of ['location', 'report', 'claim'] as const) {
+    for (const reason of ['location', 'report', 'claim', 'adopt'] as const) {
       expect(shouldAskForPush(fresh, reason, now)).toBe(true);
     }
   });
@@ -35,7 +35,7 @@ describe('shouldAskForPush', () => {
 
   it('stops after the maximum number of asks', () => {
     const spent = { ...fresh, asks: MAX_PUSH_ASKS, lastAskAt: now - 30 * 86_400_000 };
-    for (const reason of ['location', 'report', 'claim'] as const) {
+    for (const reason of ['location', 'report', 'claim', 'adopt'] as const) {
       expect(shouldAskForPush(spent, reason, now)).toBe(false);
     }
   });
@@ -44,6 +44,7 @@ describe('shouldAskForPush', () => {
     const justAsked = { ...fresh, asks: 1, lastAskAt: now - 60_000 };
     expect(shouldAskForPush(justAsked, 'report', now)).toBe(true);
     expect(shouldAskForPush(justAsked, 'claim', now)).toBe(true);
+    expect(shouldAskForPush(justAsked, 'adopt', now)).toBe(true);
     expect(shouldAskForPush(justAsked, 'location', now)).toBe(false);
   });
 

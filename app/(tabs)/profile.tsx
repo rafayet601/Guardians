@@ -11,9 +11,9 @@ import { Avatar, Button, Card, EmptyState, Loading, Screen, Text } from '@/compo
 import { AI_FEATURES } from '@/constants/ai';
 import { isClaimStale } from '@/constants/status';
 import { useAllBadges, useUserBadges } from '@/hooks/useGamification';
-import { useMyScreening } from '@/hooks/useScreening';
+import { useMyScreening, useScreeningQueue } from '@/hooks/useScreening';
 import { useCountUp } from '@/hooks/useCountUp';
-import { useIsModerator } from '@/hooks/useModeration';
+import { useIsModerator, useModerationQueue } from '@/hooks/useModeration';
 import { useMyProfile } from '@/hooks/useProfile';
 import { useMyRescues, useMySightings } from '@/hooks/useSightings';
 import { colors, fontFamily, layout, motion, palette, radius, shadow, spacing } from '@/theme';
@@ -41,6 +41,17 @@ export default function ProfileScreen() {
   const { data: sightings = [] } = useMySightings();
   const { data: rescueList = [] } = useMyRescues();
   const { data: isModerator } = useIsModerator();
+  // Both queries stay disabled unless the viewer is a moderator.
+  const { data: openReports } = useModerationQueue();
+  const { data: waitingChecks } = useScreeningQueue();
+  const moderationWaiting = [
+    openReports?.length
+      ? `${openReports.length} report${openReports.length === 1 ? '' : 's'}`
+      : null,
+    waitingChecks?.length
+      ? `${waitingChecks.length} background check${waitingChecks.length === 1 ? '' : 's'}`
+      : null,
+  ].filter(Boolean);
   const { data: screening } = useMyScreening();
   const screeningCleared = isScreeningCleared(screening);
 
@@ -183,7 +194,12 @@ export default function ProfileScreen() {
               <Text variant="caption" muted>
                 MODERATION
               </Text>
-              <Text variant="bodyStrong">🛡️ Review reported content</Text>
+              <Text variant="bodyStrong">🛡️ Reports and background checks</Text>
+              <Text variant="small" muted>
+                {moderationWaiting.length > 0
+                  ? `${moderationWaiting.join(' and ')} waiting`
+                  : 'Nothing waiting'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Card>

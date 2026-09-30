@@ -8,6 +8,16 @@ describe('notificationRoute', () => {
     expect(notificationRoute({ sighting_id: ID, type: 'urgent_sighting' })).toBe(`/sighting/${ID}`);
   });
 
+  it('opens the cat for comments and adoption answers', () => {
+    for (const type of ['new_comment', 'adoption_approved', 'adoption_declined']) {
+      expect(notificationRoute({ sighting_id: ID, type })).toBe(`/sighting/${ID}`);
+    }
+  });
+
+  it('opens the background check when it has been reviewed, since no cat is involved', () => {
+    expect(notificationRoute({ type: 'screening_decided' })).toBe('/adopt/screening');
+  });
+
   it('opens the lost-cat screen for a match, even though the push also names a sighting', () => {
     expect(notificationRoute({ type: 'lost_cat_match', lost_cat_id: 'x', sighting_id: ID })).toBe(
       '/lost-cat',

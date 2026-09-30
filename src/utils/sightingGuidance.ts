@@ -89,7 +89,8 @@ export const ADOPTION_REQUEST_META: Record<
   },
   approved: {
     label: 'Request approved',
-    description: 'Your adoption request was approved and this cat has been marked adopted.',
+    description:
+      'Your adoption request was approved! Arrange the handover with the lister in the comments below. Meet somewhere public or at a vet, and never post your home address.',
   },
   declined: {
     label: 'Request declined',

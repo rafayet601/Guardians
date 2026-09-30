@@ -8,10 +8,12 @@ import {
   approveAdoption,
   claimSighting,
   createSighting,
+  declineAdoption,
   expressInterest,
   getNearby,
   getSighting,
   updateStatus,
+  withdrawAdoptionInterest,
 } from '@/api/sightings';
 import { redeemReward } from '@/api/rewards';
 import { setPushEnabled, upsertPushToken } from '@/api/push';
@@ -34,7 +36,9 @@ import {
 import { getMyProfile } from '@/api/profiles';
 import {
   getMyScreening,
+  getScreeningQueue,
   isAdopterCleared,
+  reviewScreening,
   startIdVerification,
   submitScreening,
 } from '@/api/screening';
@@ -172,6 +176,37 @@ describe('API client → RPC argument mapping', () => {
     // A composite-returning function with no row comes back as all-null fields.
     rpc.mockResolvedValue({ data: { id: null, status: null, reasons: null }, error: null });
     await expect(getMyScreening()).resolves.toBeNull();
+  });
+
+  it('declineAdoption → decline_adoption_interest', async () => {
+    await declineAdoption('i1');
+    expect(rpc).toHaveBeenCalledWith('decline_adoption_interest', { p_interest: 'i1' });
+  });
+
+  it('withdrawAdoptionInterest → withdraw_adoption_interest', async () => {
+    await withdrawAdoptionInterest('s1');
+    expect(rpc).toHaveBeenCalledWith('withdraw_adoption_interest', { p_sighting: 's1' });
+  });
+
+  it('getScreeningQueue → list_screening_queue', async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    await expect(getScreeningQueue()).resolves.toEqual([]);
+    expect(rpc).toHaveBeenCalledWith('list_screening_queue');
+  });
+
+  it('reviewScreening → review_adopter_screening, sending a trimmed note only when there is one', async () => {
+    await reviewScreening('u2', 'needs_review', '  Please add your vet.  ');
+    expect(rpc).toHaveBeenCalledWith('review_adopter_screening', {
+      p_user: 'u2',
+      p_decision: 'needs_review',
+      p_reason: 'Please add your vet.',
+    });
+    await reviewScreening('u2', 'approved', '   ');
+    expect(rpc).toHaveBeenLastCalledWith('review_adopter_screening', {
+      p_user: 'u2',
+      p_decision: 'approved',
+      p_reason: undefined,
+    });
   });
 
   it('getNearby → nearby_sightings', async () => {

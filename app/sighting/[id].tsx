@@ -33,7 +33,13 @@ import {
   isUrgentNow,
   type StatusAction,
 } from '@/constants/status';
-import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
+import {
+  useAdoptionInterest,
+  useApproveAdoption,
+  useDeclineAdoption,
+  useExpressInterest,
+  useWithdrawInterest,
+} from '@/hooks/useAdoption';
 import { useMyScreening } from '@/hooks/useScreening';
 import { useAiAdoptionCopy } from '@/hooks/useAiAdoptionCopy';
 import { useBlockUser, useReportContent } from '@/hooks/useModeration';
@@ -75,6 +81,8 @@ export default function SightingDetailScreen() {
   const updateStatus = useUpdateStatus();
   const expressInterest = useExpressInterest(id);
   const approveAdoption = useApproveAdoption(id);
+  const declineAdoption = useDeclineAdoption(id);
+  const withdrawInterest = useWithdrawInterest(id);
   const postComment = usePostComment(id);
   const report = useReportContent();
   const block = useBlockUser();
@@ -248,8 +256,40 @@ export default function SightingDetailScreen() {
       return;
     }
     expressInterest.mutate(undefined, {
-      onSuccess: () => notify('Interest sent! 🎉', 'The lister will review your request.'),
+      onSuccess: () => {
+        notify('Interest sent! 🎉', 'The lister will review your request.');
+        // They are now waiting on someone else's answer.
+        requestPushPrompt('adopt', 1200);
+      },
       onError: (e) => notify('Could not send', getErrorMessage(e)),
+    });
+  };
+
+  const onWithdraw = async () => {
+    const ok = await confirmAsync({
+      title: 'Withdraw your request?',
+      message:
+        'The lister will no longer see it. You can ask again while this cat is still looking for a home.',
+      confirmLabel: 'Withdraw',
+      destructive: true,
+    });
+    if (!ok) return;
+    withdrawInterest.mutate(undefined, {
+      onError: (e) => notify('Could not withdraw', errMsg(e)),
+    });
+  };
+
+  const onDecline = async (interestId: string, username?: string) => {
+    const ok = await confirmAsync({
+      title: `Decline ${username ?? 'this request'}?`,
+      message:
+        "They'll be told the request wasn't accepted, and they can't send another one for this cat.",
+      confirmLabel: 'Decline',
+      destructive: true,
+    });
+    if (!ok) return;
+    declineAdoption.mutate(interestId, {
+      onError: (e) => notify('Could not decline', errMsg(e)),
     });
   };
 
@@ -264,7 +304,7 @@ export default function SightingDetailScreen() {
       onSuccess: () =>
         setCelebration({
           title: 'Adopted! 🎉',
-          message: `Thank you for finding this cat a forever home. +${POINTS.place} points.`,
+          message: `Thank you for finding this cat a forever home. +${POINTS.place} points. Arrange the handover with ${username ?? 'the adopter'} in the comments below.`,
         }),
       onError: (e) => notify('Could not approve', errMsg(e)),
     });
@@ -659,6 +699,25 @@ export default function SightingDetailScreen() {
                   <Text variant="small" muted>
                     {ADOPTION_REQUEST_META[myInterest.status].description}
                   </Text>
+                  {myInterest.status === 'pending' && sighting.status === 'available' ? (
+                    <Button
+                      title="Withdraw request"
+                      variant="outline"
+                      size="sm"
+                      loading={withdrawInterest.isPending}
+                      onPress={onWithdraw}
+                      style={styles.caseAction}
+                    />
+                  ) : myInterest.status === 'withdrawn' && sighting.status === 'available' ? (
+                    <Button
+                      title="Ask to adopt again"
+                      variant="secondary"
+                      size="sm"
+                      loading={expressInterest.isPending}
+                      onPress={onAdopt}
+                      style={styles.caseAction}
+                    />
+                  ) : null}
                 </Card>
               ) : sighting.status === 'available' ? (
                 <>
@@ -670,10 +729,11 @@ export default function SightingDetailScreen() {
                     loading={expressInterest.isPending}
                     onPress={onAdopt}
                   />
-                  {screeningQuery.isSuccess && !isScreeningCleared(screeningQuery.data) ? (
+                  {screeningQuery.isSuccess ? (
                     <Text variant="small" muted>
-                      Adopters need a cleared background check — tapping above will start screening
-                      (reviewed by our team, which can take a few days; valid 12 months).
+                      {isScreeningCleared(screeningQuery.data)
+                        ? '✅ Your background check is cleared, so the lister can approve you.'
+                        : 'Adopters need a cleared background check — tapping above will start screening (reviewed by our team, which can take a few days; valid 12 months).'}
                     </Text>
                   ) : null}
                 </>
@@ -739,13 +799,23 @@ export default function SightingDetailScreen() {
                       <ApplicantScreeningBadge userId={i.user_id} />
                     </View>
                     {i.status === 'pending' ? (
-                      <Button
-                        title="Approve"
-                        size="sm"
-                        loading={approveAdoption.isPending && approveAdoption.variables === i.id}
-                        disabled={approveAdoption.isPending}
-                        onPress={() => onApprove(i.id, i.applicant?.username)}
-                      />
+                      <View style={styles.applicantActions}>
+                        <Button
+                          title="Approve"
+                          size="sm"
+                          loading={approveAdoption.isPending && approveAdoption.variables === i.id}
+                          disabled={approveAdoption.isPending || declineAdoption.isPending}
+                          onPress={() => onApprove(i.id, i.applicant?.username)}
+                        />
+                        <Button
+                          title="Decline"
+                          variant="ghost"
+                          size="sm"
+                          loading={declineAdoption.isPending && declineAdoption.variables === i.id}
+                          disabled={approveAdoption.isPending || declineAdoption.isPending}
+                          onPress={() => onDecline(i.id, i.applicant?.username)}
+                        />
+                      </View>
                     ) : (
                       <Text variant="small" muted>
                         {ADOPTION_REQUEST_META[i.status].label}
@@ -1039,6 +1109,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   unavailable: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
   caseSummary: { gap: spacing.sm },
+  caseAction: { alignSelf: 'flex-start', marginTop: spacing.xs },
   content: { paddingBottom: spacing.xxxl },
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
@@ -1126,6 +1197,7 @@ const styles = StyleSheet.create({
   },
   directions: { marginTop: spacing.sm },
   applicantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  applicantActions: { gap: spacing.xs, alignItems: 'stretch' },
   draftCard: { gap: spacing.md, marginTop: spacing.sm },
   draftHead: { gap: spacing.xs },
   draftBtn: {

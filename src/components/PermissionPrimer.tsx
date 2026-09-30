@@ -32,7 +32,8 @@ const COPY: Record<PermissionKind, { icon: string; title: string; body: string }
 /**
  * The notifications ask is now made at a moment that explains itself, so the
  * words should say why now. Only promise what is really sent: urgent alerts for
- * cats nearby, and the claim / rescued / adoption-interest updates.
+ * cats nearby, the claim / rescued / adoption-interest updates, comments on
+ * your cats, and background-check and adoption decisions.
  */
 const NOTIFICATION_COPY: Record<PushPromptReason, { title: string; body: string }> = {
   location: {
@@ -46,6 +47,10 @@ const NOTIFICATION_COPY: Record<PushPromptReason, { title: string; body: string 
   claim: {
     title: 'Stay ready for the next cat',
     body: "Get a notification when another cat near you needs urgent help, or when someone wants to adopt a cat you've rescued. You can turn alerts off anytime.",
+  },
+  adopt: {
+    title: 'Hear back as soon as there is news',
+    body: "We'll notify you when your background check is reviewed and when your adoption request is answered. You can turn alerts off anytime.",
   },
 };
 

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, Switch, View } from 'react-native';
 import { z } from 'zod';
@@ -11,9 +11,16 @@ import { submitScreening, uploadScreeningDoc } from '@/api/screening';
 import { useMyScreening, useStartIdVerification, useSubmitScreening } from '@/hooks/useScreening';
 import { choosePhotoSource, notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
+import { requestPushPrompt } from '@/lib/pushPrompt';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, layout, spacing } from '@/theme';
 import { isScreeningCleared } from '@/types/models';
+import {
+  EMPTY_SCREENING_FORM,
+  idDocPathsForSubmit,
+  screeningFormDefaults,
+  screeningStatusCopy,
+} from '@/utils/screeningForm';
 
 const DOB_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -77,38 +84,33 @@ export default function ScreeningScreen() {
   const [docs, setDocs] = useState<DocAsset[]>([]);
   const [busy, setBusy] = useState(false);
   const [housing, setHousing] = useState<'own' | 'rent' | 'other'>('own');
+  const [docError, setDocError] = useState<string | null>(null);
 
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<FormInput>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      full_name: '',
-      dob: '',
-      phone: '',
-      address_line: '',
-      city: '',
-      postal: '',
-      housing: 'own',
-      landlord_permission: null,
-      household_adults: 1,
-      household_children: 0,
-      other_pets: false,
-      pets_details: '',
-      vet_name: '',
-      vet_phone: '',
-      experience: '',
-      hours_alone: 4,
-      home_visit_consent: false,
-      cruelty_attestation: false,
-      consent: false,
-    },
+    defaultValues: EMPTY_SCREENING_FORM,
   });
 
   const existing = screeningQuery.data ?? null;
   const cleared = isScreeningCleared(existing);
+  const docsOnFile = existing?.id_doc_paths.length ?? 0;
+  const status = existing ? screeningStatusCopy(existing, cleared) : null;
+
+  // Start from the last submission once it loads, but never overwrite edits
+  // in progress when it refetches.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !existing) return;
+    prefilled.current = true;
+    const values = screeningFormDefaults(existing);
+    reset(values);
+    setHousing(values.housing);
+  }, [existing, reset]);
 
   const pickDoc = async () => {
     if (docs.length >= 2) {
@@ -127,22 +129,29 @@ export default function ScreeningScreen() {
           });
     if (result.canceled || !result.assets?.[0]) return;
     const a = result.assets[0];
+    setDocError(null);
     setDocs((d) => [...d, { uri: a.uri, mimeType: a.mimeType, base64: a.base64 }]);
   };
 
   const onSubmit = async (values: FormInput) => {
     if (!user || busy) return;
+    // A reviewer cannot clear anyone without seeing their ID.
+    if (docs.length === 0 && docsOnFile === 0) {
+      setDocError('Add a photo of your ID. A reviewer needs it to clear you.');
+      return;
+    }
     setBusy(true);
     // z.coerce.number() accepts unknown input — normalize here for the payload.
     const householdAdults = Number(values.household_adults);
     const householdChildren = Number(values.household_children);
     const hoursAlone = Number(values.hours_alone);
     try {
-      // 1. Upload ID docs to the private vault (optional but recommended).
-      const paths: string[] = [];
+      // 1. Upload new ID photos to the private vault; otherwise keep the ones on file.
+      const uploaded: string[] = [];
       for (const d of docs) {
-        paths.push(await uploadScreeningDoc(user.id, d));
+        uploaded.push(await uploadScreeningDoc(user.id, d));
       }
+      const paths = idDocPathsForSubmit(uploaded, existing);
       // 2. Submit the questionnaire (server scores it deterministically).
       const screening = await submitScreening({
         full_name: values.full_name.trim(),
@@ -178,22 +187,23 @@ export default function ScreeningScreen() {
         return;
       }
       await screeningQuery.refetch();
+      setDocs([]);
       if (screening.status === 'rejected') {
         notify(
           'Could not approve automatically',
           screening.reasons.join('\n') || 'Please review your answers and try again.',
         );
-      } else if (screening.status === 'needs_review') {
-        notify(
-          'Submitted — quick review needed',
-          'Thanks! A moderator will review your application shortly.',
-        );
-        router.back();
       } else {
         notify(
-          'Background check submitted',
-          'Your answers look good. We will notify you once ID review clears.',
+          screening.status === 'needs_review'
+            ? 'Submitted — a reviewer will take a look'
+            : 'Background check submitted',
+          screening.status === 'needs_review'
+            ? "Thanks! Some answers need a person to look at them, which can take a few days. You'll see the result here and on your profile."
+            : "Your answers look good. Our team checks your ID next, which can take a few days. You'll see the result here and on your profile.",
         );
+        // They are now waiting on a reviewer's answer.
+        requestPushPrompt('adopt', 1200);
         router.back();
       }
     } catch (e) {
@@ -213,24 +223,17 @@ export default function ScreeningScreen() {
         private — listers only see whether you are cleared.
       </Text>
 
-      {existing ? (
+      {existing && status ? (
         <Card style={styles.statusCard}>
-          <Text variant="bodyStrong">
-            {cleared
-              ? '✅ Cleared — you can adopt'
-              : existing.status === 'approved'
-                ? 'Approved — finishing ID verification'
-                : existing.status === 'pending'
-                  ? '⏳ Submitted — ID review pending'
-                  : existing.status === 'needs_review'
-                    ? '👀 Needs a quick manual review'
-                    : existing.status === 'rejected'
-                      ? '❌ Not approved'
-                      : 'Expired — please re-submit below'}
-          </Text>
-          {existing.reasons.length > 0 && !cleared ? (
+          <Text variant="bodyStrong">{status.headline}</Text>
+          {status.toFix.map((reason, i) => (
+            <Text key={`${i}-${reason}`} variant="small">
+              • {reason}
+            </Text>
+          ))}
+          {status.next ? (
             <Text variant="small" muted>
-              {existing.reasons.join('\n')}
+              {status.next}
             </Text>
           ) : null}
           {existing.expires_at && cleared ? (
@@ -369,7 +372,11 @@ export default function ScreeningScreen() {
               <Text variant="body" style={styles.switchLabel}>
                 My landlord allows cats
               </Text>
-              <Switch value={value === true} onValueChange={onChange} />
+              <Switch
+                accessibilityLabel="My landlord allows cats"
+                value={value === true}
+                onValueChange={onChange}
+              />
             </View>
           )}
         />
@@ -423,7 +430,11 @@ export default function ScreeningScreen() {
             <Text variant="body" style={styles.switchLabel}>
               Other pets at home
             </Text>
-            <Switch value={value} onValueChange={onChange} />
+            <Switch
+              accessibilityLabel="Other pets at home"
+              value={value}
+              onValueChange={onChange}
+            />
           </View>
         )}
       />
@@ -499,9 +510,15 @@ export default function ScreeningScreen() {
 
       <Text variant="bodyStrong">ID documents</Text>
       <Text variant="small" muted>
-        A front and back photo of a government ID speeds up verification. Stored privately — never
-        shown to listers.
+        A front and back photo of a government ID. A reviewer checks it against your name and date
+        of birth. Stored privately and never shown to listers.
       </Text>
+      {docsOnFile > 0 && docs.length === 0 ? (
+        <Text variant="small" muted>
+          {docsOnFile === 1 ? 'Your ID photo is' : `Your ${docsOnFile} ID photos are`} on file. Add
+          new ones only if a reviewer asked for them.
+        </Text>
+      ) : null}
       <View style={styles.row}>
         <Button
           title={docs.length > 0 ? `📷 ${docs.length}/2 added — add another` : '📷 Add ID photo'}
@@ -515,6 +532,11 @@ export default function ScreeningScreen() {
       {docs.length > 0 ? (
         <Button title="Remove ID photos" variant="ghost" size="sm" onPress={() => setDocs([])} />
       ) : null}
+      {docError ? (
+        <Text variant="small" color={colors.danger}>
+          {docError}
+        </Text>
+      ) : null}
 
       <Text variant="bodyStrong">Consents</Text>
       <Controller
@@ -525,7 +547,11 @@ export default function ScreeningScreen() {
             <Text variant="body" style={styles.switchLabel}>
               I agree to a home visit if requested
             </Text>
-            <Switch value={value} onValueChange={onChange} />
+            <Switch
+              accessibilityLabel="I agree to a home visit if requested"
+              value={value}
+              onValueChange={onChange}
+            />
           </View>
         )}
       />
@@ -538,7 +564,11 @@ export default function ScreeningScreen() {
               <Text variant="body" style={styles.switchLabel}>
                 I confirm I have no animal-cruelty convictions
               </Text>
-              <Switch value={value} onValueChange={onChange} />
+              <Switch
+                accessibilityLabel="I confirm I have no animal-cruelty convictions"
+                value={value}
+                onValueChange={onChange}
+              />
             </View>
             {errors.cruelty_attestation?.message ? (
               <Text variant="small" color={colors.danger}>
@@ -557,7 +587,11 @@ export default function ScreeningScreen() {
               <Text variant="body" style={styles.switchLabel}>
                 I consent to this background check and to storing my details for 12 months
               </Text>
-              <Switch value={value} onValueChange={onChange} />
+              <Switch
+                accessibilityLabel="I consent to this background check and to storing my details for 12 months"
+                value={value}
+                onValueChange={onChange}
+              />
             </View>
             {errors.consent?.message ? (
               <Text variant="small" color={colors.danger}>

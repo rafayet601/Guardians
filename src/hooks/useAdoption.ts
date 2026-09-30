@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { approveAdoption, expressInterest, getAdoptionInterest } from '@/api/sightings';
+import {
+  approveAdoption,
+  declineAdoption,
+  expressInterest,
+  getAdoptionInterest,
+  withdrawAdoptionInterest,
+} from '@/api/sightings';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 
@@ -37,6 +43,28 @@ export function useApproveAdoption(sightingId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.leaderboard });
       qc.invalidateQueries({ queryKey: ['badges'] });
       track('adoption_approved', { id: sightingId });
+    },
+  });
+}
+
+export function useDeclineAdoption(sightingId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (interestId: string) => declineAdoption(interestId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.adoptionInterest(sightingId) });
+      track('adoption_declined', { id: sightingId });
+    },
+  });
+}
+
+export function useWithdrawInterest(sightingId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => withdrawAdoptionInterest(sightingId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.adoptionInterest(sightingId) });
+      track('adoption_interest_withdrawn', { id: sightingId });
     },
   });
 }

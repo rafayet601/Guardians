@@ -46,6 +46,78 @@ export async function startIdVerification(idDocPaths: string[]): Promise<VerifyS
   return data;
 }
 
+// ── Moderator review (migration 0038) ────────────────────────────────────────
+
+/** One applicant waiting for review: what a reviewer needs, no phone or street address. */
+export interface ScreeningReviewItem {
+  user_id: string;
+  username: string;
+  status: 'pending' | 'needs_review';
+  id_status: string;
+  full_name: string;
+  dob: string;
+  age: number;
+  city: string;
+  postal: string;
+  housing: 'own' | 'rent' | 'other';
+  landlord_permission: boolean | null;
+  household_adults: number;
+  household_children: number;
+  other_pets: boolean;
+  pets_details: string | null;
+  vet_name: string | null;
+  vet_phone: string | null;
+  experience: string | null;
+  hours_alone: number;
+  home_visit_consent: boolean;
+  cruelty_attestation: boolean;
+  score: number;
+  reasons: string[];
+  id_doc_paths: string[];
+  submitted_at: string;
+}
+
+export type ScreeningDecision = 'approved' | 'needs_review' | 'rejected';
+
+/** Moderators only: applicants waiting for review, oldest first. */
+export async function getScreeningQueue(): Promise<ScreeningReviewItem[]> {
+  const { data, error } = await supabase.rpc('list_screening_queue');
+  if (error) throw error;
+  // The generator types every returned column as non-null; the nullable ones
+  // are corrected by ScreeningReviewItem.
+  return (data ?? []) as unknown as ScreeningReviewItem[];
+}
+
+/** Moderators only. A reason is required for anything but approval. */
+export async function reviewScreening(
+  userId: string,
+  decision: ScreeningDecision,
+  reason?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('review_adopter_screening', {
+    p_user: userId,
+    p_decision: decision,
+    p_reason: reason?.trim() || undefined,
+  });
+  if (error) throw error;
+}
+
+/** How long a reviewer's link to an ID photo works. */
+export const ID_PHOTO_URL_TTL_S = 600;
+
+/**
+ * Short-lived links to an applicant's ID photos for review. The bucket stays
+ * private; only moderators (and the owner) may sign these.
+ */
+export async function getScreeningDocUrls(paths: string[]): Promise<string[]> {
+  if (paths.length === 0) return [];
+  const { data, error } = await supabase.storage
+    .from('screening-docs')
+    .createSignedUrls(paths, ID_PHOTO_URL_TTL_S);
+  if (error) throw error;
+  return (data ?? []).flatMap((d) => (d.signedUrl ? [d.signedUrl] : []));
+}
+
 export interface ScreeningLocalAsset {
   uri: string;
   mimeType?: string | null;
