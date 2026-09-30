@@ -46,6 +46,13 @@ yarn-error.*
 supabase/.branches/
 supabase/.temp/
 
+# Multi-agent orchestration scratch space (briefings, dispatches, handoffs).
+# Working notes from agent runs — not part of the app or its build.
+.agents/
+
+# Google Play service-account key (eas.json submit.production.android points
+# here). Downloading it into the repo root must never make it committable.
+google-services-key.json
 # Browser test artifacts
 /test-results/
 /playwright-report/

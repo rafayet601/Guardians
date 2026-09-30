@@ -1,6 +1,11 @@
 import { ReactNode } from 'react';
 import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  useReducedMotion,
+  withSpring,
+} from 'react-native-reanimated';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -17,15 +22,16 @@ interface PressableScaleProps extends Omit<PressableProps, 'style'> {
  */
 export function PressableScale({ children, style, scaleTo = 0.96, ...rest }: PressableScaleProps) {
   const scale = useSharedValue(1);
+  const reduced = useReducedMotion();
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <AnimatedPressable
       onPressIn={() => {
-        scale.value = withSpring(scaleTo, { damping: 18, stiffness: 340 });
+        scale.value = reduced ? 1 : withSpring(scaleTo, { duration: 150, dampingRatio: 1 });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, { damping: 13, stiffness: 240 });
+        scale.value = reduced ? 1 : withSpring(1, { duration: 150, dampingRatio: 1 });
       }}
       style={[style, animatedStyle]}
       {...rest}

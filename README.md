@@ -52,7 +52,7 @@ By gamifying the rescue process with points, levels, and badges, we're building 
 
 | Layer            | Choice                                                       |
 | ---------------- | ------------------------------------------------------------ |
-| **App**          | Expo SDK 56, React Native 0.85, React 19, TypeScript         |
+| **App**          | Expo SDK 57, React Native 0.86.3, React 19, TypeScript       |
 | **Navigation**   | Expo Router (file-based, typed routes)                       |
 | **Server State** | TanStack Query                                               |
 | **Backend**      | Supabase — Postgres + PostGIS, Auth, Storage, Edge Functions |
@@ -61,7 +61,7 @@ By gamifying the rescue process with points, levels, and badges, we're building 
 
 ## Prerequisites
 
-- Node 18+ and npm
+- Node 22.13+ and npm (see `package.json` engines)
 - A [Supabase](https://app.supabase.com) project
 - A Google Maps API key (Maps SDK for Android & iOS) from the [Google Cloud Console](https://console.cloud.google.com)
 - For full native Google Maps / camera capabilities: an **EAS dev build** (Expo Go works for standard UI iteration)
@@ -77,7 +77,8 @@ cp .env.example .env
 # Open .env and fill in EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, and your Google Maps keys.
 
 # 3. Set up the database
-# Run the SQL migrations in supabase/migrations/ (0001 → 0012) in order.
+# For a new database, run all SQL migrations in supabase/migrations/ in order.
+# Existing hosted projects: follow DEPLOY.md to reconcile migration history first.
 # Optionally run supabase/seed.sql for demo data. See supabase/README.md for details.
 
 # 4. Start the development server

@@ -10,3 +10,10 @@ project_id = "tiqizsjxqfscwbhyvumk"
 # to read push tokens.
 [functions.send-push]
 verify_jwt = false
+
+# screening-verify is called by the signed-in applicant with their session JWT
+# (gateway verification stays on — the default), while screening-webhook is
+# called by the ID provider with a shared secret, so its JWT check is off and
+# auth happens in-body via x-screening-webhook-secret.
+[functions.screening-webhook]
+verify_jwt = false

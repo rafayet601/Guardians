@@ -89,6 +89,19 @@ export function distanceMeters(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * A URL that opens turn-by-turn directions to a point in the platform's maps
+ * app: Apple Maps on iOS, Google Maps everywhere else (its universal link
+ * opens the app on Android and a page on web). Only ever call this with
+ * coordinates the viewer is allowed to see precisely.
+ */
+export function directionsUrl(lat: number, lng: number, os: string = 'web'): string | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const destination = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  if (os === 'ios') return `https://maps.apple.com/?daddr=${destination}&dirflg=d`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+}
+
 /** Sensible default view (San Francisco) until we have the user's location. */
 export const DEFAULT_REGION: Region = {
   latitude: 37.7749,

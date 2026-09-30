@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -19,12 +19,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkEligibility } from '@/api/rewards';
 import { PressableScale } from '@/components/PressableScale';
 import { SponsoredCard } from '@/components/SponsoredCard';
-import { EmptyState, Loading, Pill, Text } from '@/components/ui';
+import { EmptyState, Loading, PageHeader, Pill, Text } from '@/components/ui';
 import { useUserBadges } from '@/hooks/useGamification';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useMyProfile } from '@/hooks/useProfile';
-import { useOffers } from '@/hooks/useRewards';
-import { colors, palette, radius, shadow, spacing } from '@/theme';
+import { useMyRedemptions, useOffers } from '@/hooks/useRewards';
+import { colors, layout, palette, radius, shadow, spacing } from '@/theme';
 import { compactNumber } from '@/utils/format';
 import type { RewardOffer } from '@/types/models';
 
@@ -42,21 +42,34 @@ export default function RewardsScreen() {
   const insets = useSafeAreaInsets();
   const { data: profile } = useMyProfile();
   const { data: earned = [] } = useUserBadges(profile?.id);
-  const { data: offers, isLoading, isRefetching, refetch } = useOffers();
+  const { data: offers, isLoading, isError, isRefetching, refetch } = useOffers();
+
+  const { data: redemptions } = useMyRedemptions();
 
   const earnedIds = new Set(earned.map((b) => b.badge_id));
+  const redeemedOfferIds = useMemo(
+    () => new Set((redemptions ?? []).map((redemption) => redemption.offer_id)),
+    [redemptions],
+  );
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text variant="title">Rewards</Text>
-        <Text variant="small" muted>
-          Spend your Kibble on perks from pet-friendly brands.
-        </Text>
-      </View>
+      <PageHeader
+        eyebrow="Good deeds, little treats"
+        title="Your kindness, rewarded."
+        subtitle="Turn your Kibble into something lovely."
+        icon="gift-outline"
+      />
 
       {isLoading ? (
         <Loading label="Loading rewards…" />
+      ) : isError && !offers ? (
+        <EmptyState
+          title="Could not load rewards"
+          message="Your rewards have not been lost. Check your connection and try again."
+          actionLabel={isRefetching ? 'Retrying…' : 'Try again'}
+          onAction={isRefetching ? undefined : () => void refetch()}
+        />
       ) : (
         <FlatList
           data={offers ?? []}
@@ -98,7 +111,7 @@ export default function RewardsScreen() {
             <OfferRow
               offer={item}
               index={index}
-              eligibility={checkEligibility(item, profile, earnedIds)}
+              eligibility={checkEligibility(item, profile, earnedIds, { redeemedOfferIds })}
               onPress={() => router.push(`/rewards/${item.id}`)}
             />
           )}
@@ -166,7 +179,9 @@ function WalletHero({
           style={StyleSheet.absoluteFill}
         />
         {/* floating fish motif */}
-        <Animated.Text style={[styles.heroMotif, bobStyle]}>🐟</Animated.Text>
+        <Animated.View style={[styles.heroMotif, bobStyle]}>
+          <Ionicons name="fish" size={100} color={colors.primaryLight} />
+        </Animated.View>
         {/* shimmer sweep */}
         <Animated.View style={[styles.shimmer, shimmerStyle]}>
           <LinearGradient
@@ -290,7 +305,14 @@ function OfferRow({
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: 2 },
-  listContent: { padding: spacing.lg, flexGrow: 1 },
+  listContent: {
+    width: '100%',
+    maxWidth: layout.contentMax,
+    alignSelf: 'center',
+    padding: spacing.xl,
+    paddingBottom: spacing.bottomClearance,
+    flexGrow: 1,
+  },
   headerBlock: { gap: spacing.md, marginBottom: spacing.md },
 
   // wallet hero

@@ -7,15 +7,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/PressableScale';
 import { StatusPill } from '@/components/StatusPill';
-import { Avatar, Button, Card, Loading, Text } from '@/components/ui';
+import { Avatar, Button, Card, EmptyState, Loading, Screen, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
+import { isClaimStale } from '@/constants/status';
 import { useAllBadges, useUserBadges } from '@/hooks/useGamification';
+import { useMyScreening, useScreeningQueue } from '@/hooks/useScreening';
 import { useCountUp } from '@/hooks/useCountUp';
-import { useIsModerator } from '@/hooks/useModeration';
+import { useIsModerator, useModerationQueue } from '@/hooks/useModeration';
 import { useMyProfile } from '@/hooks/useProfile';
-import { useMySightings } from '@/hooks/useSightings';
-import { colors, fontFamily, motion, palette, radius, shadow, spacing } from '@/theme';
-import { compactNumber, levelProgress } from '@/utils/format';
+import { useMyRescues, useMySightings } from '@/hooks/useSightings';
+import { colors, fontFamily, layout, motion, palette, radius, shadow, spacing } from '@/theme';
+import { isScreeningCleared } from '@/types/models';
+import { compactNumber, levelProgress, timeAgo } from '@/utils/format';
+import { isActiveRescue, sortRescues } from '@/utils/rescues';
 
 const LEVEL_TITLES = [
   'Newcomer',
@@ -35,12 +39,38 @@ export default function ProfileScreen() {
   const { data: allBadges = [] } = useAllBadges();
   const { data: earned = [] } = useUserBadges(profile?.id);
   const { data: sightings = [] } = useMySightings();
+  const { data: rescueList = [] } = useMyRescues();
   const { data: isModerator } = useIsModerator();
+  // Both queries stay disabled unless the viewer is a moderator.
+  const { data: openReports } = useModerationQueue();
+  const { data: waitingChecks } = useScreeningQueue();
+  const moderationWaiting = [
+    openReports?.length
+      ? `${openReports.length} report${openReports.length === 1 ? '' : 's'}`
+      : null,
+    waitingChecks?.length
+      ? `${waitingChecks.length} background check${waitingChecks.length === 1 ? '' : 's'}`
+      : null,
+  ].filter(Boolean);
+  const { data: screening } = useMyScreening();
+  const screeningCleared = isScreeningCleared(screening);
 
   const reduced = useReducedMotion() ?? false;
-  if (isLoading || !profile) return <Loading label="Loading your profile…" />;
+  if (isLoading) return <Loading label="Loading your profile…" />;
+  if (!profile)
+    return (
+      <Screen>
+        <EmptyState
+          title="Could not load your profile"
+          message="Check your connection and try again."
+          actionLabel={isRefetching ? 'Retrying…' : 'Try again'}
+          onAction={isRefetching ? undefined : () => void refetch()}
+        />
+      </Screen>
+    );
 
   const earnedIds = new Set(earned.map((b) => b.badge_id));
+  const rescues = sortRescues(rescueList);
   const lvl = levelProgress(profile.points);
   const role = profile.is_guardian ? 'Guardian' : profile.wants_to_adopt ? 'Adopter' : 'Member';
 
@@ -62,14 +92,17 @@ export default function ProfileScreen() {
         }
       >
         <LinearGradient
-          colors={[palette.green500, palette.green700]}
+          colors={[palette.green900, palette.green700]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.banner}
         >
+          <View style={styles.bannerDecoration} pointerEvents="none">
+            <Ionicons name="paw" size={164} color={colors.glass} />
+          </View>
           <View style={styles.bannerTop}>
             <Text variant="overline" color="rgba(255,255,255,0.78)">
-              Profile
+              Your guardian journey
             </Text>
             <PressableScale
               onPress={() => router.push('/settings')}
@@ -161,7 +194,12 @@ export default function ProfileScreen() {
               <Text variant="caption" muted>
                 MODERATION
               </Text>
-              <Text variant="bodyStrong">🛡️ Review reported content</Text>
+              <Text variant="bodyStrong">🛡️ Reports and background checks</Text>
+              <Text variant="small" muted>
+                {moderationWaiting.length > 0
+                  ? `${moderationWaiting.join(' and ')} waiting`
+                  : 'Nothing waiting'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Card>
@@ -193,6 +231,38 @@ export default function ProfileScreen() {
         </Animated.View>
       ) : null}
 
+      {/* Background check — required before adopting */}
+      <Animated.View
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(2.75 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
+      >
+        <Card onPress={() => router.push('/adopt/screening')} style={styles.kibbleCard}>
+          <View style={styles.kibbleInfo}>
+            <Text variant="caption" muted>
+              BACKGROUND CHECK
+            </Text>
+            <Text variant="bodyStrong">
+              {screeningCleared
+                ? '✅ Cleared — you can adopt'
+                : screening?.status === 'pending'
+                  ? '⏳ Submitted — ID review pending'
+                  : screening?.status === 'needs_review'
+                    ? '👀 Needs a quick manual review'
+                    : screening?.status === 'rejected'
+                      ? '❌ Not approved — tap to re-apply'
+                      : '🔍 Get screened to adopt'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Card>
+      </Animated.View>
+
       {/* Stats */}
       <Animated.View
         entering={
@@ -205,9 +275,9 @@ export default function ProfileScreen() {
         }
         style={styles.statsRow}
       >
-        <Stat label="Reports" value={profile.reports_count} icon="👀" />
-        <Stat label="Rescues" value={profile.rescues_count} icon="🦸" />
-        <Stat label="Rehomed" value={profile.adoptions_count} icon="🏠" />
+        <Stat label="Reports" value={profile.reports_count} icon="scan-outline" />
+        <Stat label="Rescues" value={profile.rescues_count} icon="heart-outline" />
+        <Stat label="Rehomed" value={profile.adoptions_count} icon="home-outline" />
       </Animated.View>
 
       {/* Badges */}
@@ -253,6 +323,61 @@ export default function ProfileScreen() {
             );
           })}
         </View>
+      </Animated.View>
+
+      {/* My rescues: the cats this person is (or was) the Guardian for */}
+      <Animated.View
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(4.5 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
+      >
+        <Text variant="heading" style={styles.sectionTitle}>
+          Your rescues ({rescues.length})
+        </Text>
+        {rescues.length === 0 ? (
+          <Text variant="small" muted style={styles.empty}>
+            Cats you claim as a Guardian will appear here, so you can always find them and post an
+            update.
+          </Text>
+        ) : (
+          <View style={styles.mineList}>
+            {rescues.slice(0, 8).map((s) => {
+              const quiet = isActiveRescue(s.status) && isClaimStale(s.claimed_at, s.updated_at);
+              return (
+                <Card
+                  key={s.id}
+                  onPress={() => router.push(`/sighting/${s.id}`)}
+                  style={styles.mineRow}
+                >
+                  <View style={styles.mineInfo}>
+                    <Text variant="bodyStrong" numberOfLines={1}>
+                      {s.title?.trim() || 'Cat sighting'}
+                    </Text>
+                    <View style={styles.rescueMeta}>
+                      <StatusPill status={s.status} />
+                      {s.claimed_at ? (
+                        <Text variant="caption" muted>
+                          Claimed {timeAgo(s.claimed_at)}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {quiet ? (
+                      <Text variant="small" color={colors.accentDark}>
+                        No update in a while. Post where things stand, or release it.
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Card>
+              );
+            })}
+          </View>
+        )}
       </Animated.View>
 
       {/* My sightings */}
@@ -302,10 +427,20 @@ function KibbleBalance({ balance }: { balance: number }) {
   return <Text variant="title">🐟 {compactNumber(shown)}</Text>;
 }
 
-function Stat({ label, value, icon }: { label: string; value: number; icon: string }) {
+function Stat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}) {
   return (
     <Card style={styles.stat}>
-      <Text style={styles.statIcon}>{icon}</Text>
+      <View style={styles.statIcon}>
+        <Ionicons name={icon} size={22} color={colors.primary} />
+      </View>
       <Text variant="title">{value}</Text>
       <Text variant="caption" muted>
         {label.toUpperCase()}
@@ -316,7 +451,14 @@ function Stat({ label, value, icon }: { label: string; value: number; icon: stri
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
+  content: {
+    padding: spacing.xl,
+    paddingBottom: spacing.bottomClearance,
+    gap: spacing.xl,
+    width: '100%',
+    maxWidth: layout.contentMax,
+    alignSelf: 'center',
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerInfo: { flex: 1, gap: 4 },
   roleRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 2, flexWrap: 'wrap' },
@@ -327,7 +469,15 @@ const styles = StyleSheet.create({
   kibbleInfo: { flex: 1, gap: 2 },
   statsRow: { flexDirection: 'row', gap: spacing.md },
   stat: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: spacing.lg },
-  statIcon: { fontSize: 22 },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
   sectionTitle: { marginBottom: spacing.sm },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   badge: {
@@ -349,11 +499,19 @@ const styles = StyleSheet.create({
   mineList: { gap: spacing.sm },
   mineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   mineInfo: { flex: 1, gap: spacing.xs },
+  rescueMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
 
+  bannerDecoration: {
+    position: 'absolute',
+    right: -spacing.xl,
+    top: spacing.xxl,
+    transform: [{ rotate: '-18deg' }],
+  },
   banner: {
+    overflow: 'hidden',
     borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: spacing.xl,
+    gap: spacing.xl,
     ...shadow.glow,
   },
   bannerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -45,8 +45,9 @@ Deno.test('account upload cleanup paginates, visits folders and isolates the own
     },
   };
   await deleteUserUploads(admin, 'owner');
-  assert(removed.length === 212, 'Skipped uploads beyond the first page');
-  assert(new Set(removed).size === 212, 'Duplicate removal');
+  assert(removed.length === 318, 'Skipped uploads beyond the first page');
+  assert(new Set(removed).size === 318, 'Duplicate removal');
+  assert(removed.includes('screening-docs/owner/nested/photo.jpg'), 'Private ID document missing');
   assert(removed.includes('avatars/owner/nested/photo.jpg'), 'Nested avatar missing');
   assert(removed.includes('cat-photos/owner/104.jpg'), 'Final page missing');
 });

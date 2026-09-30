@@ -10,5 +10,9 @@
     "types": ["jest", "node"],
     "noEmit": true
   },
-  "include": ["src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"]
+  // src/types/**/*.d.ts is needed as well as the tests themselves: the web map
+  // test imports PlatformMap.web, which does a side-effect `import
+  // 'leaflet/dist/leaflet.css'`, and that only typechecks with the ambient
+  // `declare module '*.css'` from src/types/assets.d.ts.
+  "include": ["src/__tests__/**/*.ts", "src/__tests__/**/*.tsx", "src/types/**/*.d.ts"]
 }

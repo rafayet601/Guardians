@@ -85,6 +85,60 @@ begin
     raise exception 'DRIFT: nearby_sightings lost its is_hidden filter — hidden cats would reappear on the map';
   end if;
 
+  -- ── 4b. Blocking must hide the blocked user's content server-side (0036) ──
+  -- 0027's `alter policy` once reset the comment policy and silently dropped the
+  -- block clause 0012/0017 had, and reports were never filtered at all.
+  select count(*) into v from pg_policies
+  where schemaname='public' and tablename='sightings'
+    and policyname='sightings are viewable by authenticated'
+    and qual like '%user_blocks%';
+  if v = 0 then
+    raise exception 'DRIFT: sightings SELECT policy ignores user_blocks — blocked users'' reports stay visible (apply migration 0036)';
+  end if;
+
+  select count(*) into v from pg_policies
+  where schemaname='public' and tablename='sighting_updates'
+    and policyname='updates are viewable by authenticated'
+    and qual like '%user_blocks%';
+  if v = 0 then
+    raise exception 'DRIFT: sighting_updates SELECT policy ignores user_blocks — blocked users'' comments stay visible (apply migration 0036)';
+  end if;
+
+  select (pg_get_functiondef(p.oid) like '%user_blocks%'
+          and pg_get_functiondef(p.oid) like '%c_coarse%') into v_bool
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname='public' and p.proname='nearby_sightings';
+  if v_bool is not true then
+    raise exception 'DRIFT: nearby_sightings does not skip blocked users and measure against the coarsened point — exact locations can be solved from its distances (apply migration 0036)';
+  end if;
+
+  -- ── 4c. Claim / rescue points are paid once per cat (0037) ────────────────
+  select (pg_get_functiondef('public.claim_sighting(uuid)'::regprocedure) like '%point_events%'
+          and pg_get_functiondef('public.update_sighting_status(uuid,cat_status,text)'::regprocedure) like '%point_events%')
+    into v_bool;
+  if v_bool is not true then
+    raise exception 'DRIFT: claim_sighting / update_sighting_status pay points on every transition — release+re-claim and safe<->available farm Kibble (apply migration 0037)';
+  end if;
+
+  -- ── 4d. The adoption loop can complete (0038) ─────────────────────────────
+  -- Without the review queue nobody is ever cleared, so nothing can be adopted;
+  -- without the pending check a withdrawn request completes an adoption.
+  if to_regprocedure('public.list_screening_queue()') is null
+     or to_regprocedure('public.decline_adoption_interest(uuid)') is null then
+    raise exception 'DRIFT: no background-check review queue / decline — adopters can never be cleared (apply migration 0038)';
+  end if;
+  select (pg_get_functiondef('public.approve_adoption(uuid)'::regprocedure) like '%no longer open%')
+    into v_bool;
+  if v_bool is not true then
+    raise exception 'DRIFT: approve_adoption accepts withdrawn or declined requests (apply migration 0038)';
+  end if;
+  select count(*) into v from pg_policies
+  where schemaname='storage' and tablename='objects'
+    and policyname='owners read screening docs' and qual like '%is_moderator%';
+  if v = 0 then
+    raise exception 'DRIFT: moderators cannot open ID photos, so background checks cannot be reviewed (apply migration 0038)';
+  end if;
+
   -- ── 5. SECURITY DEFINER functions must pin search_path (0014) ─────────────
   select count(*) into v
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace

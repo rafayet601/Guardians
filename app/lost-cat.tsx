@@ -10,6 +10,7 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { uploadCatPhoto } from '@/api/storage';
+import { MapSearchBar } from '@/components/MapSearchBar';
 import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { Button, Card, EmptyState, Input, Loading, Pill, Text } from '@/components/ui';
@@ -33,6 +34,7 @@ import {
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, radius, spacing } from '@/theme';
 import { formatDistance, timeAgo } from '@/utils/format';
+import { LAST_SEEN_OPTIONS, lastSeenIso, type LastSeenKey } from '@/utils/lostCat';
 import type { LostCat, LostCatMatch, LostCatStatus } from '@/types/ai';
 
 const STATUS_META: Record<LostCatStatus, { label: string; icon: string; fg: string; bg: string }> =
@@ -110,7 +112,12 @@ function LostCatForm() {
   const [title, setTitle] = useState('');
   const [locationNotes, setLocationNotes] = useState('');
   const [description, setDescription] = useState('');
-  const [lastSeenAtText, setLastSeenAtText] = useState('');
+  const [lastSeen, setLastSeen] = useState<LastSeenKey>('now');
+  // Where the cat was last seen when that is not where the owner is standing
+  // now, or when location is switched off. Takes priority over the device fix.
+  const [place, setPlace] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [searchingPlace, setSearchingPlace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
   const [photoPrimerSource, setPhotoPrimerSource] = useState<PhotoSource | null>(null);
@@ -155,15 +162,32 @@ function LostCatForm() {
     trackPermissionResult('location', next ? 'granted' : 'denied');
   };
 
+  const searchPlace = async () => {
+    const q = placeQuery.trim();
+    if (!q || searchingPlace) return;
+    setSearchingPlace(true);
+    try {
+      const results = await Location.geocodeAsync(q);
+      if (results[0]) {
+        setPlace({ lat: results[0].latitude, lng: results[0].longitude, label: q });
+      } else {
+        notify('Place not found', 'Try a more specific street or area.');
+      }
+    } catch {
+      notify(
+        'Search unavailable',
+        'Place search is unavailable right now. You can use your current location instead.',
+      );
+    } finally {
+      setSearchingPlace(false);
+    }
+  };
+
   const launchPicker = async (source: PhotoSource) => {
     const result =
       source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: true, base64: true })
-        : await ImagePicker.launchImageLibraryAsync({
-            quality: 0.6,
-            allowsEditing: true,
-            base64: true,
-          });
+        ? await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.6, base64: true });
     if (!result.canceled && result.assets[0]) setPhoto(result.assets[0]);
   };
 
@@ -228,21 +252,11 @@ function LostCatForm() {
       return;
     }
     if (!user) return;
-    if (!coords) {
+    const where = place ?? coords;
+    if (!where) {
       notify(
-        'Location needed',
-        'Allow location access so we know where to search. Tap "Use my location" to retry.',
-      );
-      return;
-    }
-    // Validate the free-text "last seen" up front rather than silently
-    // defaulting an unparseable value to now — a wrong last-seen time misleads
-    // the owner and skews match prioritization.
-    const trimmedLastSeen = lastSeenAtText.trim();
-    if (trimmedLastSeen && Number.isNaN(new Date(trimmedLastSeen).getTime())) {
-      notify(
-        'Check the date',
-        'We couldn\'t read that "last seen" time. Use a format like 2024-03-15 18:00, or leave it blank for "just now".',
+        'Where were they last seen?',
+        'Search for the street or area, or allow location and tap "Use my location".',
       );
       return;
     }
@@ -254,17 +268,14 @@ function LostCatForm() {
         fileName: photo.fileName,
         base64: photo.base64,
       });
-      const parsed = lastSeenAtText.trim() ? new Date(lastSeenAtText) : new Date();
-      const lastSeenAt = Number.isNaN(parsed.getTime())
-        ? new Date().toISOString()
-        : parsed.toISOString();
+      const lastSeenAt = lastSeenIso(lastSeen);
       const foldedDescription = [locationNotes.trim(), description.trim()]
         .filter(Boolean)
         .join(locationNotes.trim() && description.trim() ? ' · ' : '');
       await createLostCat.mutateAsync({
         photoUrl,
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: where.lat,
+        lng: where.lng,
         lastSeenAt,
         title: title.trim() || undefined,
         description: foldedDescription || undefined,
@@ -277,7 +288,9 @@ function LostCatForm() {
       setTitle('');
       setLocationNotes('');
       setDescription('');
-      setLastSeenAtText('');
+      setLastSeen('now');
+      setPlace(null);
+      setPlaceQuery('');
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
@@ -327,7 +340,9 @@ function LostCatForm() {
             <Text variant="smallStrong" color={colors.textSecondary}>
               Last seen near
             </Text>
-            {coords ? (
+            {place ? (
+              <Pill label={`📍 ${place.label}`} fg={colors.primary} bg={colors.primarySoft} />
+            ) : coords ? (
               <Pill label="📍 Using your location" fg={colors.primary} bg={colors.primarySoft} />
             ) : (
               <PressableScale onPress={useMyLocation} style={styles.retryBtn}>
@@ -337,10 +352,24 @@ function LostCatForm() {
               </PressableScale>
             )}
           </View>
-          {status === 'denied' ? (
+          {status === 'denied' && !place ? (
             <Text variant="small" color={colors.danger}>
-              Location permission denied — we need it to know where to search.
+              Location is off. Search for the street or area where they were last seen instead.
             </Text>
+          ) : null}
+          <MapSearchBar
+            value={placeQuery}
+            onChangeText={setPlaceQuery}
+            onSubmit={searchPlace}
+            submitting={searchingPlace}
+            placeholder="Search for the street or area"
+          />
+          {place && coords ? (
+            <Pressable onPress={() => setPlace(null)} hitSlop={8} style={styles.photoRemoveRow}>
+              <Text variant="small" color={colors.primary}>
+                Use my current location instead
+              </Text>
+            </Pressable>
           ) : null}
           <Input
             label="Landmark / cross-street notes (optional)"
@@ -351,14 +380,30 @@ function LostCatForm() {
         </View>
 
         {/* Last-seen time */}
-        <Input
-          label="When did you last see them? (optional)"
-          placeholder="e.g. 2024-03-15 18:00 — defaults to now"
-          value={lastSeenAtText}
-          onChangeText={setLastSeenAtText}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+        <View style={styles.locationBox}>
+          <Text variant="smallStrong" color={colors.textSecondary}>
+            When did you last see them?
+          </Text>
+          <View style={styles.chipRow}>
+            {LAST_SEEN_OPTIONS.map((option) => {
+              const active = lastSeen === option.key;
+              return (
+                <PressableScale
+                  key={option.key}
+                  onPress={() => setLastSeen(option.key)}
+                  style={[styles.chip, active && styles.chipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={option.label}
+                >
+                  <Text variant="smallStrong" color={active ? colors.white : colors.text}>
+                    {option.label}
+                  </Text>
+                </PressableScale>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Title + description */}
         <Input
@@ -507,19 +552,30 @@ function LostCatPostCard({ post }: { post: LostCat }) {
 }
 
 function LostCatMatchRow({ match, lostCatId }: { match: LostCatMatch; lostCatId: string }) {
+  const router = useRouter();
   const confirm = useConfirmLostCatMatch(lostCatId);
   const reject = useRejectLostCatMatch(lostCatId);
+
+  // The sighting is where the owner can look at the cat properly and reach the
+  // person who found it, so every match has to lead there.
+  const openSighting = () => router.push(`/sighting/${match.sighting_id}`);
 
   const onConfirm = async () => {
     const ok = await confirmAsync({
       title: 'Is this your cat?',
       message:
-        "We'll mark this match as confirmed and route you to the sighting. You can undo this later.",
+        "We'll mark this match as confirmed and open the sighting so you can get in touch with the person who reported it.",
       confirmLabel: "Yes, that's my cat",
     });
     if (!ok) return;
     confirm.mutate(match.id, {
-      onSuccess: () => notify('Match confirmed 🎉', "We'll help you connect with the reporter."),
+      onSuccess: () => {
+        notify(
+          'Match confirmed 🎉',
+          'Leave a comment on the sighting so the reporter knows this is your cat. They will see it the next time they open the report.',
+        );
+        openSighting();
+      },
       onError: (e) => notify('Could not confirm', getErrorMessage(e, 'Please try again.')),
     });
   };
@@ -527,7 +583,7 @@ function LostCatMatchRow({ match, lostCatId }: { match: LostCatMatch; lostCatId:
   const onReject = async () => {
     const ok = await confirmAsync({
       title: 'Not them?',
-      message: "We'll hide this match. You can undo this later if things change.",
+      message: "We'll hide this match and keep watching for new sightings.",
       confirmLabel: 'Not them',
       destructive: true,
     });
@@ -548,33 +604,45 @@ function LostCatMatchRow({ match, lostCatId }: { match: LostCatMatch; lostCatId:
       ? timeAgo(match.createdAt)
       : '';
 
+  const sightingLabel = match.sightingTitle?.trim() || 'A cat sighting';
+
   return (
     <View style={styles.matchRow}>
-      {match.sightingThumbnailUrl ? (
-        <Image
-          source={{ uri: match.sightingThumbnailUrl }}
-          style={styles.matchThumb}
-          contentFit="cover"
-        />
-      ) : (
-        <View style={[styles.matchThumb, styles.thumbFallback]}>
-          <Text variant="body">🐱</Text>
-        </View>
-      )}
-      <View style={styles.matchInfo}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {match.sightingTitle?.trim() || 'A cat sighting'}
-        </Text>
-        <Text variant="small" muted>
-          ~{pct}% match{distanceLabel} · {when}
-        </Text>
-        {match.status === 'confirmed' ? (
-          <Pill
-            label="✓ Confirmed"
-            fg={colors.primary}
-            bg={colors.primarySoft}
-            style={styles.matchPill}
+      <PressableScale
+        onPress={openSighting}
+        accessibilityRole="button"
+        accessibilityLabel={`Open sighting: ${sightingLabel}`}
+      >
+        {match.sightingThumbnailUrl ? (
+          <Image
+            source={{ uri: match.sightingThumbnailUrl }}
+            style={styles.matchThumb}
+            contentFit="cover"
           />
+        ) : (
+          <View style={[styles.matchThumb, styles.thumbFallback]}>
+            <Text variant="body">🐱</Text>
+          </View>
+        )}
+      </PressableScale>
+      <View style={styles.matchInfo}>
+        <PressableScale
+          onPress={openSighting}
+          accessibilityRole="button"
+          accessibilityLabel={`Open sighting: ${sightingLabel}, about ${pct} percent match`}
+        >
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {sightingLabel}
+          </Text>
+          <Text variant="small" muted>
+            ~{pct}% match{distanceLabel} · {when}
+          </Text>
+        </PressableScale>
+        {match.status === 'confirmed' ? (
+          <View style={styles.matchActions}>
+            <Pill label="✓ Confirmed" fg={colors.primary} bg={colors.primarySoft} />
+            <Button title="Open sighting" size="sm" onPress={openSighting} />
+          </View>
         ) : match.status === 'rejected' ? (
           <Pill
             label="Not them"
@@ -637,6 +705,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   photoRemoveRow: { alignSelf: 'flex-start', paddingVertical: spacing.xs },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   locationBox: { gap: spacing.sm },
   locationHead: {
     flexDirection: 'row',

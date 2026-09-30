@@ -7,12 +7,13 @@ import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-san
 import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono/400Regular';
 import { SpaceMono_700Bold } from '@expo-google-fonts/space-mono/700Bold';
+import { useQueryClient } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PermissionPrimer } from '@/components/PermissionPrimer';
@@ -20,9 +21,18 @@ import { Platform } from 'react-native';
 import { notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import { env } from '@/lib/env';
+import { notificationRoute, notificationSightingId } from '@/lib/notificationRoute';
 import { initObservability } from '@/lib/observability';
-import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
+import { markPrimerShown, trackPermissionResult } from '@/lib/permissions';
 import { getPushOptIn, registerForPush, setPushOptIn } from '@/lib/push';
+import {
+  onPushPromptRequest,
+  readPushAsks,
+  recordPushAsk,
+  shouldAskForPush,
+  type PushPromptReason,
+} from '@/lib/pushPrompt';
+import { queryKeys } from '@/lib/queryClient';
 import { AppProviders } from '@/providers/AppProviders';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors } from '@/theme';
@@ -35,7 +45,13 @@ function RootNavigator() {
   const userId = session?.user.id;
   const segments = useSegments();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pushPrimerVisible, setPushPrimerVisible] = useState(false);
+  const [pushPrimerReason, setPushPrimerReason] = useState<PushPromptReason>('location');
+  const pushPrimerOpen = useRef(false);
+  useEffect(() => {
+    pushPrimerOpen.current = pushPrimerVisible;
+  });
 
   const [fontsLoaded, fontError] = useFonts({
     'Nunito-Bold': Nunito_700Bold,
@@ -56,7 +72,7 @@ function RootNavigator() {
 
     const root = segments[0];
 
-    // Legal URLs must remain public, including before backend setup.
+    // Legal pages must remain public, including before backend setup.
     if (root === 'privacy' || root === 'terms') return;
 
     // Backend not set up yet → force the setup screen.
@@ -67,7 +83,7 @@ function RootNavigator() {
 
     // Password-recovery / email-confirm deep links manage their own flow and
     // briefly hold a session before the user finishes — don't redirect them.
-    if (root === 'reset' || root === 'confirm') return;
+    if (root === 'reset' || root === 'confirm' || root === 'oauth-callback') return;
 
     const inAuthFlow = root === '(auth)';
     if (!session && !inAuthFlow) {
@@ -77,23 +93,47 @@ function RootNavigator() {
     }
   }, [session, initializing, segments, router, fontsReady]);
 
-  // Push is strictly opt-in (P1-1): prime once, then honor the stored choice.
-  // Returning opted-in users re-register silently on session (token refresh).
+  // Push is strictly opt-in (P1-1). Returning opted-in users re-register
+  // silently on session start (token refresh). Nobody is asked at launch any
+  // more: the primer used to appear before the person had seen a single cat and
+  // stacked on the location primer. Screens announce moments worth asking at
+  // (location known, report posted, cat claimed) via requestPushPrompt.
   useEffect(() => {
     if (!userId || !env.isConfigured || Platform.OS === 'web') return;
     let active = true;
     (async () => {
-      const shown = await hasPrimerBeenShown('notifications', userId);
-      if (!active) return;
-      if (shown) {
-        if (await getPushOptIn(userId ?? '')) void registerForPush(userId ?? '');
-        return;
-      }
-      setPushPrimerVisible(true);
+      if (active && (await getPushOptIn(userId))) void registerForPush(userId);
     })();
     return () => {
       active = false;
     };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !env.isConfigured || Platform.OS === 'web') return;
+    return onPushPromptRequest(async (reason) => {
+      if (pushPrimerOpen.current) return;
+      try {
+        const permission = await Notifications.getPermissionsAsync();
+        const { asks, lastAskAt } = await readPushAsks(userId);
+        const ask = shouldAskForPush(
+          {
+            optedIn: await getPushOptIn(userId),
+            // Once the OS has refused for good our primer cannot lead anywhere.
+            osBlocked: !permission.granted && !permission.canAskAgain,
+            asks,
+            lastAskAt,
+          },
+          reason,
+        );
+        if (!ask || pushPrimerOpen.current) return;
+        await recordPushAsk(userId);
+        setPushPrimerReason(reason);
+        setPushPrimerVisible(true);
+      } catch {
+        // Asking is best-effort; the Settings toggle is always there.
+      }
+    });
   }, [userId]);
 
   const allowPushPrimer = async () => {
@@ -121,21 +161,46 @@ function RootNavigator() {
     trackPermissionResult('notifications', 'dismissed');
   };
 
-  // Tapping a push notification deep-links to the relevant sighting.
+  // A push means something just changed on a cat. Refresh what the app has
+  // cached for it, so opening the report (or glancing at the map) shows the
+  // claim or status change the push announced rather than a stale copy.
+  useEffect(() => {
+    if (Platform.OS === 'web' || !session) return;
+    const refresh = (data: unknown) => {
+      const id = notificationSightingId(data);
+      if (id) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sighting(id) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sightingUpdates(id) });
+      }
+      void queryClient.invalidateQueries({ queryKey: ['sightings'] });
+    };
+    const sub = Notifications.addNotificationReceivedListener((n) =>
+      refresh(n.request.content.data),
+    );
+    return () => sub.remove();
+  }, [queryClient, session]);
+
+  // Tapping a push notification deep-links to where it can be acted on: the
+  // sighting for lifecycle/urgent pushes, the lost-cat screen for a match.
   useEffect(() => {
     if (Platform.OS === 'web' || initializing || !session || !fontsReady) return;
     const redirect = (resp: Notifications.NotificationResponse) => {
-      const data = resp.notification.request.content.data as { sighting_id?: string } | undefined;
-      if (typeof data?.sighting_id === 'string' && /^[0-9a-f-]{36}$/i.test(data.sighting_id)) {
-        router.push(`/sighting/${data.sighting_id}`);
-        Notifications.clearLastNotificationResponse();
+      const data = resp.notification.request.content.data;
+      const route = notificationRoute(data);
+      if (!route) return;
+      const id = notificationSightingId(data);
+      if (id) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sighting(id) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sightingUpdates(id) });
       }
+      router.push(route as Parameters<typeof router.push>[0]);
+      Notifications.clearLastNotificationResponse();
     };
     const last = Notifications.getLastNotificationResponse();
     if (last) redirect(last);
     const sub = Notifications.addNotificationResponseReceivedListener(redirect);
     return () => sub.remove();
-  }, [router, initializing, session, fontsReady]);
+  }, [router, queryClient, initializing, session, fontsReady]);
 
   // Hold the splash screen until fonts are ready so text doesn't flash unstyled.
   if (!fontsReady) return null;
@@ -159,6 +224,14 @@ function RootNavigator() {
         <Stack.Screen
           name="settings"
           options={{ headerShown: true, title: 'Settings', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="adopt/screening"
+          options={{
+            headerShown: true,
+            title: 'Background check',
+            headerTintColor: colors.primary,
+          }}
         />
         <Stack.Screen
           name="privacy"
@@ -200,6 +273,7 @@ function RootNavigator() {
       <PermissionPrimer
         visible={pushPrimerVisible}
         kind="notifications"
+        reason={pushPrimerReason}
         onAllow={allowPushPrimer}
         onDismiss={dismissPushPrimer}
       />

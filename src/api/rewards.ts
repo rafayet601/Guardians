@@ -69,16 +69,33 @@ export interface Eligibility {
   reason?: string;
 }
 
+/** What the display check needs beyond the offer and the profile. */
+export interface EligibilityContext {
+  /** Offers this user has already redeemed (for once-per-user offers). */
+  redeemedOfferIds?: ReadonlySet<string>;
+  /** Injectable clock for tests. */
+  now?: number;
+}
+
 /**
  * Display-time eligibility check. The `redeem_reward` RPC is the authoritative
- * gate — this just lets the UI show a lock state and why.
+ * gate: this mirrors its rules, in the same order, so the UI can show a lock
+ * state and why instead of letting someone tap "Redeem" on an offer the server
+ * is going to reject.
  */
 export function checkEligibility(
   offer: RewardOffer,
   profile: Pick<Profile, 'kibble_balance' | 'level'> | null | undefined,
   earnedBadgeIds: Set<string>,
+  { redeemedOfferIds, now = Date.now() }: EligibilityContext = {},
 ): Eligibility {
   if (!profile) return { ok: false, reason: 'Sign in to redeem' };
+  if (offer.starts_at && now < Date.parse(offer.starts_at)) {
+    return { ok: false, reason: 'Not available yet' };
+  }
+  if (offer.ends_at && now > Date.parse(offer.ends_at)) {
+    return { ok: false, reason: 'Expired' };
+  }
   if (offer.inventory != null && offer.redeemed_count >= offer.inventory) {
     return { ok: false, reason: 'Sold out' };
   }
@@ -87,6 +104,9 @@ export function checkEligibility(
   }
   if (offer.required_badge_id && !earnedBadgeIds.has(offer.required_badge_id)) {
     return { ok: false, reason: 'Earn the required badge' };
+  }
+  if (offer.once_per_user && redeemedOfferIds?.has(offer.id)) {
+    return { ok: false, reason: 'Already redeemed' };
   }
   if (profile.kibble_balance < offer.cost_kibble) {
     return { ok: false, reason: `Need ${offer.cost_kibble - profile.kibble_balance} more Kibble` };

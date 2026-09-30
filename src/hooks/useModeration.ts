@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import {
   blockUser,
@@ -51,6 +52,12 @@ export function useBlockedUsers() {
     queryFn: getBlockedUsers,
     enabled: !!user,
   });
+}
+
+/** The viewer's blocked user ids, for hiding their reports from lists. */
+export function useBlockedIds(): ReadonlySet<string> {
+  const { data } = useBlockedUsers();
+  return useMemo(() => new Set((data ?? []).map((b) => b.blocked_id)), [data]);
 }
 
 export function useUnblockUser() {

@@ -11,6 +11,8 @@ interface MapSearchBarProps {
   onSubmit?: () => void;
   onFilterPress?: () => void;
   submitting?: boolean;
+  /** Defaults to the map screen's wording. */
+  placeholder?: string;
 }
 
 /**
@@ -23,6 +25,7 @@ export function MapSearchBar({
   onSubmit,
   onFilterPress,
   submitting,
+  placeholder = 'Search this area',
 }: MapSearchBarProps) {
   const [focused, setFocused] = useState(false);
 
@@ -36,13 +39,13 @@ export function MapSearchBar({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onSubmitEditing={onSubmit}
-        placeholder="Search this area"
+        placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
         returnKeyType="search"
         autoCorrect={false}
         editable={!submitting}
         accessibilityRole="search"
-        accessibilityLabel="Search this area"
+        accessibilityLabel={placeholder}
       />
       {onFilterPress ? (
         <PressableScale
@@ -63,10 +66,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    height: 46,
+    minHeight: 54,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.surface,
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadow.card,

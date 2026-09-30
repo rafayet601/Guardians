@@ -8,8 +8,10 @@ import {
   getMyLostCats,
   rejectLostCatMatch,
   triggerLostCatMatch,
+  triggerSightingLostMatch,
 } from '@/api/ai';
 import { AI_FEATURES } from '@/constants/ai';
+import { useScreenActive } from '@/hooks/useScreenActive';
 import { captureError, track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import type { CreateLostCatInput, LostCat, LostCatMatch } from '@/types/ai';
@@ -42,10 +44,15 @@ export function useLostCat(id?: string) {
 }
 
 export function useLostCatMatches(lostCatId?: string) {
+  const active = useScreenActive();
   return useQuery<LostCatMatch[], Error>({
     queryKey: queryKeys.lostCatMatches(lostCatId ?? ''),
     queryFn: () => getLostCatMatches(lostCatId as string),
     enabled: !!lostCatId && AI_FEATURES.lostCatReunion,
+    // New sightings arrive all the time and matching runs server-side, so an
+    // owner watching this screen should see a match appear without reloading.
+    refetchInterval: active ? 60_000 : false,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -63,9 +70,11 @@ export function useCreateLostCat() {
     onSuccess: (lostCat) => {
       track('ai_lost_cat_created', { id: lostCat.id });
       qc.invalidateQueries({ queryKey: queryKeys.lostCats });
-      void triggerLostCatMatch(lostCat.id).catch((e) =>
-        captureError(e, { source: 'lost-cat-create-trigger' }),
-      );
+      void triggerLostCatMatch(lostCat.id)
+        // The first pass finishes AFTER this mutation does, so without a refresh
+        // the owner would see "no matches yet" even when it found some.
+        .then(() => qc.invalidateQueries({ queryKey: queryKeys.lostCatMatches(lostCat.id) }))
+        .catch((e) => captureError(e, { source: 'lost-cat-create-trigger' }));
     },
   });
 }
@@ -101,4 +110,22 @@ export function useRejectLostCatMatch(lostCatId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.lostCats });
     },
   });
+}
+
+/**
+ * The other direction of the continuous match loop (AI-M4 #5): after a NEW
+ * sighting is posted, ask the server to match it against open lost-cat posts
+ * (and push the owner on a hit). Fire-and-forget by contract — no-ops when the
+ * flag is off, never throws, never blocks the report. The server verifies the
+ * caller is the sighting's reporter. Call as
+ * `void matchSightingAgainstLostCatsBestEffort(sightingId)`.
+ */
+export async function matchSightingAgainstLostCatsBestEffort(sightingId: string): Promise<void> {
+  if (!AI_FEATURES.lostCatReunion) return;
+  try {
+    await triggerSightingLostMatch(sightingId);
+    track('ai_lost_cat_sighting_match_triggered', { sighting_id: sightingId });
+  } catch (e) {
+    captureError(e, { source: 'sighting-lost-cat-match-trigger' });
+  }
 }

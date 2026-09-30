@@ -15,7 +15,7 @@ interface StorageClient {
 
 /** Remove files through Storage API before deleting their owner in Auth. */
 export async function deleteUserUploads(admin: StorageClient, userId: string): Promise<void> {
-  for (const bucket of ['avatars', 'cat-photos']) {
+  for (const bucket of ['avatars', 'cat-photos', 'screening-docs']) {
     const storage = admin.storage.from(bucket);
     const paths: string[] = [];
     const folders = [userId];
