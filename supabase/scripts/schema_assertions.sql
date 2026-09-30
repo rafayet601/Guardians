@@ -112,6 +112,14 @@ begin
     raise exception 'DRIFT: nearby_sightings does not skip blocked users and measure against the coarsened point — exact locations can be solved from its distances (apply migration 0036)';
   end if;
 
+  -- ── 4c. Claim / rescue points are paid once per cat (0037) ────────────────
+  select (pg_get_functiondef('public.claim_sighting(uuid)'::regprocedure) like '%point_events%'
+          and pg_get_functiondef('public.update_sighting_status(uuid,cat_status,text)'::regprocedure) like '%point_events%')
+    into v_bool;
+  if v_bool is not true then
+    raise exception 'DRIFT: claim_sighting / update_sighting_status pay points on every transition — release+re-claim and safe<->available farm Kibble (apply migration 0037)';
+  end if;
+
   -- ── 5. SECURITY DEFINER functions must pin search_path (0014) ─────────────
   select count(*) into v
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
