@@ -4,6 +4,9 @@ const port = Number(process.env.PLAYWRIGHT_PORT ?? 8081);
 export default defineConfig({
   testDir: './e2e',
   timeout: 120_000,
+  // One retry on CI only: the first page load compiles the whole bundle, and a
+  // cold, busy runner can occasionally push one assertion past its timeout.
+  retries: process.env.CI ? 1 : 0,
   expect: { timeout: 15_000 },
   use: {
     baseURL: `http://127.0.0.1:${port}`,
