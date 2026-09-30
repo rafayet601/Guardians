@@ -2,10 +2,20 @@ import type { AdoptionInterest, Sighting } from '@/types/models';
 
 type CaseSummary = Pick<Sighting, 'status' | 'reporter_id' | 'claimed_by' | 'claimer'>;
 
+interface GuidanceOptions {
+  /** A claimed rescue with no activity for CLAIM_STALE_HOURS. */
+  claimStale?: boolean;
+}
+
 /** Copy reflects the existing lifecycle; it never grants permission to change it. */
-export function getSightingGuidance(sighting: CaseSummary, userId?: string) {
+export function getSightingGuidance(
+  sighting: CaseSummary,
+  userId?: string,
+  { claimStale = false }: GuidanceOptions = {},
+) {
   const isClaimer = !!userId && userId === sighting.claimed_by;
-  const canManage = isClaimer || (!!userId && userId === sighting.reporter_id);
+  const isOwner = !!userId && userId === sighting.reporter_id;
+  const canManage = isClaimer || isOwner;
   const responsibility = sighting.claimed_by
     ? isClaimer
       ? 'You are the assigned guardian'
@@ -16,15 +26,22 @@ export function getSightingGuidance(sighting: CaseSummary, userId?: string) {
     case 'spotted':
       return {
         responsibility,
-        nextStep:
-          'Claim this rescue when you can take responsibility. Add a comment if you have a new sighting or useful information.',
+        nextStep: isOwner
+          ? 'Add a comment if you have new information about the cat. Close the report if the cat has been found or has moved on.'
+          : 'Claim this rescue when you can take responsibility. Add a comment if you have a new sighting or useful information.',
       };
     case 'claimed':
       return {
         responsibility,
-        nextStep: canManage
-          ? 'Share your plan in Activity. Mark the rescue in progress when it begins.'
-          : 'A guardian has claimed this rescue. Check Activity for updates or add information that could help.',
+        nextStep: isClaimer
+          ? claimStale
+            ? 'It has been a while since the last update. Post where things stand, mark the rescue in progress, or release it so another Guardian can help.'
+            : "Share your plan in Activity. Mark the rescue in progress when it begins, or release it if you can't make it."
+          : canManage
+            ? claimStale
+              ? 'The Guardian has not posted for over a day. Ask in Activity, or reopen this report so someone else can help. Mark the rescue in progress when it begins.'
+              : 'Share your plan in Activity. Mark the rescue in progress when it begins.'
+            : 'A guardian has claimed this rescue. Check Activity for updates or add information that could help.',
       };
     case 'in_rescue':
       return {

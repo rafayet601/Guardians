@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -12,21 +13,32 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import { Celebration, type CelebrationMessage } from '@/components/Celebration';
 import { PressableScale } from '@/components/PressableScale';
 import { JourneyTimeline } from '@/components/JourneyTimeline';
 import { ApplicantScreeningBadge } from '@/components/ScreeningBadge';
+import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { ReidSuggestions } from '@/components/ReidSuggestions';
 import { RescueCopilot } from '@/components/RescueCopilot';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, EmptyState, Input, Loading, Pill, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
-import { CLAIM_TO_RESCUE_TOTAL } from '@/constants/points';
-import { NEXT_STATUSES, STATUS_META, TEMPERAMENT_META } from '@/constants/status';
+import { CLAIM_TO_RESCUE_TOTAL, POINTS } from '@/constants/points';
+import {
+  STATUS_META,
+  TEMPERAMENT_META,
+  getStatusActions,
+  isClaimStale,
+  isUrgentNow,
+  type StatusAction,
+} from '@/constants/status';
 import { useAdoptionInterest, useApproveAdoption, useExpressInterest } from '@/hooks/useAdoption';
 import { useMyScreening } from '@/hooks/useScreening';
 import { useAiAdoptionCopy } from '@/hooks/useAiAdoptionCopy';
 import { useBlockUser, useReportContent } from '@/hooks/useModeration';
+import { usePhotoPicker } from '@/hooks/usePhotoPicker';
+import { MAX_SIGHTING_PHOTOS, useAddSightingPhoto } from '@/hooks/useSightingPhotos';
 import {
   useClaimSighting,
   usePostComment,
@@ -36,12 +48,13 @@ import {
   useUpdateStatus,
 } from '@/hooks/useSightings';
 import { confirmAsync, notify } from '@/lib/dialog';
-import { getErrorMessage } from '@/lib/errors';
+import { requestPushPrompt } from '@/lib/pushPrompt';
+import { getErrorMessage, isClaimLostError } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, motion, palette, radius, spacing } from '@/theme';
-import type { CatStatus, SightingUpdate } from '@/types/models';
+import type { SightingUpdate } from '@/types/models';
 import { isScreeningCleared } from '@/types/models';
-import { regionForRadius } from '@/utils/geo';
+import { directionsUrl, regionForRadius } from '@/utils/geo';
 import { timeAgo } from '@/utils/format';
 import { getDemoSightingPhoto } from '@/utils/demoSightings';
 import { ADOPTION_REQUEST_META, getSightingGuidance } from '@/utils/sightingGuidance';
@@ -65,10 +78,15 @@ export default function SightingDetailScreen() {
   const postComment = usePostComment(id);
   const report = useReportContent();
   const block = useBlockUser();
+  const picker = usePhotoPicker();
+  const addSightingPhoto = useAddSightingPhoto(id);
 
   const reduced = useReducedMotion() ?? false;
   const [comment, setComment] = useState('');
   const [failedPhoto, setFailedPhoto] = useState<string | number | null>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [celebration, setCelebration] = useState<CelebrationMessage | null>(null);
+  const dismissCelebration = useCallback(() => setCelebration(null), []);
 
   if (isLoading) return <Loading label="Loading report…" />;
   if (!sighting) {
@@ -101,41 +119,120 @@ export default function SightingDetailScreen() {
   const canDraftListing = AI_FEATURES.adoptionCopy && sighting.status === 'available' && canManage;
   const meta = STATUS_META[sighting.status];
   const temp = TEMPERAMENT_META[sighting.temperament];
-  const heroPhoto = sighting.photos?.[0]?.url;
+  const photos = sighting.photos ?? [];
+  const heroPhoto = photos[Math.min(photoIndex, Math.max(0, photos.length - 1))]?.url;
+  const canAddPhoto = canManage && photos.length < MAX_SIGHTING_PHOTOS;
   const demoPhoto = getDemoSightingPhoto(sighting);
   const photo = heroPhoto || demoPhoto;
   const isDemoPhoto = !heroPhoto && !!demoPhoto;
-  const nextStatuses = canManage ? (NEXT_STATUSES[sighting.status] ?? []) : [];
   const myInterest = interests.find((i) => i.user_id === user?.id);
-  const guidance = getSightingGuidance(sighting, user?.id);
   const latestActivityAt = updates.reduce(
     (latest, update) => (update.created_at > latest ? update.created_at : latest),
     sighting.updated_at,
   );
+  // A Guardian who claimed and went quiet must not strand the cat: the
+  // reporter may reopen it once nothing has happened for a day.
+  const claimStale =
+    sighting.status === 'claimed' && isClaimStale(sighting.claimed_at, latestActivityAt);
+  const statusActions = getStatusActions(sighting.status, { isOwner, isClaimer, claimStale });
+  const guidance = getSightingGuidance(sighting, user?.id, { claimStale });
+  const urgentNow = isUrgentNow(sighting.status, sighting.needs_urgent_help);
+  const canNavigate =
+    canManage && !!sighting.is_precise && sighting.lat != null && sighting.lng != null;
 
-  const onClaim = () =>
-    claim.mutate(sighting.id, {
-      onSuccess: () =>
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
-      onError: (e) => notify('Could not claim', errMsg(e)),
-    });
-
-  const onAdvance = async (status: CatStatus) => {
-    const isClose = status === 'archived';
+  const onClaim = async () => {
+    // Claiming is a commitment other Guardians will rely on, so say what it
+    // means (and that there is a way out) before it happens.
     const ok = await confirmAsync({
-      title: isClose ? 'Close this report?' : `Mark as "${STATUS_META[status].label}"?`,
-      confirmLabel: isClose ? 'Close' : 'Confirm',
-      destructive: isClose,
+      title: isOwner ? 'Rescue this cat yourself?' : 'Claim this rescue?',
+      message:
+        "You'll be the Guardian for this cat: you'll see its exact location and can post updates in Activity. If you can't follow through, you can release it from this screen so another Guardian can step in.",
+      confirmLabel: 'Claim rescue',
+    });
+    if (!ok) return;
+    claim.mutate(sighting.id, {
+      onSuccess: () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setCelebration({
+          title: "You're the Guardian! 🦸",
+          message: `+${POINTS.claim} points. Post an update in Activity so the reporter knows you're on it.`,
+        });
+        // After the celebration has had its moment, offer alerts for the next cat.
+        requestPushPrompt('claim', 3500);
+      },
+      onError: (e) =>
+        isClaimLostError(e)
+          ? notify(
+              'Another Guardian got there first',
+              'Thank you for jumping in. This cat already has a Guardian. Check the map for other cats who still need help.',
+            )
+          : notify('Could not claim', errMsg(e)),
+    });
+  };
+
+  const onAction = async (action: StatusAction) => {
+    const ok = await confirmAsync({
+      title: action.confirmTitle,
+      message: action.confirmMessage,
+      confirmLabel: action.confirmLabel,
+      destructive: action.destructive,
     });
     if (!ok) return;
     updateStatus.mutate(
-      { id: sighting.id, status },
+      { id: sighting.id, status: action.status, note: action.note },
       {
-        onSuccess: () =>
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          // Only the Guardian who saw it through earns the rescue points.
+          if (action.status === 'safe') {
+            setCelebration({
+              title: 'Rescue complete 💚',
+              message: isClaimer
+                ? `+${POINTS.rescue} points. Thank you for bringing this cat to safety.`
+                : 'Thank you for looking out for this cat.',
+            });
+          }
+        },
         onError: (e) => notify('Could not update', errMsg(e)),
       },
     );
+  };
+
+  // Up to four photos per pick, uploaded one after another so a failure stops
+  // at the photo that failed and says so, rather than half-succeeding silently.
+  const onAddPhoto = async () => {
+    const room = Math.min(4, MAX_SIGHTING_PHOTOS - photos.length);
+    const assets = await picker.pick(room);
+    for (const asset of assets) {
+      try {
+        await addSightingPhoto.mutateAsync({
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+          base64: asset.base64,
+        });
+      } catch (e) {
+        notify('Could not add photo', errMsg(e));
+        return;
+      }
+    }
+    if (assets.length > 0) setPhotoIndex(photos.length); // show the first new one
+  };
+
+  const onDirections = async () => {
+    const url =
+      sighting.lat != null && sighting.lng != null
+        ? directionsUrl(sighting.lat, sighting.lng, Platform.OS)
+        : null;
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      notify(
+        'Could not open maps',
+        `Open your maps app and search for ${sighting.lat?.toFixed(5)}, ${sighting.lng?.toFixed(5)}.`,
+      );
+    }
   };
 
   const onAdopt = async () => {
@@ -144,7 +241,7 @@ export default function SightingDetailScreen() {
       const ok = await confirmAsync({
         title: 'Background check required',
         message:
-          'Adopters need a cleared background check first. It takes a few minutes and is valid for 12 months.',
+          'Adopters need a cleared background check first. Our team reviews each one by hand, which can take a few days, and a check is valid for 12 months.',
         confirmLabel: 'Start screening',
       });
       if (ok) router.push('/adopt/screening');
@@ -164,6 +261,11 @@ export default function SightingDetailScreen() {
     });
     if (!ok) return;
     approveAdoption.mutate(interestId, {
+      onSuccess: () =>
+        setCelebration({
+          title: 'Adopted! 🎉',
+          message: `Thank you for finding this cat a forever home. +${POINTS.place} points.`,
+        }),
       onError: (e) => notify('Could not approve', errMsg(e)),
     });
   };
@@ -204,7 +306,12 @@ export default function SightingDetailScreen() {
     });
     if (!ok) return;
     block.mutate(sighting.reporter_id, {
-      onSuccess: () => notify('User blocked', "You won't see this person's reports."),
+      onSuccess: () => {
+        notify('User blocked', "You won't see this person's reports.");
+        // Their report is now hidden everywhere, so don't leave it open here.
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)');
+      },
       onError: (e) => notify('Could not block', errMsg(e)),
     });
   };
@@ -239,6 +346,37 @@ export default function SightingDetailScreen() {
         </Animated.View>
 
         <View style={styles.body}>
+          {photos.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.gallery}
+              accessibilityLabel="Photos of this cat"
+            >
+              {photos.map((ph, i) => {
+                const active = i === Math.min(photoIndex, photos.length - 1);
+                return (
+                  <Pressable
+                    key={ph.id}
+                    onPress={() => {
+                      setFailedPhoto(null);
+                      setPhotoIndex(i);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Photo ${i + 1} of ${photos.length}`}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Image
+                      source={{ uri: ph.url }}
+                      style={[styles.galleryThumb, active && styles.galleryThumbActive]}
+                      contentFit="cover"
+                    />
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+
           {/* Title + status + summary */}
           <Animated.View
             entering={
@@ -255,7 +393,11 @@ export default function SightingDetailScreen() {
               <Text variant="title" style={styles.flex}>
                 {sighting.title?.trim() || 'Cat sighting'}
               </Text>
-              {sighting.needs_urgent_help ? <Text style={styles.urgent}>🚨</Text> : null}
+              {urgentNow ? (
+                <Text style={styles.urgent} accessibilityLabel="Urgent">
+                  🚨
+                </Text>
+              ) : null}
             </View>
             <View style={styles.metaRow}>
               <StatusPill status={sighting.status} />
@@ -309,6 +451,24 @@ export default function SightingDetailScreen() {
                 <Text variant="body">{sighting.description}</Text>
               </Card>
             </Animated.View>
+          ) : null}
+
+          {canAddPhoto ? (
+            <View style={styles.addPhoto}>
+              <Button
+                title={photos.length === 0 ? '📷 Add a photo' : '📷 Add another photo'}
+                variant="outline"
+                size="sm"
+                loading={picker.picking || addSightingPhoto.isPending}
+                onPress={onAddPhoto}
+                accessibilityHint="Choose or take photos to add to this report"
+              />
+              {sighting.status === 'safe' || sighting.status === 'available' ? (
+                <Text variant="caption" muted>
+                  A clear photo of the cat in care helps adopters.
+                </Text>
+              ) : null}
+            </View>
           ) : null}
 
           {/* Reporter */}
@@ -381,6 +541,20 @@ export default function SightingDetailScreen() {
                 📍 Approximate area — the exact location is shared with the reporter and assigned
                 guardian.
               </Text>
+            ) : (
+              <Text variant="caption" muted style={styles.mapNote}>
+                📍 Exact location — only the reporter and assigned guardian can see this.
+              </Text>
+            )}
+            {canNavigate ? (
+              <Button
+                title="🧭 Get directions"
+                variant="outline"
+                fullWidth
+                onPress={onDirections}
+                accessibilityHint="Opens your maps app with directions to the cat"
+                style={styles.directions}
+              />
             ) : null}
           </Animated.View>
 
@@ -402,7 +576,36 @@ export default function SightingDetailScreen() {
             }
             style={styles.actions}
           >
-            {sighting.status === 'spotted' ? (
+            {sighting.status === 'spotted' && isOwner ? (
+              <>
+                {/* The reporter's own report: reassure them it is live rather than
+                    pitching them a claim promo, but keep "I'll do it myself". */}
+                <View style={styles.liveCard} accessibilityRole="summary">
+                  <View style={styles.liveIcon}>
+                    <Ionicons name="checkmark" size={18} color={colors.white} />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text variant="bodyStrong">Your report is live</Text>
+                    <Text variant="small" muted>
+                      Guardians near this spot can see this cat on the map. You&apos;ll get a
+                      notification when one claims it, as long as alerts are on in Settings.
+                      {sighting.needs_urgent_help
+                        ? ' Because it is marked urgent, Guardians nearby with alerts on were also sent a push.'
+                        : ''}
+                    </Text>
+                  </View>
+                </View>
+                <Button
+                  title="🦸 I'll rescue this cat myself"
+                  variant="outline"
+                  fullWidth
+                  loading={claim.isPending}
+                  onPress={onClaim}
+                />
+              </>
+            ) : null}
+
+            {sighting.status === 'spotted' && !isOwner ? (
               <>
                 <View style={styles.rewardCard}>
                   <View style={styles.rewardIcon}>
@@ -427,18 +630,15 @@ export default function SightingDetailScreen() {
               </>
             ) : null}
 
-            {nextStatuses.map((status) => (
+            {statusActions.map((action) => (
               <Button
-                key={status}
-                title={
-                  status === 'archived'
-                    ? 'Close report'
-                    : `${STATUS_META[status].icon} Mark as ${STATUS_META[status].label}`
-                }
-                variant={status === 'archived' ? 'outline' : 'primary'}
+                key={action.status}
+                title={action.label}
+                variant={action.variant}
                 fullWidth
-                loading={updateStatus.isPending}
-                onPress={() => onAdvance(status)}
+                loading={updateStatus.isPending && updateStatus.variables?.status === action.status}
+                disabled={updateStatus.isPending}
+                onPress={() => onAction(action)}
               />
             ))}
 
@@ -473,7 +673,7 @@ export default function SightingDetailScreen() {
                   {screeningQuery.isSuccess && !isScreeningCleared(screeningQuery.data) ? (
                     <Text variant="small" muted>
                       Adopters need a cleared background check — tapping above will start screening
-                      (a few minutes, valid 12 months).
+                      (reviewed by our team, which can take a few days; valid 12 months).
                     </Text>
                   ) : null}
                 </>
@@ -673,6 +873,13 @@ export default function SightingDetailScreen() {
           <Ionicons name="send" size={20} color={colors.white} />
         </Pressable>
       </View>
+      <PermissionPrimer
+        visible={picker.primer.visible}
+        kind={picker.primer.kind}
+        onAllow={picker.primer.onAllow}
+        onDismiss={picker.primer.onDismiss}
+      />
+      <Celebration celebration={celebration} onDone={dismissCelebration} />
     </KeyboardAvoidingView>
   );
 }
@@ -790,9 +997,12 @@ function TimelineItem({ update }: { update: SightingUpdate }) {
 
   // status_change / claim / system → centered system line
   const icon = update.new_status ? STATUS_META[update.new_status].icon : 'ℹ️';
+  const actor = update.author?.username;
   const text =
     update.body ??
-    (update.new_status ? `Marked as ${STATUS_META[update.new_status].label}` : 'Update');
+    (update.new_status
+      ? `${actor ? `${actor} marked it as` : 'Marked as'} ${STATUS_META[update.new_status].label}`
+      : 'Update');
   return (
     <View style={styles.systemRow}>
       <Text variant="small" muted center>
@@ -834,6 +1044,17 @@ const styles = StyleSheet.create({
   heroFallback: { alignItems: 'center', justifyContent: 'center' },
   demoLabel: { position: 'absolute', top: spacing.md, right: spacing.md },
   heroEmoji: { fontSize: 96 },
+  gallery: { gap: spacing.sm, paddingBottom: spacing.xs },
+  galleryThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  galleryThumbActive: { borderColor: colors.primary },
+  addPhoto: { gap: spacing.xs, alignItems: 'flex-start' },
   body: {
     padding: spacing.lg,
     gap: spacing.md,
@@ -885,6 +1106,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rewardSub: { marginTop: 1 },
+  liveCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1,
+    borderColor: colors.primarySoft,
+  },
+  liveIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  directions: { marginTop: spacing.sm },
   applicantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   draftCard: { gap: spacing.md, marginTop: spacing.sm },
   draftHead: { gap: spacing.xs },

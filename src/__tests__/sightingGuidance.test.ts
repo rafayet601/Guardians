@@ -51,3 +51,30 @@ describe('case responsibility and next steps', () => {
     );
   });
 });
+
+describe('claim ownership guidance', () => {
+  it('tells the assigned guardian they may release a rescue they cannot complete', () => {
+    expect(getSightingGuidance(claimed, 'guardian').nextStep).toContain('release');
+    // The reporter cannot "release" someone else's claim as a courtesy.
+    expect(getSightingGuidance(claimed, 'reporter').nextStep).not.toContain('release');
+  });
+
+  it('nudges a silent claim towards an update, or towards reopening for the reporter', () => {
+    const guardianView = getSightingGuidance(claimed, 'guardian', { claimStale: true }).nextStep;
+    expect(guardianView).toContain('release it so another Guardian can help');
+    const reporterView = getSightingGuidance(claimed, 'reporter', { claimStale: true }).nextStep;
+    expect(reporterView).toContain('reopen this report');
+    // Visitors get no management advice either way.
+    expect(getSightingGuidance(claimed, 'visitor', { claimStale: true }).nextStep).not.toContain(
+      'reopen',
+    );
+  });
+
+  it('reassures the reporter of an unclaimed report instead of pitching them a claim', () => {
+    const spotted = { ...claimed, status: 'spotted' as const, claimed_by: null, claimer: null };
+    const owner = getSightingGuidance(spotted, 'reporter').nextStep;
+    expect(owner).toContain('Close the report');
+    expect(owner).not.toContain('Claim this rescue');
+    expect(getSightingGuidance(spotted, 'visitor').nextStep).toContain('Claim this rescue');
+  });
+});

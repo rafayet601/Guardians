@@ -1,5 +1,6 @@
 import {
   DEFAULT_REGION,
+  directionsUrl,
   distanceMeters,
   radiusFromRegion,
   regionForRadius,
@@ -125,5 +126,30 @@ describe('zoomForRegion ↔ regionFromCenterZoom', () => {
     expect(upNorth.longitudeDelta).toBeCloseTo(atEquator.longitudeDelta, 9);
     // ...while latitudeDelta shrinks with cos(lat).
     expect(upNorth.latitudeDelta).toBeLessThan(atEquator.latitudeDelta);
+  });
+});
+
+describe('directionsUrl', () => {
+  it('opens Apple Maps directions on iOS', () => {
+    expect(directionsUrl(37.7749, -122.4194, 'ios')).toBe(
+      'https://maps.apple.com/?daddr=37.774900,-122.419400&dirflg=d',
+    );
+  });
+
+  it('uses the Google Maps universal link on Android and web', () => {
+    for (const os of ['android', 'web']) {
+      expect(directionsUrl(-33.8688, 151.2093, os)).toBe(
+        'https://www.google.com/maps/dir/?api=1&destination=-33.868800,151.209300&travelmode=driving',
+      );
+    }
+  });
+
+  it('defaults to the universal link when the platform is unknown', () => {
+    expect(directionsUrl(1, 2)).toContain('google.com/maps/dir');
+  });
+
+  it('refuses coordinates that are not finite numbers', () => {
+    expect(directionsUrl(NaN, 10, 'ios')).toBeNull();
+    expect(directionsUrl(10, Infinity, 'android')).toBeNull();
   });
 });
