@@ -153,6 +153,27 @@ describe('API client → RPC argument mapping', () => {
     expect(rpc).toHaveBeenCalledWith('is_adopter_cleared', { p_user: 'u1' });
   });
 
+  it('screening RPCs are called on the client, not detached from it', async () => {
+    // The real supabase.rpc reads `this.rest`. A detached call threw before
+    // any request was made, so every background-check read and submit failed.
+    rpc.mockImplementation(function (this: unknown) {
+      if (this !== supabase)
+        throw new TypeError("Cannot read properties of undefined (reading 'rest')");
+      return Promise.resolve({ data: true, error: null });
+    });
+    await expect(getMyScreening()).resolves.toBeDefined();
+    await expect(submitScreening({} as never)).resolves.toBeDefined();
+    await expect(isAdopterCleared('u1')).resolves.toBe(true);
+  });
+
+  it('getMyScreening reads "no screening" whichever way PostgREST says it', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await expect(getMyScreening()).resolves.toBeNull();
+    // A composite-returning function with no row comes back as all-null fields.
+    rpc.mockResolvedValue({ data: { id: null, status: null, reasons: null }, error: null });
+    await expect(getMyScreening()).resolves.toBeNull();
+  });
+
   it('getNearby → nearby_sightings', async () => {
     rpc.mockResolvedValue({ data: [], error: null });
     await getNearby({ lat: 1, lng: 2, radiusM: 3000 });

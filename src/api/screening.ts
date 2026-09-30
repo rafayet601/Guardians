@@ -1,39 +1,31 @@
 import { Buffer } from 'buffer';
-import type { PostgrestError } from '@supabase/supabase-js';
 
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/types/database';
 import type { AdopterScreening, ScreeningPayload } from '@/types/models';
-
-// NOTE: these RPCs ship in supabase/migrations/0032_adopter_screening.sql.
-// Until `npm run gen:types` is re-run against a DB with that migration applied,
-// the generated Database type doesn't know them — so we call through a
-// minimally-typed bridge instead of supabase.rpc's generated overloads.
-async function callRpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
-  const rpc = supabase.rpc as unknown as (
-    fn: string,
-    args?: Record<string, unknown>,
-  ) => Promise<{ data: T; error: PostgrestError | null }>;
-  const { data, error } = await (args === undefined ? rpc(fn) : rpc(fn, args));
-  if (error) throw error;
-  return data;
-}
 
 /** Owner-only read of my background-check screening (PII never lister-visible). */
 export async function getMyScreening(): Promise<AdopterScreening | null> {
-  const data = await callRpc<AdopterScreening | null>('get_my_screening');
-  return data ?? null;
+  const { data, error } = await supabase.rpc('get_my_screening');
+  if (error) throw error;
+  // A composite-returning RPC answers "no row" with an all-null record.
+  const row = data as unknown as AdopterScreening | null;
+  return row?.id ? row : null;
 }
 
 /** Submit (or re-submit) my screening questionnaire. Runs server-side scoring. */
 export async function submitScreening(payload: ScreeningPayload): Promise<AdopterScreening> {
-  return callRpc<AdopterScreening>('submit_adopter_screening', {
-    p_payload: payload as unknown as Record<string, unknown>,
+  const { data, error } = await supabase.rpc('submit_adopter_screening', {
+    p_payload: payload as unknown as Json,
   });
+  if (error) throw error;
+  return data as unknown as AdopterScreening;
 }
 
 /** Boolean only — safe to call for listers reviewing applicants (no PII). */
 export async function isAdopterCleared(userId: string): Promise<boolean> {
-  const data = await callRpc<boolean>('is_adopter_cleared', { p_user: userId });
+  const { data, error } = await supabase.rpc('is_adopter_cleared', { p_user: userId });
+  if (error) throw error;
   return !!data;
 }
 
