@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -23,7 +23,7 @@ import { EmptyState, Loading, PageHeader, Pill, Text } from '@/components/ui';
 import { useUserBadges } from '@/hooks/useGamification';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useMyProfile } from '@/hooks/useProfile';
-import { useOffers } from '@/hooks/useRewards';
+import { useMyRedemptions, useOffers } from '@/hooks/useRewards';
 import { colors, layout, palette, radius, shadow, spacing } from '@/theme';
 import { compactNumber } from '@/utils/format';
 import type { RewardOffer } from '@/types/models';
@@ -44,7 +44,13 @@ export default function RewardsScreen() {
   const { data: earned = [] } = useUserBadges(profile?.id);
   const { data: offers, isLoading, isError, isRefetching, refetch } = useOffers();
 
+  const { data: redemptions } = useMyRedemptions();
+
   const earnedIds = new Set(earned.map((b) => b.badge_id));
+  const redeemedOfferIds = useMemo(
+    () => new Set((redemptions ?? []).map((redemption) => redemption.offer_id)),
+    [redemptions],
+  );
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top }]}>
@@ -105,7 +111,7 @@ export default function RewardsScreen() {
             <OfferRow
               offer={item}
               index={index}
-              eligibility={checkEligibility(item, profile, earnedIds)}
+              eligibility={checkEligibility(item, profile, earnedIds, { redeemedOfferIds })}
               onPress={() => router.push(`/rewards/${item.id}`)}
             />
           )}

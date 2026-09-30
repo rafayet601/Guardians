@@ -4,7 +4,8 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, Card, EmptyState, Loading, PageHeader, Text } from '@/components/ui';
-import { useLeaderboard } from '@/hooks/useGamification';
+import { useLeaderboard, useMyRank } from '@/hooks/useGamification';
+import { useMyProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/providers/AuthProvider';
 import { colors, layout, motion, palette, radius, spacing } from '@/theme';
 import type { LeaderboardEntry } from '@/types/models';
@@ -16,6 +17,11 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { data, isLoading, isError, isRefetching, refetch } = useLeaderboard();
+  const { data: profile } = useMyProfile();
+  // The list is the top 50; anyone below it would otherwise never see where
+  // they stand, which is most people.
+  const inTopList = !!data?.some((entry) => entry.id === user?.id);
+  const { data: myRank } = useMyRank(inTopList ? undefined : profile?.points);
   const reduced = useReducedMotion() ?? false;
 
   return (
@@ -63,7 +69,29 @@ export default function LeaderboardScreen() {
             />
           }
           ListHeaderComponent={
-            data && data.length >= 3 ? <Podium entries={data.slice(0, 3)} /> : null
+            <>
+              {data && data.length >= 3 ? <Podium entries={data.slice(0, 3)} /> : null}
+              {profile && myRank && !inTopList ? (
+                <View style={styles.myRank}>
+                  <Text variant="overline" color={colors.textSecondary}>
+                    Your standing
+                  </Text>
+                  <Row
+                    index={0}
+                    isMe
+                    entry={{
+                      id: profile.id,
+                      username: profile.username,
+                      avatar_url: profile.avatar_url,
+                      points: profile.points,
+                      level: profile.level,
+                      rescues_count: profile.rescues_count,
+                      rank: myRank,
+                    }}
+                  />
+                </View>
+              ) : null}
+            </>
           }
           ListEmptyComponent={
             <EmptyState icon="🏆" title="No rankings yet" message="Be the first to earn points!" />
@@ -210,6 +238,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   sep: { height: spacing.sm },
+  myRank: { gap: spacing.sm, marginBottom: spacing.xl },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   rowTop: { borderColor: colors.accentSoft, backgroundColor: palette.amber100 },
   rowMe: { borderColor: colors.primary, borderWidth: 1.5, backgroundColor: colors.primaryTint },

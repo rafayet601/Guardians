@@ -9,15 +9,17 @@ import { PressableScale } from '@/components/PressableScale';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, EmptyState, Loading, Screen, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
+import { isClaimStale } from '@/constants/status';
 import { useAllBadges, useUserBadges } from '@/hooks/useGamification';
 import { useMyScreening } from '@/hooks/useScreening';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsModerator } from '@/hooks/useModeration';
 import { useMyProfile } from '@/hooks/useProfile';
-import { useMySightings } from '@/hooks/useSightings';
+import { useMyRescues, useMySightings } from '@/hooks/useSightings';
 import { colors, fontFamily, layout, motion, palette, radius, shadow, spacing } from '@/theme';
 import { isScreeningCleared } from '@/types/models';
-import { compactNumber, levelProgress } from '@/utils/format';
+import { compactNumber, levelProgress, timeAgo } from '@/utils/format';
+import { isActiveRescue, sortRescues } from '@/utils/rescues';
 
 const LEVEL_TITLES = [
   'Newcomer',
@@ -37,6 +39,7 @@ export default function ProfileScreen() {
   const { data: allBadges = [] } = useAllBadges();
   const { data: earned = [] } = useUserBadges(profile?.id);
   const { data: sightings = [] } = useMySightings();
+  const { data: rescueList = [] } = useMyRescues();
   const { data: isModerator } = useIsModerator();
   const { data: screening } = useMyScreening();
   const screeningCleared = isScreeningCleared(screening);
@@ -56,6 +59,7 @@ export default function ProfileScreen() {
     );
 
   const earnedIds = new Set(earned.map((b) => b.badge_id));
+  const rescues = sortRescues(rescueList);
   const lvl = levelProgress(profile.points);
   const role = profile.is_guardian ? 'Guardian' : profile.wants_to_adopt ? 'Adopter' : 'Member';
 
@@ -305,6 +309,61 @@ export default function ProfileScreen() {
         </View>
       </Animated.View>
 
+      {/* My rescues: the cats this person is (or was) the Guardian for */}
+      <Animated.View
+        entering={
+          reduced
+            ? undefined
+            : FadeInDown.delay(4.5 * motion.stagger)
+                .duration(motion.enter)
+                .springify()
+                .damping(motion.damping)
+        }
+      >
+        <Text variant="heading" style={styles.sectionTitle}>
+          Your rescues ({rescues.length})
+        </Text>
+        {rescues.length === 0 ? (
+          <Text variant="small" muted style={styles.empty}>
+            Cats you claim as a Guardian will appear here, so you can always find them and post an
+            update.
+          </Text>
+        ) : (
+          <View style={styles.mineList}>
+            {rescues.slice(0, 8).map((s) => {
+              const quiet = isActiveRescue(s.status) && isClaimStale(s.claimed_at, s.updated_at);
+              return (
+                <Card
+                  key={s.id}
+                  onPress={() => router.push(`/sighting/${s.id}`)}
+                  style={styles.mineRow}
+                >
+                  <View style={styles.mineInfo}>
+                    <Text variant="bodyStrong" numberOfLines={1}>
+                      {s.title?.trim() || 'Cat sighting'}
+                    </Text>
+                    <View style={styles.rescueMeta}>
+                      <StatusPill status={s.status} />
+                      {s.claimed_at ? (
+                        <Text variant="caption" muted>
+                          Claimed {timeAgo(s.claimed_at)}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {quiet ? (
+                      <Text variant="small" color={colors.accentDark}>
+                        No update in a while. Post where things stand, or release it.
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Card>
+              );
+            })}
+          </View>
+        )}
+      </Animated.View>
+
       {/* My sightings */}
       <Animated.View
         entering={
@@ -424,6 +483,7 @@ const styles = StyleSheet.create({
   mineList: { gap: spacing.sm },
   mineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   mineInfo: { flex: 1, gap: spacing.xs },
+  rescueMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
 
   bannerDecoration: {
     position: 'absolute',
