@@ -120,6 +120,25 @@ begin
     raise exception 'DRIFT: claim_sighting / update_sighting_status pay points on every transition — release+re-claim and safe<->available farm Kibble (apply migration 0037)';
   end if;
 
+  -- ── 4d. The adoption loop can complete (0038) ─────────────────────────────
+  -- Without the review queue nobody is ever cleared, so nothing can be adopted;
+  -- without the pending check a withdrawn request completes an adoption.
+  if to_regprocedure('public.list_screening_queue()') is null
+     or to_regprocedure('public.decline_adoption_interest(uuid)') is null then
+    raise exception 'DRIFT: no background-check review queue / decline — adopters can never be cleared (apply migration 0038)';
+  end if;
+  select (pg_get_functiondef('public.approve_adoption(uuid)'::regprocedure) like '%no longer open%')
+    into v_bool;
+  if v_bool is not true then
+    raise exception 'DRIFT: approve_adoption accepts withdrawn or declined requests (apply migration 0038)';
+  end if;
+  select count(*) into v from pg_policies
+  where schemaname='storage' and tablename='objects'
+    and policyname='owners read screening docs' and qual like '%is_moderator%';
+  if v = 0 then
+    raise exception 'DRIFT: moderators cannot open ID photos, so background checks cannot be reviewed (apply migration 0038)';
+  end if;
+
   -- ── 5. SECURITY DEFINER functions must pin search_path (0014) ─────────────
   select count(*) into v
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace

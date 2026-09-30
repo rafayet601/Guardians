@@ -30,8 +30,14 @@ gamification engine that power Guardians.
 | `migrations/0030_send_push_auth.sql`                | Dual auth (JWT + webhook shared secret) for send-push Edge Function                                                                                          |
 | `migrations/0031_fix_redeem_reward_search_path.sql` | Prod bug fix: widen `redeem_reward()` search_path to `extensions` schema for pgcrypto                                                                        |
 | `migrations/0032_adopter_screening.sql`             | Adopter background check: `adopter_screenings` + private `screening-docs` bucket; `submit`/`get_my`/`review`/`is_cleared` RPCs; hard gate on express/approve |
+| `migrations/0033_account_erasure.sql`               | Account deletion removes the person's data and uploads                                                                                                       |
+| `migrations/0034_push_account_isolation.sql`        | Push tokens belong to one account at a time; legacy registrations must opt in again                                                                          |
+| `migrations/0035_screening_evidence_reset.sql`      | Changing screening evidence resets a previous approval                                                                                                       |
+| `migrations/0036_read_path_privacy.sql`             | Blocks hide the blocked user's reports and comments; `nearby_sightings` measures against the coarsened point                                                 |
+| `migrations/0037_points_once_per_cat.sql`           | Claim and rescue points are paid once per person per cat                                                                                                     |
+| `migrations/0038_adoption_loop.sql`                 | Moderator background-check queue; lister decline; withdrawn requests cannot be approved; pushes for decisions and comments (deploy `send-push` first)        |
 | `seed.sql`                                          | Optional demo sightings                                                                                                                                      |
-| `tests/`                                            | pgTAP behavioral test suites (9 files, 114 tests)                                                                                                            |
+| `tests/`                                            | pgTAP behavioral test suites (14 files, 208 tests)                                                                                                           |
 | `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                                                  |
 
 ## Option A — hosted Supabase (fastest)
@@ -39,7 +45,7 @@ gamification engine that power Guardians.
 1. Create a project at <https://app.supabase.com>.
 2. For a **new, empty database**, open **SQL Editor** and run every file in
    `migrations/` **in filename order**, currently through
-   `0035_screening_evidence_reset.sql`. Include suffixed migrations such as
+   `0038_adoption_loop.sql`. Include suffixed migrations such as
    `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
    For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
    do not replay the full migration set.

@@ -17,9 +17,13 @@ against the timestamped production migration history.
    key/Sentry configuration. Never put a service-role or AI key in a public var.
 3. Run `npm run release:check -- android` (or `ios` / `web`) with that environment.
    The same checks run automatically for the EAS production build profile.
-4. Apply migrations through `0035_screening_evidence_reset.sql` to staging, then production
+4. Apply migrations through `0038_adoption_loop.sql` to staging, then production
    after validating them. Redeploy the Edge Functions. Existing push registrations
    are disabled by 0034 until users explicitly opt in again using the updated app.
+   Deploy `send-push` **before** applying 0038: its new notifications (background-check
+   decisions, adoption answers, comments) use an envelope an older `send-push`
+   rejects, so the wrong order only drops those pushes until the redeploy.
+   Then run `supabase/scripts/schema_assertions.sql`; it checks 0036–0038 are in place.
 5. Configure Supabase SMTP, email confirmation, native/web auth redirect URLs,
    backup recovery, push webhook secret/configuration, and moderation staffing.
    Verify APNs/FCM credentials and restrict Maps keys to the registered apps.

@@ -1600,6 +1600,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decline_adoption_interest: {
+        Args: { p_interest: string }
+        Returns: {
+          created_at: string
+          id: string
+          message: string | null
+          sighting_id: string
+          status: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "adoption_interest"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -1933,6 +1950,36 @@ export type Database = {
         Returns: boolean
       }
       level_for_points: { Args: { p_points: number }; Returns: number }
+      list_screening_queue: {
+        Args: never
+        Returns: {
+          age: number
+          city: string
+          cruelty_attestation: boolean
+          dob: string
+          experience: string
+          full_name: string
+          home_visit_consent: boolean
+          hours_alone: number
+          household_adults: number
+          household_children: number
+          housing: string
+          id_doc_paths: string[]
+          id_status: string
+          landlord_permission: boolean
+          other_pets: boolean
+          pets_details: string
+          postal: string
+          reasons: string[]
+          score: number
+          status: string
+          submitted_at: string
+          user_id: string
+          username: string
+          vet_name: string
+          vet_phone: string
+        }[]
+      }
       log_ai_usage: {
         Args: {
           p_cost: number

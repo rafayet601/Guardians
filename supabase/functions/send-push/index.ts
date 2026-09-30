@@ -13,6 +13,15 @@
 //       rescue_completed   → targeted push to the reporter
 //       adoption_interest  → targeted push to the lister
 //
+//     Person-addressed events (migration 0038) use a separate envelope,
+//     `{ event, recipient_user_id, about_sighting_id }`, with no `sighting_id`,
+//     so a send-push older than 0038 rejects them (400) instead of treating
+//     them as an urgent broadcast:
+//       screening_decided  → the applicant (a moderator/provider decided)
+//       adoption_approved  → the adopter
+//       adoption_declined  → the adopter (declined, or the cat went elsewhere)
+//       new_comment        → the reporter / assigned Guardian (never the text)
+//
 //  2. Authenticated client (legacy path, kept working): the app may invoke
 //     this function with the caller's session JWT for `urgent_sighting` right
 //     after creating an urgent report (src/api/push.ts). The reporter-only
@@ -41,6 +50,14 @@ const LIFECYCLE_TYPES: readonly PushType[] = [
   'sighting_claimed',
   'rescue_completed',
   'adoption_interest',
+];
+
+type PushEvent = 'screening_decided' | 'adoption_approved' | 'adoption_declined' | 'new_comment';
+const PUSH_EVENTS: readonly PushEvent[] = [
+  'screening_decided',
+  'adoption_approved',
+  'adoption_declined',
+  'new_comment',
 ];
 
 interface SightingRow {
@@ -95,13 +112,46 @@ Deno.serve(async (req: Request) => {
     callerId = user.id;
   }
 
-  let body: { type?: string; sighting_id?: string; recipient_user_id?: string | null };
+  let body: {
+    type?: string;
+    sighting_id?: string;
+    recipient_user_id?: string | null;
+    event?: string;
+    about_sighting_id?: string | null;
+  };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'Bad JSON' }, 400);
   }
+
+  // Person-addressed events (0038): server-only, like the lifecycle types.
+  if (body.event !== undefined) {
+    if (!isWebhook) return json({ error: 'Unauthorized' }, 401);
+    if (!PUSH_EVENTS.includes(body.event as PushEvent)) {
+      return json({ error: 'Unknown event' }, 400);
+    }
+    if (!body.recipient_user_id) return json({ error: 'recipient_user_id required' }, 400);
+    return eventPush(
+      createClient(url, serviceKey),
+      body.event as PushEvent,
+      body.recipient_user_id,
+      body.about_sighting_id ?? null,
+    );
+  }
+
   if (!body.sighting_id) return json({ error: 'sighting_id required' }, 400);
+
+  // A trigger always names its type. An unknown one must fail loudly rather
+  // than fall through to the urgent broadcast below.
+  if (
+    isWebhook &&
+    body.type !== undefined &&
+    body.type !== 'urgent_sighting' &&
+    !LIFECYCLE_TYPES.includes(body.type as PushType)
+  ) {
+    return json({ error: 'Unknown type' }, 400);
+  }
 
   // A missing/unknown type degrades to the original urgent fan-out (the legacy
   // client sends only sighting_id).
@@ -187,17 +237,8 @@ async function lifecyclePush(
   s: SightingRow,
   recipientId: string,
 ): Promise<Response> {
-  const { data: tokenRows, error: tErr } = await admin
-    .from('device_push_tokens')
-    .select('token')
-    .eq('user_id', recipientId)
-    .eq('push_enabled', true)
-    .eq('urgent_opt_in', true);
-  if (tErr) {
-    console.error('[send-push] load recipient tokens failed:', tErr.message);
-    return json({ error: tErr.message }, 500);
-  }
-  const tokens: string[] = (tokenRows ?? []).map((r: { token: string }) => r.token);
+  const tokens = await recipientTokens(admin, recipientId);
+  if (tokens === null) return json({ error: 'Could not load recipient tokens' }, 500);
   if (tokens.length === 0) return json({ sent: 0 });
 
   const sightingTitle = (s.title ?? '').trim();
@@ -235,6 +276,113 @@ async function lifecyclePush(
   const { sent, failed, deadTokens } = await sendToExpo(messages);
   const reaped = await reapDeadTokens(admin, deadTokens);
   return json({ sent, failed, reaped });
+}
+
+/**
+ * Person-addressed event push (0038). The trigger decided the recipient; this
+ * reads the current state so the words match what the person will see when
+ * they open the app.
+ */
+async function eventPush(
+  admin: any,
+  event: PushEvent,
+  recipientId: string,
+  sightingId: string | null,
+): Promise<Response> {
+  let title: string;
+  let message: string;
+  let data: Record<string, unknown>;
+
+  if (event === 'screening_decided') {
+    const { data: row, error } = await admin
+      .from('adopter_screenings')
+      .select('status')
+      .eq('user_id', recipientId)
+      .maybeSingle();
+    if (error) {
+      console.error('[send-push] load screening failed:', error.message);
+      return json({ error: 'Could not load screening' }, 500);
+    }
+    if (row?.status === 'approved') {
+      title = "✅ You're cleared to adopt";
+      message = 'Your background check is approved for 12 months. Find a cat who needs a home.';
+    } else if (row?.status === 'needs_review') {
+      title = '📝 Your background check needs more information';
+      message = 'Open Guardians to see what to add.';
+    } else if (row?.status === 'rejected') {
+      title = 'Your background check was not approved';
+      message = 'Open Guardians to see why.';
+    } else {
+      // Changed again before this ran (resubmitted, expired): nothing to say.
+      return json({ skipped: 'no decision' });
+    }
+    data = { type: event };
+  } else {
+    if (!sightingId) return json({ error: 'about_sighting_id required' }, 400);
+    const { data: s, error } = await admin
+      .from('sightings')
+      .select('id, title, status')
+      .eq('id', sightingId)
+      .single();
+    if (error || !s) return json({ error: 'Sighting not found' }, 404);
+    const name = ((s.title as string | null) ?? '').trim();
+    const cat = name ? `"${name}"` : 'the cat';
+
+    if (event === 'adoption_approved') {
+      title = '🏠 Your adoption was approved!';
+      message = `${name ? cat : 'Your cat'} is going home with you. Open Guardians to arrange the handover.`;
+    } else if (event === 'adoption_declined') {
+      title = 'Update on your adoption request';
+      message =
+        s.status === 'adopted'
+          ? `${name ? cat : 'The cat'} found a home with another family. Other cats are still waiting.`
+          : `Your request for ${cat} was not accepted this time.`;
+    } else {
+      // new_comment — never the comment text: it may be hidden by moderation.
+      title = '💬 New comment';
+      message = name
+        ? `Someone commented on ${cat}.`
+        : "Someone commented on a cat you're helping.";
+    }
+    data = { sighting_id: s.id, type: event };
+  }
+
+  const tokens = await recipientTokens(admin, recipientId);
+  if (tokens === null) return json({ error: 'Could not load recipient tokens' }, 500);
+  if (tokens.length === 0) return json({ sent: 0 });
+
+  const messages: ExpoMessage[] = tokens.map((to) => ({
+    to,
+    title,
+    body: message,
+    sound: 'default',
+    priority: event === 'new_comment' ? 'default' : 'high',
+    channelId: 'urgent',
+    data,
+  }));
+
+  const { sent, failed, deadTokens } = await sendToExpo(messages);
+  const reaped = await reapDeadTokens(admin, deadTokens);
+  return json({ sent, failed, reaped });
+}
+
+/**
+ * One person's deliverable tokens, with the same opt-in semantics tokens_near
+ * enforces (urgent_opt_in) plus the push_enabled master flag (0029). Null when
+ * the lookup failed.
+ */
+async function recipientTokens(admin: any, recipientId: string): Promise<string[] | null> {
+  const { data: tokenRows, error } = await admin
+    .from('device_push_tokens')
+    .select('token')
+    .eq('user_id', recipientId)
+    .eq('push_enabled', true)
+    .eq('urgent_opt_in', true);
+  if (error) {
+    console.error('[send-push] load recipient tokens failed:', error.message);
+    return null;
+  }
+  return (tokenRows ?? []).map((r: { token: string }) => r.token);
 }
 
 // ── Shared Expo delivery (used by BOTH send paths) ────────────────────────────
