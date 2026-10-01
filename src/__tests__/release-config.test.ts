@@ -20,6 +20,33 @@ test('web builds do not need native Maps keys', () => {
     releaseErrors({ ...configured, EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY: '' }, 'android'),
   ).not.toHaveLength(0);
 });
+test('iOS can release with Apple Maps without an Android key', () => {
+  expect(releaseErrors({ ...configured, EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY: '' }, 'ios')).toEqual(
+    [],
+  );
+});
+test('web release export stops before Metro when production settings are missing', () => {
+  const { spawnSync } = require('node:child_process');
+  const { mkdtempSync, rmSync } = require('node:fs');
+  const { tmpdir } = require('node:os');
+  const { join, resolve } = require('node:path');
+  const cwd = mkdtempSync(join(tmpdir(), 'guardians-release-'));
+  try {
+    const env = { ...process.env };
+    for (const key of Object.keys(configured)) delete env[key];
+    const result = spawnSync(process.execPath, [resolve('scripts/export-release-web.cjs')], {
+      cwd,
+      env,
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Set EXPO_PUBLIC_SUPPORT_URL');
+    expect(result.stderr).not.toContain('GOOGLE_MAPS_ANDROID');
+    expect(result.stdout).not.toContain('Starting Metro');
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
 test('the patched query-string dependency decodes malformed inputs safely', () => {
   const qs = require('query-string');
   expect(qs.parse('cat=lost%20cat').cat).toBe('lost cat');

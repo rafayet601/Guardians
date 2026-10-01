@@ -84,7 +84,12 @@
     "postinstall": "node scripts/patch-query-string.cjs",
     "test:e2e": "playwright test",
     "preflight": "bash scripts/preflight-check.sh",
-    "auth:status": "node --env-file=.env scripts/check-auth-settings.mjs"
+    "auth:status": "node --env-file=.env scripts/check-auth-settings.mjs",
+    "eas": "npx --yes eas-cli@24.8.0",
+    "build:preview:android": "npm run eas -- build --platform android --profile preview",
+    "build:preview:ios": "npm run eas -- build --platform ios --profile preview-store",
+    "build:production": "npm run eas -- build --platform all --profile production",
+    "build:web:release": "node scripts/export-release-web.cjs"
   },
   "private": true,
   "engines": {
