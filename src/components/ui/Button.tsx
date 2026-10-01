@@ -31,7 +31,7 @@ export interface ButtonProps extends Omit<PressableProps, 'style'> {
   style?: ViewStyle;
 }
 
-const HEIGHT: Record<ButtonSize, number> = { sm: 40, md: 50, lg: 54 };
+const HEIGHT: Record<ButtonSize, number> = { sm: 44, md: 50, lg: 54 };
 const LABEL_SIZE: Record<ButtonSize, number> = { sm: 13.5, md: 15, lg: 16 };
 
 export function Button({
@@ -55,7 +55,8 @@ export function Button({
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
+      aria-disabled={!!isDisabled}
+      aria-busy={!!loading}
       disabled={isDisabled}
       onPressIn={() => {
         scale.value = reduced ? 1 : withSpring(0.98, { duration: 150, dampingRatio: 1 });

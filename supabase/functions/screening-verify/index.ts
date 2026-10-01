@@ -6,9 +6,8 @@
 //   manual (default, v1) — ID docs uploaded to the private `screening-docs`
 //     bucket are queued for moderator review via review_adopter_screening().
 //     This function just records the session start and returns next steps.
-//   veriff | onfido (future) — exchange server secrets for a provider session
-//     and return its URL. Until those secrets are wired, the function falls
-//     back to manual rather than failing the applicant.
+//   veriff | onfido (future) — not integrated yet. Always fall back to
+//     manual review, even when a provider secret has been configured.
 //
 // Auth mirrors ai-adoption-copy/delete-account: POST-only; 401 without an
 // Authorization header; caller identified from their session JWT.
@@ -21,8 +20,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { corsHeaders, preflight } from '../_shared/http.ts';
 
-type Provider = 'manual' | 'veriff' | 'onfido';
-
 Deno.serve(async (req: Request) => {
   const options = preflight(req);
   if (options) return options;
@@ -34,7 +31,7 @@ Deno.serve(async (req: Request) => {
   const url = Deno.env.get('SUPABASE_URL')!;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const provider = (Deno.env.get('ID_PROVIDER') ?? 'manual').toLowerCase() as Provider;
+  const provider = (Deno.env.get('ID_PROVIDER') ?? 'manual').toLowerCase();
 
   const caller = createClient(url, anonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -68,37 +65,12 @@ Deno.serve(async (req: Request) => {
 
   const sessionId = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
-  // Future providers: only attempt a live session when their secret is set;
-  // otherwise fall back to the manual review queue so applicants are never stuck.
-  if (provider === 'veriff' || provider === 'onfido') {
-    const secret =
-      provider === 'veriff' ? Deno.env.get('VERIFF_API_KEY') : Deno.env.get('ONFIDO_API_TOKEN');
-    if (!secret) {
-      console.warn(`[screening-verify] ${provider} selected but secret missing — manual fallback`);
-    } else {
-      // TODO: create a real provider session here and return its URL.
-      // Kept as an explicit stub so the wiring point is obvious during Phase 2.
-      const { error: stubErr } = await admin
-        .from('adopter_screenings')
-        .update({
-          id_provider: provider,
-          id_session_id: sessionId,
-          id_status: 'pending',
-          id_doc_paths: docPaths,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-      if (stubErr) {
-        console.error('[screening-verify] session stamp failed:', stubErr.message);
-        return json({ error: 'Could not start verification' }, 500);
-      }
-      return json({
-        provider,
-        status: 'pending',
-        session_id: sessionId,
-        message: 'Complete verification in the provider flow, then return here.',
-      });
-    }
+  // A secret alone cannot create a hosted verification session. Do not record
+  // a provider session or send applicants into a flow that does not exist.
+  // Once integrated, a provider branch must create a real session and return
+  // its URL before bypassing the working manual-review path below.
+  if (provider !== 'manual') {
+    console.warn(`[screening-verify] ${provider} is not integrated — manual fallback`);
   }
 
   const { error: updErr } = await admin
