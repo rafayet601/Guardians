@@ -51,7 +51,13 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const mapRef = useRef<ComponentRef<typeof MapView>>(null);
-  const { coords, status: locationStatus, error: locationError, request } = useCurrentLocation();
+  const {
+    coords,
+    status: locationStatus,
+    error: locationError,
+    permissionGranted,
+    request,
+  } = useCurrentLocation();
   const { user } = useAuth();
   const locationActionPending = useRef(false);
 
@@ -125,7 +131,7 @@ export default function MapScreen() {
   }, [request]);
 
   useEffect(() => {
-    if (locationStatus !== 'denied') return;
+    if (locationStatus !== 'denied' && locationStatus !== 'unavailable') return;
     notify(
       locationError ? 'Location unavailable' : 'Location access is off',
       locationError
@@ -283,7 +289,7 @@ export default function MapScreen() {
         provider={MAP_PROVIDER}
         style={StyleSheet.absoluteFill}
         initialRegion={DEFAULT_REGION}
-        showsUserLocation={locationStatus === 'granted'}
+        showsUserLocation={permissionGranted}
         onMapReady={() => {
           if (!coords) return;
           const r = regionForRadius(coords.lat, coords.lng, 3000);

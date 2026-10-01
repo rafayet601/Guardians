@@ -29,6 +29,7 @@ export const fontFamily = {
 export const palette = {
   // brand — rescue green
   green900: '#0B3D28',
+  green800: '#12653E',
   green700: '#15784A',
   green500: '#1FA463', // ← primary rescue green
   green300: '#6FC79B',
@@ -41,14 +42,18 @@ export const palette = {
   amber100: '#FCEFD6',
 
   // status hues (warmed to sit on the cream canvas)
+  blue700: '#286184',
   blue500: '#3E7CA6',
   blue100: '#DAE9EF',
+  violet700: '#62469F',
   violet500: '#7E63C8',
   violet100: '#E9E2F6',
   red500: '#DB5A36', // friendly urgent orange-red
   red100: '#FBE3DA',
+  pink700: '#A7375C',
   pink500: '#D8567E',
   pink100: '#F7DDE6',
+  slate700: '#655D52',
   slate500: '#8C8478', // warm gray
   slate100: '#ECE6DB',
 
@@ -232,6 +237,7 @@ export const shadow = {
 } as const;
 
 export const layout = {
+  browseMax: 1120,
   contentMax: 760,
   formMax: 480,
   welcomeMax: 1120,
