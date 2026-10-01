@@ -117,11 +117,13 @@ change values already bundled into JavaScript.
 npm run eas -- env:pull --environment production --path .env.production.local
 npm run build:web:release
 # Preview URL for reviewing the production-configured artifact
-npm run eas -- deploy --environment production
+npm run eas -- deploy --environment production --alias preview
 # Promote only after review and approval
 npm run eas -- deploy --environment production --prod
 ```
 
+Both `build:web` and `build:web:release` clear Metro before exporting so cached
+smoke-test or prior-environment values cannot leak into the deployed client.
 The release export fails before bundling when required production settings are
 missing. `.env.production.local` and `dist` are gitignored. Check for stale `.env`
 files or shell variables overriding the selected environment. Register the final
@@ -168,8 +170,8 @@ References: [build profiles](https://docs.expo.dev/build/eas-json/),
 - Completed `eas update:configure`; reviewed its generated channels so derived
   preview profiles all use `preview` and dev profiles use `development`.
 - Validated build/submit profiles and inheritance using EAS CLI's schema, plus
-  typecheck, lint, formatting, five release tests, and Android/iOS/web exports.
-- Created a [web preview](https://guardians-rivuquader--2d1emc9wd9.expo.app)
+  typecheck, lint, formatting, six release tests, and Android/iOS/web exports.
+- Created a [web preview](https://guardians-rivuquader--preview.expo.app)
   using the preview environment. Landing, legal, sign-in, registration,
   and password recovery pages loaded through direct URLs with no uncaught browser errors.
 - Production release checks against the pulled cloud environment still require
@@ -180,3 +182,21 @@ References: [build profiles](https://docs.expo.dev/build/eas-json/),
 No production hosting promotion, store submission, or OTA publication was performed.
 Signed native builds, physical-device flows, email/OAuth redirects, push delivery,
 and real backend workflows remain to be tested before public release.
+
+### Authentication deployment regression
+
+The initial preview's pages rendered, but its cached Metro transform still
+contained the browser smoke-test URL `release-test.supabase.co`; provider settings
+and account requests therefore failed DNS resolution. Rebuilt with `--clear`,
+verified the emitted JavaScript contains the selected live backend/key and no test
+backend, and redeployed to the stable preview alias above. Release validation also
+rejects the known smoke-test URL/key. Page rendering alone is not an auth check:
+verify successful `/auth/v1/settings` requests and the response from an actual
+sign-in attempt in the deployed browser before treating auth connectivity as ready.
+
+At corrected deployment `wz4fip920b`, browser provider settings returned HTTP 200
+from the intended live backend. A deliberately invalid email/password submission
+returned the expected HTTP 400 invalid-credentials response and displayed it in
+the form. No account was created and no user password was used. Successful login
+with a real user's credentials and registration/email delivery remain separate
+checks.

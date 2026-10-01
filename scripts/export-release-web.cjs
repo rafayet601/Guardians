@@ -12,7 +12,7 @@ if (errors.length) {
 } else {
   const result = spawnSync(
     process.execPath,
-    [require.resolve('expo/bin/cli'), 'export', '--platform', 'web'],
+    [require.resolve('expo/bin/cli'), 'export', '--platform', 'web', '--clear'],
     {
       stdio: 'inherit',
       env: { ...process.env, GUARDIANS_RELEASE_CHECK: '1', EAS_BUILD_PLATFORM: 'web' },

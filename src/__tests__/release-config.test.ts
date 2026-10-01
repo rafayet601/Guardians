@@ -12,6 +12,21 @@ test('production configuration rejects placeholders and missing business contact
     'Set EXPO_PUBLIC_SUPPORT_URL for the production environment.',
   );
 });
+test('production rejects the browser smoke-test backend and key', () => {
+  expect(
+    releaseErrors(
+      {
+        ...configured,
+        EXPO_PUBLIC_SUPABASE_URL: 'https://release-test.supabase.co',
+        EXPO_PUBLIC_SUPABASE_ANON_KEY: 'release-test-public-anon-key',
+      },
+      'web',
+    ),
+  ).toEqual([
+    'Set EXPO_PUBLIC_SUPABASE_URL for the production environment.',
+    'Set EXPO_PUBLIC_SUPABASE_ANON_KEY for the production environment.',
+  ]);
+});
 test('web builds do not need native Maps keys', () => {
   expect(releaseErrors({ ...configured, EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY: '' }, 'web')).toEqual(
     [],
