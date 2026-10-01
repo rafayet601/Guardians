@@ -136,7 +136,7 @@ a silent failure.
    - **iOS:** restrict to bundle id `com.guardians.app`.
    - **Android:** restrict to package `com.guardians.app` + **release SHA-1**
      (from EAS credentials after the first build).
-3. Put keys in **EAS secrets**, not only local `.env`.
+3. Put client keys in the matching **EAS environment** as plaintext or sensitive variables; keep server tokens secret.
 
 ### Sentry (free tier)
 
@@ -149,26 +149,10 @@ a silent failure.
 
 ### EAS project
 
-```bash
-npm i -g eas-cli
-eas login
-eas init   # sets EAS_PROJECT_ID
-```
-
-Set all secrets (example):
-
-```bash
-eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "..."
-eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "..."
-eas secret:create --name EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY --value "..."
-eas secret:create --name EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY --value "..."
-eas secret:create --name EXPO_PUBLIC_SENTRY_DSN --value "..."
-eas secret:create --name SENTRY_ORG --value "..."
-eas secret:create --name SENTRY_PROJECT --value "..."
-eas secret:create --name SENTRY_AUTH_TOKEN --value "..."
-eas secret:create --name EAS_PROJECT_ID --value "..."
-eas secret:create --name EXPO_PUBLIC_AI_ENABLED --value "false"
-```
+Follow [the all-platform Expo deployment runbook](docs/release/EXPO_DEPLOYMENT.md).
+It preserves the linked project, uses environment-scoped EAS variables, and covers
+Android, TestFlight, web hosting, and update configuration. Do not create a new
+EAS project for this app or upload backend credentials as client variables.
 
 ---
 
@@ -200,8 +184,8 @@ Terms (have).
 eas build --profile preview --platform android
 
 # iOS TestFlight (needs Apple account + credentials)
-eas build --profile preview --platform ios
-eas submit --platform ios --latest
+npm run build:preview:ios
+npm run eas -- submit --platform ios --profile production --id BUILD_ID
 ```
 
 Install on 5–20 devices. Smoke:
@@ -228,9 +212,9 @@ until crash-free.
 ### C. OTA (free JS fixes after native build exists)
 
 ```bash
-eas update --channel preview --message "fix copy"
+npm run eas -- update --channel preview --environment preview --platform all --message "fix copy"
 # later:
-eas update --channel production --message "hotfix"
+npm run eas -- update --channel production --environment production --platform all --message "hotfix"
 ```
 
 `expo-updates` + channels already sketched in `app.config.ts` / `eas.json`.
