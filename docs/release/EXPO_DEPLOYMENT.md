@@ -171,7 +171,7 @@ References: [build profiles](https://docs.expo.dev/build/eas-json/),
   preview profiles all use `preview` and dev profiles use `development`.
 - Validated build/submit profiles and inheritance using EAS CLI's schema, plus
   typecheck, lint, formatting, six release tests, and Android/iOS/web exports.
-- Created a [web preview](https://guardians-rivuquader--preview.expo.app)
+- Created a [web preview](https://guardians-rivuquader--wz4fip920b.expo.app)
   using the preview environment. Landing, legal, sign-in, registration,
   and password recovery pages loaded through direct URLs with no uncaught browser errors.
 - Production release checks against the pulled cloud environment still require
@@ -189,7 +189,7 @@ The initial preview's pages rendered, but its cached Metro transform still
 contained the browser smoke-test URL `release-test.supabase.co`; provider settings
 and account requests therefore failed DNS resolution. Rebuilt with `--clear`,
 verified the emitted JavaScript contains the selected live backend/key and no test
-backend, and redeployed to the stable preview alias above. Release validation also
+backend, and redeployed to the verified preview URL above. Release validation also
 rejects the known smoke-test URL/key. Page rendering alone is not an auth check:
 verify successful `/auth/v1/settings` requests and the response from an actual
 sign-in attempt in the deployed browser before treating auth connectivity as ready.
