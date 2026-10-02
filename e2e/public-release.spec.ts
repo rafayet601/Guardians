@@ -80,7 +80,7 @@ test('signed-in map recovers from a failed nearby-sightings request', async ({ p
     localStorage.setItem(`@guardians/primer_notifications/${testUser.id}`, '1');
   }, user);
 
-  await page.goto('/');
+  await page.goto('/map');
   await expect(page.getByText('Cats nearby', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Expand nearby sightings list' }).click();
   await expect(page.getByText('Could not load sightings', { exact: true })).toBeVisible();

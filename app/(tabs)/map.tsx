@@ -13,8 +13,10 @@ import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { MapView, Marker, MAP_PROVIDER, type Region } from '@/components/PlatformMap';
 import { Text } from '@/components/ui';
-import { STATUS_META } from '@/constants/status';
+import { STATUS_META, isUrgentNow } from '@/constants/status';
 import { useNearbySightings } from '@/hooks/useSightings';
+import { useBlockedIds } from '@/hooks/useModeration';
+import { withoutBlocked } from '@/lib/blocking';
 import { useCurrentLocation } from '@/hooks/useLocation';
 import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
 import { notify } from '@/lib/dialog';
@@ -28,8 +30,8 @@ const FILTERS: { key: Filter; label: string; statuses?: CatStatus[] }[] = [
   { key: 'all', label: 'All cats' },
   {
     key: 'needs_help',
-    label: '🆘 Needs help',
-    statuses: ['spotted', 'claimed', 'in_rescue'],
+    label: '🆘 Needs a Guardian',
+    statuses: ['spotted'],
   },
   { key: 'available', label: '🏠 Adoptable', statuses: ['available'] },
 ];
@@ -49,6 +51,7 @@ export default function MapScreen() {
     requestedFilter === 'needs_help' || requestedFilter === 'available' ? requestedFilter : 'all';
   const [selected, setSelected] = useState<NearbySighting | null>(null);
   const [query, setQuery] = useState('');
+  const [browsingElsewhere, setBrowsingElsewhere] = useState(false);
   const [searching, setSearching] = useState(false);
   const [tracksChanges, setTracksChanges] = useState(true);
   const tracksTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,7 +124,12 @@ export default function MapScreen() {
     [region, filter],
   );
 
-  const { data: sightings = [], isFetching, isError, refetch } = useNearbySightings(params);
+  const { data: nearby = [], isPending, isFetching, isError, refetch } = useNearbySightings(params);
+  const blockedIds = useBlockedIds();
+  const sightings = useMemo(() => withoutBlocked(nearby, blockedIds), [nearby, blockedIds]);
+  const showLocationHint = !coords && locationStatus !== 'loading' && !browsingElsewhere;
+
+  const pillTop = insets.top + 108 + (showLocationHint ? 44 : 0);
 
   const recenter = async () => {
     if (locationStatus === 'loading') return;
@@ -151,6 +159,7 @@ export default function MapScreen() {
     try {
       const results = await Location.geocodeAsync(q);
       if (results[0]) {
+        setBrowsingElsewhere(true);
         const r = regionForRadius(results[0].latitude, results[0].longitude, 3000);
         setRegion(r);
         mapRef.current?.animateToRegion(r, 600);
@@ -260,7 +269,7 @@ export default function MapScreen() {
               anchor={{ x: 0.5, y: 1 }}
               accessibilityLabel={`${s.title?.trim() || 'Cat sighting'}, ${
                 STATUS_META[s.status].label
-              }${s.needs_urgent_help ? ', urgent' : ''}`}
+              }${isUrgentNow(s.status, s.needs_urgent_help) ? ', urgent' : ''}`}
               accessibilityState={{ selected: selected?.id === s.id }}
             >
               <MapPin sighting={s} active={selected?.id === s.id} />
@@ -306,13 +315,26 @@ export default function MapScreen() {
             );
           })}
         </ScrollView>
+        {showLocationHint ? (
+          <PressableScale
+            onPress={recenter}
+            style={styles.locationHint}
+            accessibilityRole="button"
+            accessibilityLabel="Turn on location to see cats near you"
+          >
+            <Ionicons name="location-outline" size={16} color={colors.primary} />
+            <Text variant="smallStrong" color={colors.primary}>
+              Turn on location to see cats near you
+            </Text>
+          </PressableScale>
+        ) : null}
       </View>
 
       {/* Updating pill */}
       {isFetching ? (
         <Animated.View
           entering={reduced ? undefined : FadeIn.duration(motion.enter)}
-          style={[styles.fetching, { top: insets.top + 108, pointerEvents: 'none' }]}
+          style={[styles.fetching, { top: pillTop, pointerEvents: 'none' }]}
           accessibilityLiveRegion="polite"
         >
           <Text variant="caption" color={colors.white}>
@@ -324,7 +346,7 @@ export default function MapScreen() {
       {isError && !isFetching ? (
         <PressableScale
           onPress={() => void refetch()}
-          style={[styles.fetching, { top: insets.top + 108 }]}
+          style={[styles.fetching, { top: pillTop }]}
           accessibilityRole="button"
           accessibilityLabel="Sightings could not refresh. Tap to retry."
         >
@@ -371,6 +393,18 @@ export default function MapScreen() {
       {/* Persistent nearby sheet */}
       <NearbySheet
         sightings={sightings}
+        loading={isPending}
+        failed={isError}
+        refreshing={isFetching}
+        onRetry={() => void refetch()}
+        emptyTitle={
+          filter === 'available'
+            ? 'No adoptable cats in this area'
+            : filter === 'needs_help'
+              ? 'No matching help requests here'
+              : 'No sightings in this area yet'
+        }
+        emptyMessage="Try another area or filter. Reports come from the community, so an empty map does not mean every cat is safe."
         coords={coords}
         selectedId={selected?.id}
         onSelect={(id) => router.push(`/sighting/${id}`)}
@@ -400,7 +434,7 @@ function ClusterBubble({ count }: { count: number }) {
 
 function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolean }) {
   const meta = STATUS_META[sighting.status];
-  const urgent = sighting.needs_urgent_help;
+  const urgent = isUrgentNow(sighting.status, sighting.needs_urgent_help);
   const color = urgent ? colors.urgent : meta.fg;
   return (
     <View style={[styles.pinWrap, active && styles.pinWrapActive]}>
@@ -432,6 +466,21 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  locationHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginLeft: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.card,
+  },
+
   recenter: {
     position: 'absolute',
     right: spacing.lg,

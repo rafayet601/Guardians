@@ -475,7 +475,7 @@ test.describe('the map and the nearby list', () => {
         },
       ],
     });
-    await page.goto('/');
+    await page.goto('/map');
     await page.getByRole('button', { name: 'Expand nearby sightings list' }).click();
     await expect(page.getByText('Alpha open cat')).toBeVisible();
 
@@ -511,7 +511,7 @@ test.describe('the map and the nearby list', () => {
         },
       },
     });
-    await page.goto('/');
+    await page.goto('/map');
     await expect(page.getByText('Alpha open cat')).toBeVisible();
     const before = calls;
 
@@ -536,7 +536,7 @@ test.describe('the map and the nearby list', () => {
 test.describe('without location', () => {
   test('says so instead of silently showing the default city', async ({ page }) => {
     await signIn(page, { rpc: { nearby_sightings: () => ({ json: [] }) } });
-    await page.goto('/');
+    await page.goto('/map');
     await expect(page.getByText('Turn on location to see cats near you')).toBeVisible();
   });
 });
