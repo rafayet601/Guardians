@@ -140,3 +140,5 @@ npm run typecheck  # Runs TypeScript compiler for error checking
 ## Production Checklist
 
 Preparing for the App Store / Play Store? Review the [`PRODUCTION.md`](./PRODUCTION.md) guide for deployment steps.
+
+For Android, iOS/TestFlight, and web release setup, see [Expo deployment](docs/release/EXPO_DEPLOYMENT.md).

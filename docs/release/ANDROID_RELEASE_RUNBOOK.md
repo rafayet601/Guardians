@@ -84,41 +84,30 @@ Guardians separates secrets into three distinct layers:
 
 ### 2.1 Complete Secrets & Environment Matrix
 
-| Variable Name                         | Scope / Target     | Where Configured       | Purpose & Rationale                                                       |
-| :------------------------------------ | :----------------- | :--------------------- | :------------------------------------------------------------------------ |
-| `EXPO_PUBLIC_SUPABASE_URL`            | Client Bundle      | `.env` / EAS Secret    | Supabase API HTTPS URL (e.g. `https://xyz.supabase.co`)                   |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY`       | Client Bundle      | `.env` / EAS Secret    | Supabase publishable anonymous JWT (public, RLS protected)                |
-| `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` | Manifest & Client  | `.env` / EAS Secret    | Google Maps SDK Android API key (restricted by SHA-1 + package name)      |
-| `EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY`     | InfoPlist & Client | `.env` / EAS Secret    | Google Maps SDK iOS API key (restricted by iOS bundle ID)                 |
-| `EXPO_PUBLIC_SENTRY_DSN`              | Client Bundle      | `.env` / EAS Secret    | Sentry client DSN for crash diagnostics                                   |
-| `EXPO_PUBLIC_AI_ENABLED`              | Client Bundle      | `.env` / EAS Secret    | Feature flag for client AI autofill (`"false"` or `"true"`)               |
-| `SENTRY_ORG`                          | EAS Build Time     | EAS Secret / Env       | Sentry organization slug (for sourcemap upload)                           |
-| `SENTRY_PROJECT`                      | EAS Build Time     | EAS Secret / Env       | Sentry project slug (for sourcemap upload)                                |
-| `SENTRY_AUTH_TOKEN`                   | EAS Build Time     | EAS Secret ONLY        | Sentry authentication token for Hermes sourcemap/symbol upload            |
-| `EAS_PROJECT_ID`                      | EAS Build Time     | `.env` / EAS Secret    | Expo Application Services project UUID                                    |
-| `ANTHROPIC_API_KEY`                   | Backend Only       | Supabase Secrets       | Claude API key for AI photo analysis Edge Functions                       |
-| `PUSH_WEBHOOK_SECRET`                 | Backend Only       | Supabase Secrets       | Shared secret between PostgreSQL DB trigger and `send-push` Edge Function |
-| `SUPABASE_SERVICE_ROLE_KEY`           | Backend Only       | Supabase Auto-injected | Service role secret for `delete-account` Edge Function                    |
+| Variable Name                         | Scope / Target     | Where Configured         | Purpose & Rationale                                                       |
+| :------------------------------------ | :----------------- | :----------------------- | :------------------------------------------------------------------------ |
+| `EXPO_PUBLIC_SUPABASE_URL`            | Client Bundle      | `.env` / EAS environment | Supabase API HTTPS URL (e.g. `https://xyz.supabase.co`)                   |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY`       | Client Bundle      | `.env` / EAS environment | Supabase publishable anonymous JWT (public, RLS protected)                |
+| `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` | Manifest & Client  | `.env` / EAS environment | Google Maps SDK Android API key (restricted by SHA-1 + package name)      |
+| `EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY`     | InfoPlist & Client | `.env` / EAS environment | Google Maps SDK iOS API key (restricted by iOS bundle ID)                 |
+| `EXPO_PUBLIC_SENTRY_DSN`              | Client Bundle      | `.env` / EAS environment | Sentry client DSN for crash diagnostics                                   |
+| `EXPO_PUBLIC_AI_ENABLED`              | Client Bundle      | `.env` / EAS environment | Feature flag for client AI autofill (`"false"` or `"true"`)               |
+| `SENTRY_ORG`                          | EAS Build Time     | EAS Secret / Env         | Sentry organization slug (for sourcemap upload)                           |
+| `SENTRY_PROJECT`                      | EAS Build Time     | EAS Secret / Env         | Sentry project slug (for sourcemap upload)                                |
+| `SENTRY_AUTH_TOKEN`                   | EAS Build Time     | EAS Secret ONLY          | Sentry authentication token for Hermes sourcemap/symbol upload            |
+| `EAS_PROJECT_ID`                      | EAS Build Time     | `.env` / EAS environment | Expo Application Services project UUID                                    |
+| `ANTHROPIC_API_KEY`                   | Backend Only       | Supabase Secrets         | Claude API key for AI photo analysis Edge Functions                       |
+| `PUSH_WEBHOOK_SECRET`                 | Backend Only       | Supabase Secrets         | Shared secret between PostgreSQL DB trigger and `send-push` Edge Function |
+| `SUPABASE_SERVICE_ROLE_KEY`           | Backend Only       | Supabase Auto-injected   | Service role secret for `delete-account` Edge Function                    |
 
 ### 2.2 Provisioning EAS Secrets
 
-Run the following commands to provision all required build secrets in EAS:
-
-```bash
-# Public client variables
-eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://tiqizsjxqfscwbhyvumk.supabase.co" --type string
-eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<YOUR_SUPABASE_ANON_KEY>" --type string
-eas secret:create --name EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY --value "<YOUR_GOOGLE_MAPS_ANDROID_KEY>" --type string
-eas secret:create --name EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY --value "<YOUR_GOOGLE_MAPS_IOS_KEY>" --type string
-eas secret:create --name EXPO_PUBLIC_SENTRY_DSN --value "<YOUR_SENTRY_DSN>" --type string
-eas secret:create --name EXPO_PUBLIC_AI_ENABLED --value "false" --type string
-
-# EAS & Sentry build secrets
-eas secret:create --name EAS_PROJECT_ID --value "<YOUR_EAS_PROJECT_UUID>" --type string
-eas secret:create --name SENTRY_ORG --value "guardians-rescue" --type string
-eas secret:create --name SENTRY_PROJECT --value "guardians-app" --type string
-eas secret:create --name SENTRY_AUTH_TOKEN --value "<YOUR_SENTRY_AUTH_TOKEN>" --type string
-```
+Use the environment matrix and commands in
+[Expo deployment](EXPO_DEPLOYMENT.md#configure-environments). Client-readable
+values use plaintext or sensitive visibility in the selected `development`,
+`preview`, or `production` environment; build-only `SENTRY_AUTH_TOKEN` remains
+secret. The production support URL is also required. Legacy `eas secret:create`
+is replaced by `npm run eas -- env:set` or the Expo dashboard.
 
 ### 2.3 Provisioning Backend Supabase Secrets
 
@@ -131,7 +120,7 @@ supabase secrets set PUSH_WEBHOOK_SECRET="<YOUR_PUSH_WEBHOOK_SECRET>"
 
 ```bash
 # Verify EAS secrets
-eas secret:list
+npm run eas -- env:list --environment production
 
 # Verify Supabase Edge Function secrets
 supabase secrets list

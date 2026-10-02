@@ -8,9 +8,21 @@ export interface CardProps extends ViewProps {
   onPress?: () => void;
 }
 
-export function Card({ padded = true, onPress, style, children, ...rest }: CardProps) {
+export function Card({
+  padded = true,
+  onPress,
+  style,
+  children,
+  accessibilityLabel,
+  accessibilityHint,
+  ...rest
+}: CardProps) {
   const content = (
-    <View style={[styles.card, padded && styles.padded, style]} {...rest}>
+    <View
+      style={[styles.card, padded && styles.padded, style]}
+      {...(!onPress ? { accessibilityLabel, accessibilityHint } : {})}
+      {...rest}
+    >
       {children}
     </View>
   );
@@ -18,11 +30,11 @@ export function Card({ padded = true, onPress, style, children, ...rest }: CardP
   if (onPress) {
     return (
       <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
         onPress={onPress}
         scaleTo={motion.cardPressScale}
-        accessibilityRole="button"
-        accessibilityLabel={rest.accessibilityLabel}
-        accessibilityHint={rest.accessibilityHint}
       >
         {content}
       </PressableScale>

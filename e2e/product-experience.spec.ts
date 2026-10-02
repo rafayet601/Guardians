@@ -127,7 +127,7 @@ test('home surfaces claimed rescues and takes a guardian into the real journey s
     true,
   );
   await page.screenshot({ path: 'test-results/home-mobile.png', fullPage: true });
-  await page.getByRole('button', { name: /Station tabby, claimed/ }).click();
+  await page.getByRole('button', { name: /Station tabby, Guardian on the way/ }).click();
   await expect(page).toHaveURL(new RegExp(`/sighting/${rescueId}`));
   await expect(page.getByText('The journey home')).toBeVisible();
   await expect(page.getByLabel('Rescue journey: Rescuing, step 2 of 5')).toBeVisible();
@@ -142,7 +142,7 @@ test('adoption discovery filters on the server and explains how interest works',
   await page.getByRole('button', { name: 'Give a home', exact: true }).click();
   await expect(page).toHaveURL(/\/adopt$/);
   await expect(page.getByText('Mochi', { exact: true })).toBeVisible();
-  const cat = page.getByRole('button', { name: /Mochi, ready to adopt/ });
+  const cat = page.getByRole('button', { name: /Mochi, Ready to adopt/ });
   // Discovery starts with cats, without requiring a scroll past a long introduction.
   await expect(cat).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: 'test-results/adopt-mobile.png', fullPage: true });
@@ -172,7 +172,7 @@ test('first-time guardians have a next action and nearby help opens the right ma
   const request = page.waitForRequest(
     (request) =>
       request.url().endsWith('/rpc/nearby_sightings') &&
-      request.postDataJSON().p_statuses?.join(',') === 'spotted,claimed,in_rescue',
+      request.postDataJSON().p_statuses?.join(',') === 'spotted',
   );
   await page.getByRole('button', { name: 'Help nearby', exact: true }).click();
   await request;
@@ -218,7 +218,7 @@ test('claiming a rescue requires confirmation and advances the journey after acc
     if (request.url().endsWith('/rpc/claim_sighting')) claims++;
   });
   await signIn(page, { unclaimed: true });
-  await page.getByRole('button', { name: /Station tabby, spotted/ }).click();
+  await page.getByRole('button', { name: /Station tabby, Spotted/ }).click();
   const claimButton = page.getByRole('button', { name: /Claim this rescue/ });
   page.once('dialog', async (dialog) => {
     expect(dialog.message()).toContain('coordinating this rescue');

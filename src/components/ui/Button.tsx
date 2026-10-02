@@ -55,7 +55,8 @@ export function Button({
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
+      aria-disabled={!!isDisabled}
+      aria-busy={!!loading}
       disabled={isDisabled}
       onPressIn={() => {
         scale.value = reduced ? 1 : withSpring(0.98, { duration: 150, dampingRatio: 1 });

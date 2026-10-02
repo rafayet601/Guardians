@@ -2,6 +2,8 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 import { releaseErrors } from './scripts/release-config.cjs';
 import { mapsPluginOptions } from './scripts/maps-config.cjs';
 
+const easProjectId = process.env.EAS_PROJECT_ID ?? 'f8a869e6-e03d-42f1-b84f-add62b4b23e4';
+
 if (process.env.EAS_BUILD_PROFILE === 'production' || process.env.GUARDIANS_RELEASE_CHECK === '1') {
   const errors = releaseErrors(process.env, process.env.EAS_BUILD_PLATFORM);
   if (errors.length) throw new Error(`Production configuration incomplete:\n${errors.join('\n')}`);
@@ -39,14 +41,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Guardians',
   slug: 'guardians',
+  owner: 'rivuquader',
   scheme: 'guardians',
   version: '1.0.0',
-  // OTA updates: ties each update to the app version. The URL is only set once an
-  // EAS project exists (run `eas update:configure`), so dev/local builds stay inert.
+  // EAS update:configure verified this project's URL. Fingerprints preserve
+  // native compatibility; installed builds select their configured channel.
   runtimeVersion: { policy: 'fingerprint' },
-  updates: process.env.EAS_PROJECT_ID
-    ? { url: `https://u.expo.dev/${process.env.EAS_PROJECT_ID}` }
-    : undefined,
+  updates: { url: `https://u.expo.dev/${easProjectId}` },
   orientation: 'portrait',
   icon: './assets/icon.png',
   // The design system is a single warm-light theme (tokens in src/theme are
@@ -93,6 +94,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   web: {
     bundler: 'metro',
+    output: 'single',
     favicon: './assets/favicon.png',
   },
   plugins: [
@@ -143,7 +145,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     eas: {
-      projectId: process.env.EAS_PROJECT_ID ?? 'f8a869e6-e03d-42f1-b84f-add62b4b23e4',
+      projectId: easProjectId,
     },
   },
 });

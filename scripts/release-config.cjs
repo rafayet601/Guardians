@@ -1,6 +1,10 @@
 function releaseErrors(env, platform) {
   const errors = [];
-  const real = (key) => env[key] && !/YOUR-|placeholder|example\.com/i.test(env[key]);
+  const real = (key) =>
+    env[key] &&
+    !/YOUR-|placeholder|example\.com|release-test(?:\.supabase\.co|-public-anon-key)/i.test(
+      env[key],
+    );
   for (const key of [
     'EXPO_PUBLIC_SUPABASE_URL',
     'EXPO_PUBLIC_SUPABASE_ANON_KEY',

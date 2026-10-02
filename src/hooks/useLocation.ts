@@ -6,7 +6,7 @@ export interface Coords {
   lng: number;
 }
 
-type LocationStatus = 'idle' | 'loading' | 'granted' | 'denied';
+type LocationStatus = 'idle' | 'loading' | 'granted' | 'denied' | 'unavailable';
 
 /**
  * Exposes the device's foreground location via an explicit `request()` — the
@@ -22,6 +22,7 @@ export function useCurrentLocation() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [permissionGranted, setPermissionGranted] = useState(false);
   const pending = useRef<Promise<Coords | null> | null>(null);
 
   const request = useCallback((): Promise<Coords | null> => {
@@ -32,6 +33,7 @@ export function useCurrentLocation() {
       setError(null);
       try {
         const { status: perm } = await Location.requestForegroundPermissionsAsync();
+        setPermissionGranted(perm === 'granted');
         if (perm !== 'granted') {
           setCoords(null);
           setStatus('denied');
@@ -45,7 +47,7 @@ export function useCurrentLocation() {
         setStatus('granted');
         return next;
       } catch (e) {
-        setStatus('denied');
+        setStatus('unavailable');
         setError(e instanceof Error ? e.message : 'Location unavailable');
         return null;
       }
@@ -58,5 +60,5 @@ export function useCurrentLocation() {
 
   // `location` is the primary field; `coords` is kept as a read alias so the
   // existing call sites keep working unchanged.
-  return { location: coords, coords, status, error, request };
+  return { location: coords, coords, status, error, permissionGranted, request };
 }
