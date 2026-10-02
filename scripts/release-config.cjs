@@ -1,3 +1,18 @@
+const { Buffer } = require('node:buffer');
+
+// This is a build-time format check, not JWT authentication. Only legacy anon
+// keys and current publishable keys belong in a shipped application.
+function isPublicSupabaseKey(value) {
+  if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(value)) return true;
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)) return false;
+  try {
+    const payload = JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString('utf8'));
+    return payload.role === 'anon';
+  } catch {
+    return false;
+  }
+}
+
 function releaseErrors(env, platform) {
   const errors = [];
   const real = (key) =>
@@ -16,11 +31,18 @@ function releaseErrors(env, platform) {
   for (const key of ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPPORT_URL']) {
     if (real(key)) {
       try {
-        if (new URL(env[key]).protocol !== 'https:') throw new Error();
+        const url = new URL(env[key]);
+        if (url.protocol !== 'https:' || url.username || url.password) throw new Error();
       } catch {
-        errors.push(`${key} must be an HTTPS URL.`);
+        errors.push(`${key} must be an HTTPS URL without embedded credentials.`);
       }
     }
+  }
+  if (
+    real('EXPO_PUBLIC_SUPABASE_ANON_KEY') &&
+    !isPublicSupabaseKey(env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
+  ) {
+    errors.push('EXPO_PUBLIC_SUPABASE_ANON_KEY must be a publishable key or legacy anon JWT.');
   }
   if (
     real('EAS_PROJECT_ID') &&

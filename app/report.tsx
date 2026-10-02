@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
@@ -21,6 +22,7 @@ import { MapView, Marker, MAP_PROVIDER, type LatLng } from '@/components/Platfor
 import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
 import { uploadCatPhoto } from '@/api/storage';
+import { captureAccountCacheGuard } from '@/lib/accountCache';
 import { Button, Input, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
 import { TEMPERAMENT_META } from '@/constants/status';
@@ -54,6 +56,7 @@ export default function ReportScreen() {
 
 function ReportForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { coords, request } = useCurrentLocation();
@@ -213,6 +216,7 @@ function ReportForm() {
       return;
     }
     if (!user) return;
+    const isCurrentAccount = captureAccountCacheGuard(queryClient);
     submitLock.current = true;
     setSubmitting(true);
     setSubmissionError(null);
@@ -235,6 +239,7 @@ function ReportForm() {
             UPLOAD_TIMEOUT_MS,
             'A photo took too long to upload.',
           ));
+        if (!isCurrentAccount()) return;
         uploadedPhotos.current.set(asset.uri, url);
         photoUrls.push(url);
       }
@@ -251,6 +256,7 @@ function ReportForm() {
         needsUrgentHelp: urgentEffective,
         photoUrls,
       });
+      if (!isCurrentAccount()) return;
       // 🛡️ Background photo screening (AI-M2 #9). Fire-and-forget by contract:
       // the helper no-ops when its flag is off and swallows its own errors, so
       // this can never block, delay, or fail the report. Runs only once the
@@ -281,6 +287,7 @@ function ReportForm() {
           'Your saved draft could not be removed from this device. Discard it before starting another report.',
         );
       });
+      if (!isCurrentAccount()) return;
       router.replace(`/sighting/${sighting.id}`);
       // The reporter now wants to know who helps: the best moment to offer alerts.
       requestPushPrompt('report', 1200);

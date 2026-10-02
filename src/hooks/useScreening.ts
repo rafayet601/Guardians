@@ -12,6 +12,7 @@ import {
   type ScreeningDecision,
 } from '@/api/screening';
 import { useIsModerator } from '@/hooks/useModeration';
+import { captureAccountCacheGuard } from '@/lib/accountCache';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuth } from '@/providers/AuthProvider';
@@ -40,7 +41,9 @@ export function useSubmitScreening() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: submitScreening,
-    onSuccess: (screening) => {
+    onMutate: () => captureAccountCacheGuard(qc),
+    onSuccess: (screening, _payload, isCurrentAccount) => {
+      if (!isCurrentAccount?.()) return;
       qc.setQueryData(queryKeys.screening, screening);
       qc.invalidateQueries({ queryKey: queryKeys.screening });
       track('screening_submitted', { status: screening.status });

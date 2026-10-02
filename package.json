@@ -90,7 +90,8 @@
     "build:preview:android": "npm run eas -- build --platform android --profile preview",
     "build:preview:ios": "npm run eas -- build --platform ios --profile preview-store",
     "build:production": "npm run eas -- build --platform all --profile production",
-    "build:web:release": "node scripts/export-release-web.cjs"
+    "build:web:release": "node scripts/export-release-web.cjs",
+    "audit:production": "node scripts/audit-production.cjs"
   },
   "private": true,
   "engines": {
