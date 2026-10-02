@@ -86,3 +86,12 @@ the affected credential; removing it from a file alone does not revoke it.
 - [Supabase public and secret API keys](https://supabase.com/docs/guides/getting-started/api-keys)
 - [GitHub Actions security](https://docs.github.com/en/actions/reference/security/secure-use)
 - [Cloudflare Pages response headers](https://developers.cloudflare.com/pages/configuration/headers/)
+
+## October 2 CI follow-up
+
+The October 1 zero-advisory result above was time-specific. GitHub's October 2
+run flags GHSA-86w9-cpqp-85rv in node-forge and its Expo dependency chain. There
+is no published patched release. A checksum-verified local backport now rejects
+the malformed signatures; CI verifies that mitigation before allowing only
+that exact advisory. Raw audit findings remain visible. See
+[dependency mitigation details](docs/DEPENDENCY_SECURITY.md).
