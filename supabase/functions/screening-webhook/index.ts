@@ -21,13 +21,16 @@
 //
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { hasWebhookSecret } from '../_shared/webhook.ts';
+import { readJsonObject, RequestBodyError } from '../_shared/http.ts';
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const secret = Deno.env.get('SCREENING_WEBHOOK_SECRET') ?? '';
-  const presented = req.headers.get('x-screening-webhook-secret') ?? '';
-  if (!secret || presented !== secret) return json({ error: 'Unauthorized' }, 401);
+  if (!hasWebhookSecret(req, 'x-screening-webhook-secret', secret)) {
+    return json({ error: 'Unauthorized' }, 401);
+  }
 
   let body: {
     user_id?: string;
@@ -36,12 +39,29 @@ Deno.serve(async (req: Request) => {
     reason?: string;
   };
   try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: 'Invalid JSON' }, 400);
+    body = await readJsonObject(req);
+  } catch (error) {
+    return json(
+      { error: error instanceof RequestBodyError ? error.message : 'Invalid JSON object' },
+      error instanceof RequestBodyError ? error.status : 400,
+    );
   }
-  if (!body.id_session_id) return json({ error: 'id_session_id required' }, 400);
-  if (!body.user_id) return json({ error: 'user_id required' }, 400);
+  if (
+    typeof body.id_session_id !== 'string' ||
+    !body.id_session_id ||
+    body.id_session_id.length > 256
+  ) {
+    return json({ error: 'Invalid id_session_id' }, 400);
+  }
+  if (
+    typeof body.user_id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.user_id)
+  ) {
+    return json({ error: 'Invalid user_id' }, 400);
+  }
+  if (body.reason !== undefined && (typeof body.reason !== 'string' || body.reason.length > 300)) {
+    return json({ error: 'Invalid reason' }, 400);
+  }
   if (body.id_status !== 'verified' && body.id_status !== 'failed') {
     return json({ error: 'id_status must be verified or failed' }, 400);
   }

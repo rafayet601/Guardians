@@ -51,11 +51,12 @@ migration ledger, compare deployed functions, and apply only missing changes fro
    > live map returned `42501` for every signed-in user. Apply one migration at
    > a time and re-run the advisors after.
 
-3. ~~**Deploy edge functions.**~~ **Done** — all 13 are ACTIVE. `send-push` is
-   **v2 with `verify_jwt: false`** (dual auth: webhook secret or caller JWT);
-   the other 12 remain v1 with `verify_jwt: true`. Redeploys must keep
-   `verify_jwt = false` for `send-push` — the CLI reads it from
-   `supabase/config.toml`, so `supabase functions deploy send-push` is correct.
+3. **Deploy and verify the current Edge Functions.** `send-push` requires the
+   shared webhook secret; caller JWTs no longer authorize broadcasts. Keep
+   `verify_jwt = false` for `send-push` so database webhooks can reach its
+   in-handler authentication. The CLI reads this setting from
+   `supabase/config.toml`. Repository changes do not prove hosted deployment;
+   see [the security review](SECURITY_REVIEW.md) for this update and checks.
 4. **Set Supabase secrets** (still pending — no MCP tool for secrets, use the
    dashboard):
    ```bash
@@ -226,22 +227,22 @@ permissions). Those need a new binary build.
 
 ## Phase 6 — Production attention list (do not skip)
 
-| Area                               | Risk if skipped        | What to do                                                                                    |
-| ---------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
-| **Email confirm OFF**              | Open spam signups      | ON + real SMTP before public URL/app                                                          |
-| **Redirect URLs**                  | Auth emails fail       | Web origin + `guardians://**`                                                                 |
-| **Maps key unrestricted**          | Bill shock / abuse     | Bundle ID + package + SHA-1                                                                   |
-| **Android SHA-1 wrong**            | Blank map on release   | Use EAS credentials SHA-1 for release keystore                                                |
-| **push_config empty**              | No lifecycle pushes    | Set URL + secret after deploy                                                                 |
-| **`send-push` `verify_jwt=false`** | OK only with dual-auth | Keep webhook secret strong; never log it                                                      |
-| **No backups**                     | Data loss              | Supabase Pro + PITR before GA                                                                 |
-| **Sentry DSN missing**             | Blind crashes          | Set before TestFlight                                                                         |
-| **AI enabled too early**           | Cost + liability       | Keep `EXPO_PUBLIC_AI_ENABLED=false` until secrets + policy OK                                 |
-| **service_role leak**              | Full DB compromise     | Client only gets anon key                                                                     |
-| **Photo size unlimited**           | Storage cost           | Cap uploads / later image transforms                                                          |
-| **UGC policy**                     | App Store rejection    | Report/block + 24h response + account delete already in product — document it                 |
-| **main ≠ prod DB**                 | Drift bugs             | ✅ Resolved — live is at 0031, fingerprint-verified zero drift. Never `db push` (see Phase 0) |
-| **Legal URL only in-app**          | Store rejection        | Public hosted `/privacy` + `/terms`                                                           |
+| Area                               | Risk if skipped       | What to do                                                                                    |
+| ---------------------------------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| **Email confirm OFF**              | Open spam signups     | ON + real SMTP before public URL/app                                                          |
+| **Redirect URLs**                  | Auth emails fail      | Web origin + `guardians://**`                                                                 |
+| **Maps key unrestricted**          | Bill shock / abuse    | Bundle ID + package + SHA-1                                                                   |
+| **Android SHA-1 wrong**            | Blank map on release  | Use EAS credentials SHA-1 for release keystore                                                |
+| **push_config empty**              | No lifecycle pushes   | Set URL + secret after deploy                                                                 |
+| **`send-push` `verify_jwt=false`** | Requires webhook auth | Keep webhook secret strong; reject client JWT broadcasts; never log the secret                |
+| **No backups**                     | Data loss             | Supabase Pro + PITR before GA                                                                 |
+| **Sentry DSN missing**             | Blind crashes         | Set before TestFlight                                                                         |
+| **AI enabled too early**           | Cost + liability      | Keep `EXPO_PUBLIC_AI_ENABLED=false` until secrets + policy OK                                 |
+| **service_role leak**              | Full DB compromise    | Client only gets anon key                                                                     |
+| **Photo size unlimited**           | Storage cost          | Cap uploads / later image transforms                                                          |
+| **UGC policy**                     | App Store rejection   | Report/block + 24h response + account delete already in product — document it                 |
+| **main ≠ prod DB**                 | Drift bugs            | ✅ Resolved — live is at 0031, fingerprint-verified zero drift. Never `db push` (see Phase 0) |
+| **Legal URL only in-app**          | Store rejection       | Public hosted `/privacy` + `/terms`                                                           |
 
 ---
 

@@ -1,0 +1,9 @@
+# Static hosting (Cloudflare Pages / Netlify). Apply equivalent headers on
+# other hosts. Keep callback credentials out of Referer requests and prevent
+# framing of authenticated actions. Script sources remain governed by the app.
+/*
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=()

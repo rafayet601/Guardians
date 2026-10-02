@@ -46,7 +46,13 @@ export function catPhotoPathFromUrl(photoUrl: string): string | null {
   } catch {
     return null;
   }
-  if (!objectPath || objectPath.includes('..')) return null;
+  // Storage's SDK concatenates this path into a URL. A residual encoded dot
+  // segment (e.g. %252e%252e -> %2e%2e) would be normalized by fetch after our
+  // check and could escape cat-photos into a private bucket using service role.
+  // Reject remaining escapes and URL delimiters before the SDK sees them.
+  // deno-lint-ignore no-control-regex
+  if (!objectPath || /[\\%?#\u0000-\u001f\u007f]/.test(objectPath)) return null;
+  if (objectPath.includes('..') || objectPath.split('/').some((segment) => !segment)) return null;
   return objectPath;
 }
 
