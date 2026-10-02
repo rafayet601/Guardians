@@ -12,6 +12,7 @@ Deno.test(
     const originalFetch = globalThis.fetch;
     let handler: Deno.ServeHandler | undefined;
     let provider = 'manual';
+    let concurrentChange = false;
     const updates: Record<string, unknown>[] = [];
     const env: Record<string, string> = {
       SUPABASE_URL: 'https://screening-test.supabase.co',
@@ -34,10 +35,20 @@ Deno.test(
         if (path === '/auth/v1/user') {
           body = { id: 'test-user', aud: 'authenticated', role: 'authenticated' };
         } else if (path === '/rest/v1/adopter_screenings' && request.method === 'GET') {
-          body = { id: 'test-screening', status: 'pending', id_status: 'unverified' };
+          body = {
+            id: 'test-screening',
+            status: 'pending',
+            id_status: 'unverified',
+            id_doc_paths: ['test-user/front.jpg'],
+            updated_at: '2026-10-01T00:00:00Z',
+          };
         } else if (path === '/rest/v1/adopter_screenings' && request.method === 'PATCH') {
+          const query = new URL(request.url).searchParams;
+          assertEquals(query.get('updated_at'), 'eq.2026-10-01T00:00:00Z');
+          assertEquals(query.get('status'), 'eq.pending');
+          assertEquals(query.get('id_status'), 'eq.unverified');
           updates.push(await request.json());
-          body = null;
+          body = concurrentChange ? [] : [{ id: 'test-screening' }];
         } else {
           throw new Error(`Unexpected request: ${request.method} ${path}`);
         }
@@ -62,7 +73,7 @@ Deno.test(
         assertEquals(result.message.includes('Our team will review'), true);
         assertEquals(updates.at(-1)?.id_provider, 'manual');
         assertEquals(updates.at(-1)?.id_status, 'pending');
-        assertEquals(updates.at(-1)?.id_doc_paths, ['test-user/front.jpg']);
+        assertEquals(updates.at(-1)?.id_doc_paths, undefined);
       }
       const denied = await handler(
         new Request('https://test.local/screening-verify', { method: 'POST' }),
@@ -70,6 +81,37 @@ Deno.test(
       );
       assertEquals(denied.status, 401);
       assertEquals(updates.length, 3);
+
+      for (const [paths, expected] of [
+        [['other-user/front.jpg'], 400],
+        [['test-user/../other-user/front.jpg'], 400],
+        [['test-user/front.jpg?alias'], 400],
+        [['test-user/front.jpg#alias'], 400],
+        [['test-user/front.jpg '], 400],
+        [['test-user/replaced.jpg'], 409],
+        [[], 409],
+      ] as const) {
+        const response = await handler(
+          new Request('https://test.local/screening-verify', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer test-session' },
+            body: JSON.stringify({ id_doc_paths: paths }),
+          }),
+          {} as Deno.ServeHandlerInfo,
+        );
+        assertEquals(response.status, expected);
+      }
+      assertEquals(updates.length, 3);
+      concurrentChange = true;
+      const stale = await handler(
+        new Request('https://test.local/screening-verify', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-session' },
+          body: JSON.stringify({ id_doc_paths: ['test-user/front.jpg'] }),
+        }),
+        {} as Deno.ServeHandlerInfo,
+      );
+      assertEquals(stale.status, 409);
     } finally {
       Deno.serve = originalServe;
       Deno.env.get = originalEnvGet;

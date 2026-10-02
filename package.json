@@ -81,7 +81,7 @@
     "test": "jest",
     "test:ci": "jest --ci --runInBand",
     "release:check": "node scripts/release-config.cjs",
-    "postinstall": "node scripts/patch-query-string.cjs",
+    "postinstall": "node scripts/patch-query-string.cjs && node scripts/patch-node-forge.cjs",
     "test:e2e": "playwright test",
     "preflight": "bash scripts/preflight-check.sh",
     "auth:status": "node --env-file=.env scripts/check-auth-settings.mjs",
@@ -89,7 +89,8 @@
     "build:preview:android": "npm run eas -- build --platform android --profile preview",
     "build:preview:ios": "npm run eas -- build --platform ios --profile preview-store",
     "build:production": "npm run eas -- build --platform all --profile production",
-    "build:web:release": "node scripts/export-release-web.cjs"
+    "build:web:release": "node scripts/export-release-web.cjs",
+    "audit:production": "node scripts/audit-production.cjs"
   },
   "private": true,
   "engines": {

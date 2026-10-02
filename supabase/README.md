@@ -132,10 +132,10 @@ migrations and reconcile their history as documented in that runbook.
 
 ## Edge functions
 
-| Function         | Trigger              | What it does                                                                                                                                                                                         |
-| ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `send-push`      | DB webhook + JS call | Sends Expo push notifications for lifecycle events (urgent, claimed, rescued, adoption-interest). Dual auth: JWT (client) + shared secret (webhook). Logging, ticket inspection, dead-token reaping. |
-| `delete-account` | Client call          | Service-role account deletion (cascading).                                                                                                                                                           |
+| Function         | Trigger         | What it does                                                                                                                                                                              |
+| ---------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send-push`      | DB webhook only | Sends Expo push notifications for lifecycle events. Requires the shared webhook secret; caller JWTs cannot initiate or replay broadcasts. Logging, ticket inspection, dead-token reaping. |
+| `delete-account` | Client call     | Service-role account deletion (cascading).                                                                                                                                                |
 
 ## Testing
 

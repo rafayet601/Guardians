@@ -1,7 +1,11 @@
 import { supabase } from '@/lib/supabase';
+import * as Sentry from '@sentry/react-native';
+import { initObservability } from '@/lib/observability';
 
-jest.mock('@sentry/react-native', () => ({ captureException: jest.fn() }));
-jest.mock('@/lib/env', () => ({ env: { isConfigured: true } }));
+jest.mock('@sentry/react-native', () => ({ captureException: jest.fn(), init: jest.fn() }));
+jest.mock('@/lib/env', () => ({
+  env: { isConfigured: true, sentryDsn: 'https://public@sentry.example/1' },
+}));
 jest.mock('@/lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 
 const rpc = supabase.rpc as jest.Mock;
@@ -38,4 +42,32 @@ test('a rejected telemetry request does not reject the user action', async () =>
   const track = await productionTrack();
   expect(() => track('report_created')).not.toThrow();
   await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
+test('Sentry sanitizes automatic breadcrumbs, errors, and performance events', () => {
+  initObservability();
+  const options = (Sentry.init as jest.Mock).mock.calls[0][0];
+  expect(options.sendDefaultPii).toBe(false);
+  const event = {
+    message: 'Failed',
+    request: { url: 'https://example.com/reset?code=private-code' },
+  };
+  expect(options.beforeSend(event).request.url).toBe('https://example.com/reset');
+  expect(options.beforeSendTransaction(event).request.url).toBe('https://example.com/reset');
+  const breadcrumb = { data: { from: '/reset#refresh_token=private-refresh' } };
+  expect(options.beforeBreadcrumb(breadcrumb).data.from).not.toContain('private-refresh');
+});
+
+test('analytics discards credentials and personal fields before calling the RPC', async () => {
+  rpc.mockResolvedValue({ error: null });
+  const track = await productionTrack();
+  track('event_failed', {
+    source: 'query',
+    access_token: 'private-access',
+    phone: 'private-phone',
+  });
+  expect(rpc).toHaveBeenLastCalledWith('track_event', {
+    p_event: 'event_failed',
+    p_props: { source: 'query' },
+  });
 });

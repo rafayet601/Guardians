@@ -8,6 +8,7 @@ import { PressableScale } from '@/components/PressableScale';
 import { Text } from '@/components/ui';
 import { usePlacements } from '@/hooks/useRewards';
 import { confirmAsync, notify } from '@/lib/dialog';
+import { externalWebUrl } from '@/lib/externalUrl';
 import { colors, palette, radius, shadow, spacing } from '@/theme';
 import type { PlacementSlot, SponsoredPlacement } from '@/types/models';
 
@@ -39,16 +40,17 @@ function SponsoredCardView({
   placement: SponsoredPlacement;
   style?: StyleProp<ViewStyle>;
 }) {
+  const ctaUrl = externalWebUrl(placement.cta_url);
   const onPress = async () => {
-    if (!placement.cta_url) return;
+    if (!ctaUrl) return;
     const ok = await confirmAsync({
       title: 'Leave Guardians?',
-      message: `This opens ${placement.cta_url} in your browser.`,
+      message: `This opens ${ctaUrl} in your browser.`,
       confirmLabel: 'Open',
     });
     if (!ok) return;
     try {
-      await Linking.openURL(placement.cta_url);
+      await Linking.openURL(ctaUrl);
     } catch {
       notify('Could not open link', 'Please try again later.');
     }
@@ -59,7 +61,7 @@ function SponsoredCardView({
     <Animated.View entering={reduced ? undefined : FadeIn.duration(420)} style={style}>
       <PressableScale
         onPress={onPress}
-        disabled={!placement.cta_url}
+        disabled={!ctaUrl}
         style={styles.card}
         scaleTo={0.985}
         accessibilityRole="link"
@@ -90,7 +92,7 @@ function SponsoredCardView({
                 {placement.body}
               </Text>
             ) : null}
-            {placement.cta_url ? (
+            {ctaUrl ? (
               <View style={styles.cta}>
                 <Text variant="smallStrong" color={colors.accentDark}>
                   {placement.cta_label || 'Learn more'}
