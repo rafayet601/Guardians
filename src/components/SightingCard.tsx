@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { StatusPill } from '@/components/StatusPill';
 import { Card, Pill, Text } from '@/components/ui';
-import { STATUS_META, TEMPERAMENT_META } from '@/constants/status';
+import { STATUS_META, TEMPERAMENT_META, isUrgentNow } from '@/constants/status';
 import { colors, palette, radius, spacing } from '@/theme';
 import type { CatStatus, CatTemperament } from '@/types/models';
 import { formatDistance, timeAgo } from '@/utils/format';
@@ -25,6 +25,7 @@ export interface SightingCardProps {
   seed?: string;
   distanceM?: number | null;
   createdAt: string;
+  timeLabel?: string;
   onPress?: () => void;
 }
 
@@ -40,9 +41,11 @@ export function SightingCard({
   demoPhoto,
   distanceM,
   createdAt,
+  timeLabel,
   onPress,
 }: SightingCardProps) {
   const temp = TEMPERAMENT_META[temperament];
+  const urgent = isUrgentNow(status, !!needsUrgentHelp);
   const [failedPhoto, setFailedPhoto] = useState<string | number | null>(null);
   const photo = thumbnailUrl || demoPhoto;
   const isDemoPhoto = !thumbnailUrl && !!demoPhoto;
@@ -52,7 +55,7 @@ export function SightingCard({
       onPress={onPress}
       padded={false}
       style={styles.card}
-      accessibilityLabel={`${title?.trim() || 'Cat sighting'}, ${STATUS_META[status].label}${needsUrgentHelp ? ', needs urgent help' : ''}${isDemoPhoto ? ', demo photo' : ''}`}
+      accessibilityLabel={`${title?.trim() || 'Cat sighting'}, ${STATUS_META[status].label}${urgent ? ', needs urgent help' : ''}${isDemoPhoto ? ', demo photo' : ''}`}
       accessibilityHint="Open sighting details"
     >
       <View style={[styles.row, feature && styles.featureRow]}>
@@ -79,7 +82,7 @@ export function SightingCard({
               <Pill label="Demo photo" fg={colors.primaryDark} bg={colors.surface} />
             </View>
           )}
-          {feature && needsUrgentHelp && (
+          {feature && urgent && (
             <View style={styles.urgentFlag}>
               <Ionicons name="alert-circle" size={14} color={colors.white} />
               <Text variant="caption" color={colors.white}>
@@ -99,7 +102,7 @@ export function SightingCard({
             >
               {title?.trim() || 'Cat sighting'}
             </Text>
-            {needsUrgentHelp && !feature ? (
+            {urgent && !feature ? (
               <Ionicons
                 name="alert-circle"
                 size={18}
@@ -132,6 +135,7 @@ export function SightingCard({
               </Text>
             ) : null}
             <Text variant="caption" muted>
+              {timeLabel ? `${timeLabel} ` : ''}
               {timeAgo(createdAt)}
             </Text>
             {feature && (
@@ -193,7 +197,6 @@ const styles = StyleSheet.create({
   detailLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { flex: 1 },
-  urgent: { fontSize: 16, marginLeft: spacing.xs },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   footerRow: {
     flexDirection: 'row',

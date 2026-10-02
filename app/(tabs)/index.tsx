@@ -1,632 +1,343 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
-import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Supercluster from 'supercluster';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
-import { MapSearchBar } from '@/components/MapSearchBar';
-import { NearbySheet } from '@/components/NearbySheet';
-import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { PressableScale } from '@/components/PressableScale';
-import { MapView, Marker, MAP_PROVIDER, type Region } from '@/components/PlatformMap';
-import { Text } from '@/components/ui';
-import { STATUS_META, isUrgentNow } from '@/constants/status';
-import { useBlockedIds } from '@/hooks/useModeration';
-import { useNearbySightings } from '@/hooks/useSightings';
-import { useCurrentLocation } from '@/hooks/useLocation';
-import { withoutBlocked } from '@/lib/blocking';
-import { confirmAsync, notify } from '@/lib/dialog';
-import { hasPrimerBeenShown, markPrimerShown, trackPermissionResult } from '@/lib/permissions';
-import { refreshPushHomeArea } from '@/lib/push';
-import { requestPushPrompt } from '@/lib/pushPrompt';
-import { useAuth } from '@/providers/AuthProvider';
-import { colors, motion, radius, shadow, spacing } from '@/theme';
-import type { CatStatus, NearbySighting } from '@/types/models';
-import { DEFAULT_REGION, distanceMeters, radiusFromRegion, regionForRadius } from '@/utils/geo';
+import { SightingCard } from '@/components/SightingCard';
+import { Button, Card, Loading, Screen, Text } from '@/components/ui';
+import { AI_FEATURES } from '@/constants/ai';
+import { NEXT_STEP } from '@/constants/journey';
+import { useMyProfile } from '@/hooks/useProfile';
+import { useMyActivity } from '@/hooks/useSightings';
+import { colors, motion, radius, spacing } from '@/theme';
+import { getDemoSightingPhoto } from '@/utils/demoSightings';
 
-type Filter = 'all' | 'needs_help' | 'available';
-
-const FILTERS: { key: Filter; label: string; statuses?: CatStatus[] }[] = [
-  { key: 'all', label: 'All cats' },
-  // Cats still waiting for a Guardian. Once one is on the way a cat no longer
-  // needs someone to step up, and a Guardian scanning for a rescue to take
-  // should not have to skip past the ones already claimed.
-  { key: 'needs_help', label: '🆘 Needs a Guardian', statuses: ['spotted'] },
-  { key: 'available', label: '🏠 Adoptable', statuses: ['available'] },
-];
-
-export default function MapScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { height: winH } = useWindowDimensions();
-  const mapRef = useRef<ComponentRef<typeof MapView>>(null);
-  const {
-    coords,
-    status: locationStatus,
-    error: locationError,
-    permissionGranted,
-    request,
-  } = useCurrentLocation();
-  const { user } = useAuth();
-  const locationActionPending = useRef(false);
-
   const reduced = useReducedMotion() ?? false;
-  const [region, setRegion] = useState<Region>(DEFAULT_REGION);
-  const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
-  const [filter, setFilter] = useState<Filter>('all');
-  const [selected, setSelected] = useState<NearbySighting | null>(null);
-  const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [tracksChanges, setTracksChanges] = useState(true);
-  // True once the person has looked somewhere else on purpose (searched, or
-  // moved the map off the default view), so the "turn on location" nudge stops.
-  const [browsingElsewhere, setBrowsingElsewhere] = useState(false);
-  const tracksTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // The sheet peeks ~32% of the screen; float controls just above it.
-  const peekH = Math.round(winH * 0.32);
-  const controlBottom = peekH + spacing.md;
-
-  // Briefly allow markers to repaint, then settle to static (perf).
-  const pulseTracks = useCallback((ms = 600) => {
-    setTracksChanges(true);
-    if (tracksTimer.current) clearTimeout(tracksTimer.current);
-    tracksTimer.current = setTimeout(() => setTracksChanges(false), ms);
-  }, []);
-
-  useEffect(() => {
-    if (!coords) return;
-    const r = regionForRadius(coords.lat, coords.lng, 3000);
-    mapRef.current?.animateToRegion(r, 600);
-  }, [coords]);
-
-  // Urgent alerts only reach a device whose alert area is on file, and the area
-  // used to be captured once, at launch, usually before location was granted.
-  // Keep it following the person whenever the map learns where they are. The
-  // helper throttles itself, so repeated fixes cost nothing.
-  useEffect(() => {
-    if (user && coords) void refreshPushHomeArea(user.id, coords);
-  }, [user, coords]);
-
-  // Alerts are about cats near the person, so once we know where they are is a
-  // natural moment to offer them. The root layout decides whether to actually
-  // ask (never twice in a day, never after the OS has refused for good).
-  useEffect(() => {
-    if (coords) requestPushPrompt('location', 1500);
-  }, [coords]);
-
-  // Only already-granted permissions may auto-center. Every new OS prompt
-  // follows the primer or an explicit tap on the location control.
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const perm = await Location.getForegroundPermissionsAsync();
-        if (!active) return;
-        if (perm.granted) {
-          void request();
-          return;
-        }
-        const shown = await hasPrimerBeenShown('location');
-        if (active && !shown && perm.canAskAgain) setLocationPrimerVisible(true);
-      } catch {
-        // Permission APIs can be unavailable in a browser. The explicit
-        // location control remains available to retry and explain recovery.
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [request]);
-
-  useEffect(() => {
-    if (locationStatus !== 'denied' && locationStatus !== 'unavailable') return;
-    notify(
-      locationError ? 'Location unavailable' : 'Location access is off',
-      locationError
-        ? 'Check that location services are enabled, then tap the location button to retry. You can still explore the map.'
-        : Platform.OS === 'web'
-          ? 'Allow location for this site in your browser settings, then tap the location button again. You can still explore the map.'
-          : 'Tap the location button to retry or open app settings. You can still explore the map.',
-    );
-  }, [locationStatus, locationError]);
-
-  const allowLocationPrimer = async () => {
-    setLocationPrimerVisible(false);
-    await markPrimerShown('location');
-    const next = await request();
-    trackPermissionResult('location', next ? 'granted' : 'denied');
-  };
-
-  const dismissLocationPrimer = async () => {
-    setLocationPrimerVisible(false);
-    await markPrimerShown('location');
-    trackPermissionResult('location', 'dismissed');
-  };
-
-  useEffect(() => {
-    tracksTimer.current = setTimeout(() => setTracksChanges(false), 1200);
-    return () => {
-      if (tracksTimer.current) clearTimeout(tracksTimer.current);
-    };
-  }, [pulseTracks]);
-
-  // With no location the map sits on the default city and the nearby list is for
-  // somewhere the person may not be. Say so, instead of leaving them to wonder
-  // why nothing is around them.
-  const showLocationHint = !coords && locationStatus !== 'loading' && !browsingElsewhere;
-  const pillTop = insets.top + 108 + (showLocationHint ? 44 : 0);
-
-  const params = useMemo(
-    () => ({
-      lat: Math.round(region.latitude * 1000) / 1000,
-      lng: Math.round(region.longitude * 1000) / 1000,
-      radiusM: radiusFromRegion(region),
-      statuses: FILTERS.find((f) => f.key === filter)?.statuses,
-    }),
-    [region, filter],
+  const profile = useMyProfile();
+  const activity = useMyActivity();
+  const { refetch } = activity;
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
   );
-
-  const blockedIds = useBlockedIds();
-  const { data: nearby = [], isPending, isError, isFetching, refetch } = useNearbySightings(params);
-  // Blocking a user must actually remove their reports from what you see.
-  const sightings = useMemo(() => withoutBlocked(nearby, blockedIds), [nearby, blockedIds]);
-
-  const recenter = async () => {
-    if (locationActionPending.current || locationStatus === 'loading') return;
-    locationActionPending.current = true;
-    try {
-      const permission = await Location.getForegroundPermissionsAsync();
-      if (!permission.granted && !permission.canAskAgain) {
-        if (Platform.OS === 'web') {
-          notify(
-            'Location access is off',
-            'Allow location for this site in your browser settings, then tap the location button again. You can still explore the map.',
-          );
-        } else if (
-          await confirmAsync({
-            title: 'Location access is off',
-            message:
-              'Enable location for Guardians in app settings, then return and tap the location button again.',
-            confirmLabel: 'Open settings',
-            cancelLabel: 'Keep browsing',
-          })
-        ) {
-          await Linking.openSettings();
-        }
-        return;
-      }
-      if (!permission.granted && !(await hasPrimerBeenShown('location'))) {
-        setLocationPrimerVisible(true);
-        return;
-      }
-      await request();
-    } catch {
-      notify(
-        'Location unavailable',
-        'Check your device or browser location settings and try again. You can still explore the map.',
-      );
-    } finally {
-      locationActionPending.current = false;
-    }
-  };
-
-  // Geocode the search query and recenter the map there.
-  const onSearch = async () => {
-    const q = query.trim();
-    if (!q || searching) return;
-    setSearching(true);
-    try {
-      const results = await Location.geocodeAsync(q);
-      if (results[0]) {
-        const r = regionForRadius(results[0].latitude, results[0].longitude, 3000);
-        setRegion(r);
-        setBrowsingElsewhere(true);
-        mapRef.current?.animateToRegion(r, 600);
-      } else notify('Place not found', 'Try a more specific address or move the map to your area.');
-    } catch {
-      notify(
-        'Search unavailable',
-        'Place search is unavailable right now. Move and zoom the map to browse your area.',
-      );
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  // ── Marker clustering ──────────────────────────────────────────────────────
-  type LeafProps = { sighting: NearbySighting };
-  const clusterIndex = useMemo(() => {
-    const idx = new Supercluster<LeafProps>({ radius: 60, maxZoom: 18 });
-    idx.load(
-      sightings.map((s) => ({
-        type: 'Feature' as const,
-        properties: { sighting: s },
-        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] as [number, number] },
-      })),
-    );
-    return idx;
-  }, [sightings]);
-
-  const clusters = useMemo(() => {
-    const zoom = Math.min(
-      20,
-      Math.max(1, Math.round(Math.log2(360 / Math.max(region.longitudeDelta, 0.0001)))),
-    );
-    const bbox: [number, number, number, number] = [
-      region.longitude - region.longitudeDelta / 2,
-      region.latitude - region.latitudeDelta / 2,
-      region.longitude + region.longitudeDelta / 2,
-      region.latitude + region.latitudeDelta / 2,
-    ];
-    return clusterIndex.getClusters(bbox, zoom);
-  }, [clusterIndex, region]);
-
-  const onClusterPress = (clusterId: number, lat: number, lng: number) => {
-    const expansionZoom = Math.min(20, clusterIndex.getClusterExpansionZoom(clusterId));
-    const delta = 360 / Math.pow(2, expansionZoom);
-    const r = { latitude: lat, longitude: lng, latitudeDelta: delta, longitudeDelta: delta };
-    setRegion(r);
-    mapRef.current?.animateToRegion(r, 400);
-    pulseTracks(600);
+  const name = profile.data?.full_name?.split(' ')[0] || profile.data?.username;
+  const refresh = () => {
+    void profile.refetch();
+    void activity.refetch();
   };
 
   return (
-    <View style={styles.flex}>
-      <MapView
-        ref={mapRef}
-        provider={MAP_PROVIDER}
-        style={StyleSheet.absoluteFill}
-        initialRegion={DEFAULT_REGION}
-        showsUserLocation={permissionGranted}
-        onMapReady={() => {
-          if (!coords) return;
-          const r = regionForRadius(coords.lat, coords.lng, 3000);
-          setRegion(r);
-          mapRef.current?.animateToRegion(r, 500);
-        }}
-        showsMyLocationButton={false}
-        onPress={() => {
-          setSelected(null);
-          pulseTracks(500);
-        }}
-        onRegionChangeComplete={(r) => {
-          setRegion(r);
-          pulseTracks(800);
-          const fromDefault = distanceMeters(
-            { lat: r.latitude, lng: r.longitude },
-            { lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude },
-          );
-          if (fromDefault > 1000) setBrowsingElsewhere(true);
-        }}
-      >
-        {clusters.map((c) => {
-          const [lng, lat] = c.geometry.coordinates;
-          const props = c.properties as {
-            cluster?: boolean;
-            cluster_id?: number;
-            point_count?: number;
-            sighting?: NearbySighting;
-          };
-          if (props.cluster) {
-            return (
-              <Marker
-                key={`cluster-${props.cluster_id}`}
-                coordinate={{ latitude: lat, longitude: lng }}
-                onPress={() => onClusterPress(props.cluster_id as number, lat, lng)}
-                tracksViewChanges={tracksChanges}
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                <ClusterBubble count={props.point_count ?? 0} />
-              </Marker>
-            );
-          }
-          const s = props.sighting as NearbySighting;
-          const urgent = isUrgentNow(s.status, s.needs_urgent_help);
-          return (
-            <Marker
-              // Status and urgency are in the key on purpose: markers do not
-              // track view changes once settled, so without it a claimed cat
-              // keeps its old colour until the whole map is remounted.
-              key={`${s.id}:${s.status}:${urgent ? 'u' : 'n'}`}
-              coordinate={{ latitude: s.lat, longitude: s.lng }}
-              onPress={() => {
-                setSelected(s);
-                pulseTracks(500);
-              }}
-              tracksViewChanges={tracksChanges}
-              anchor={{ x: 0.5, y: 1 }}
-              accessibilityLabel={`${s.title?.trim() || 'Cat sighting'}, ${
-                STATUS_META[s.status].label
-              }${urgent ? ', urgent' : ''}`}
-              accessibilityState={{ selected: selected?.id === s.id }}
-            >
-              <MapPin sighting={s} active={selected?.id === s.id} />
-            </Marker>
-          );
-        })}
-      </MapView>
+    <Screen
+      scroll
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={profile.isRefetching || activity.isRefetching}
+          onRefresh={refresh}
+          tintColor={colors.primaryDark}
+        />
+      }
+    >
+      <View style={styles.header}>
+        <View style={styles.flex}>
+          <Text variant="overline" color={colors.primaryDark}>
+            Guardians · Community cat rescue
+          </Text>
+          <Text variant="title" style={styles.greeting}>
+            {name ? `Welcome, ${name}` : 'Welcome, Guardian'}
+          </Text>
+        </View>
+        <PressableScale
+          onPress={() => router.push('/settings')}
+          style={styles.settings}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+        >
+          <Ionicons name="settings-outline" size={22} color={colors.primaryDark} />
+        </PressableScale>
+      </View>
 
-      {/* Search + filter chips */}
-      <View
-        style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}
-        pointerEvents="box-none"
-      >
-        <View style={styles.searchWrap}>
-          <MapSearchBar
-            value={query}
-            onChangeText={setQuery}
-            onSubmit={onSearch}
-            submitting={searching}
+      <Animated.View entering={reduced ? undefined : FadeInDown.duration(motion.enter)}>
+        <LinearGradient colors={[colors.primaryDeep, colors.primaryDark]} style={styles.hero}>
+          <View style={styles.heroTop}>
+            <View style={styles.heroTag}>
+              <Ionicons name="paw" size={14} color={colors.primaryDeep} />
+              <Text variant="caption" color={colors.primaryDeep}>
+                SMALL ACTS. SECOND CHANCES.
+              </Text>
+            </View>
+            <Ionicons name="heart-outline" size={32} color={colors.primaryLight} />
+          </View>
+          <Text variant="display" color={colors.white}>
+            A safer street.{'\n'}A way home.
+          </Text>
+          <Text variant="body" color={colors.white}>
+            A sighting can start a rescue. You don’t have to do it alone.
+          </Text>
+          <Button
+            title="I spotted a cat"
+            variant="surface"
+            fullWidth
+            leftIcon={<Ionicons name="add-circle-outline" size={20} color={colors.primaryDeep} />}
+            onPress={() => router.push('/report')}
+          />
+        </LinearGradient>
+      </Animated.View>
+
+      <View>
+        <Text variant="heading">How will you help today?</Text>
+        <Text variant="small" muted style={styles.sectionHint}>
+          There’s a place for every kind of Guardian.
+        </Text>
+        <View style={styles.actions}>
+          <Action
+            icon="map-outline"
+            title="Help nearby"
+            body="Find cats waiting for a Guardian."
+            onPress={() => router.push({ pathname: '/map', params: { filter: 'needs_help' } })}
+          />
+          <Action
+            icon="home-outline"
+            title="Give a home"
+            body="Meet cats ready for their next chapter."
+            onPress={() => router.push('/adopt')}
           />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          {FILTERS.map((f) => {
-            const active = filter === f.key;
-            return (
-              <PressableScale
-                key={f.key}
-                onPress={() => setFilter(f.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`Filter: ${f.label}`}
-              >
-                <View style={[styles.filterChip, active && styles.filterChipActive]}>
-                  <Text variant="smallStrong" color={active ? colors.white : colors.text}>
-                    {f.label}
-                  </Text>
-                </View>
-              </PressableScale>
-            );
-          })}
-        </ScrollView>
-        {showLocationHint ? (
-          <PressableScale
-            onPress={recenter}
-            style={styles.locationHint}
-            accessibilityRole="button"
-            accessibilityLabel="Turn on location to see cats near you"
-          >
-            <Ionicons name="location-outline" size={16} color={colors.primary} />
-            <Text variant="smallStrong" color={colors.primary}>
-              Turn on location to see cats near you
-            </Text>
-          </PressableScale>
+        {AI_FEATURES.lostCatReunion ? (
+          <Button
+            title="Looking for your lost cat?"
+            variant="ghost"
+            onPress={() => router.push('/lost-cat')}
+          />
         ) : null}
       </View>
 
-      {/* Updating pill */}
-      {isFetching ? (
-        <Animated.View
-          entering={reduced ? undefined : FadeIn.duration(motion.enter)}
-          style={[styles.fetching, { top: pillTop, pointerEvents: 'none' }]}
-          accessibilityLiveRegion="polite"
-        >
-          <Text variant="caption" color={colors.white}>
-            Updating…
-          </Text>
-        </Animated.View>
-      ) : null}
-
-      {isError && !isFetching ? (
-        <PressableScale
-          onPress={() => void refetch()}
-          style={[styles.fetching, { top: pillTop }]}
-          accessibilityRole="button"
-          accessibilityLabel="Sightings could not refresh. Tap to retry."
-        >
-          <Text variant="caption" color={colors.white}>
-            Couldn’t refresh sightings · Tap to retry
-          </Text>
-        </PressableScale>
-      ) : null}
-
-      {/* Recenter */}
-      <PressableScale
-        onPress={recenter}
-        style={[styles.recenter, { bottom: controlBottom + 60 }]}
-        accessibilityRole="button"
-        accessibilityLabel={
-          locationStatus === 'loading' ? 'Finding your location' : 'Recenter map on my location'
-        }
-        accessibilityState={{
-          busy: locationStatus === 'loading',
-          disabled: locationStatus === 'loading',
-        }}
-        disabled={locationStatus === 'loading'}
-      >
-        {locationStatus === 'loading' ? (
-          <ActivityIndicator color={colors.primary} />
+      <View style={styles.section}>
+        <Text variant="heading">Your ongoing journeys</Text>
+        <Text variant="small" muted>
+          Your reports and the rescues you’ve claimed, together.
+        </Text>
+        {activity.isError && !!activity.data?.length ? (
+          <Card style={styles.firstJourney}>
+            <Text variant="small" muted>
+              We couldn’t refresh your journeys. These are your last loaded reports.
+            </Text>
+            <Button title="Retry journeys" variant="outline" onPress={() => activity.refetch()} />
+          </Card>
+        ) : null}
+        {activity.isLoading ? (
+          <Loading label="Finding your journeys…" />
+        ) : activity.isError && !activity.data?.length ? (
+          <Card style={styles.firstJourney}>
+            <Text variant="bodyStrong">Your journeys couldn’t refresh</Text>
+            <Text variant="small" muted>
+              Check your connection, then try again.
+            </Text>
+            <Button title="Retry journeys" variant="outline" onPress={() => activity.refetch()} />
+          </Card>
+        ) : !activity.data?.length ? (
+          <Card style={styles.firstJourney}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="paw-outline" size={26} color={colors.primaryDark} />
+            </View>
+            <Text variant="subheading">Your first small act starts here</Text>
+            <Text variant="body" muted>
+              Report a sighting or open the map to find a cat you can help. You’ll be able to follow
+              the journey here.
+            </Text>
+            <Button
+              title="Explore the rescue map"
+              variant="outline"
+              onPress={() => router.push('/map')}
+            />
+          </Card>
         ) : (
-          <Ionicons name="locate" size={22} color={colors.primary} />
+          activity.data.map((sighting) => (
+            <View key={sighting.id} style={styles.journey}>
+              <SightingCard
+                title={sighting.title}
+                status={sighting.status}
+                temperament={sighting.temperament}
+                thumbnailUrl={sighting.photos?.[0]?.url}
+                demoPhoto={getDemoSightingPhoto(sighting)}
+                needsUrgentHelp={sighting.needs_urgent_help}
+                isInjured={sighting.is_injured}
+                createdAt={sighting.updated_at}
+                timeLabel="Updated"
+                onPress={() => router.push(`/sighting/${sighting.id}`)}
+              />
+              <Text variant="small" muted style={styles.nextStep}>
+                {NEXT_STEP[sighting.status]}
+              </Text>
+            </View>
+          ))
         )}
-      </PressableScale>
+      </View>
 
-      {/* Report pill — sits just above the sheet peek */}
-      <Animated.View
-        entering={reduced ? undefined : FadeInDown.delay(180).duration(520).springify().damping(12)}
-        style={[styles.reportWrap, { bottom: controlBottom }]}
-      >
-        <PressableScale
-          onPress={() => router.push('/report')}
-          style={styles.report}
-          scaleTo={0.9}
-          accessibilityRole="button"
-          accessibilityLabel="Report a cat"
-        >
-          <Ionicons name="add" size={20} color={colors.white} />
-          <Text variant="smallStrong" color={colors.white}>
-            Report
+      <View style={styles.section}>
+        <Text variant="heading">From a sighting to a second chance</Text>
+        <View style={styles.guide}>
+          <Guide
+            number="01"
+            title="Spot & share"
+            body="Add a photo, location, and what you observed. A clear report helps others act."
+          />
+          <Guide
+            number="02"
+            title="Rally & rescue"
+            body="A Guardian claims the report and keeps everyone updated along the way."
+          />
+          <Guide
+            number="03"
+            title="Care & rehome"
+            body="Once safe and ready, the cat can be matched with a loving home."
+          />
+        </View>
+      </View>
+
+      {profile.data ? (
+        <Card style={styles.impact}>
+          <Text variant="overline" color={colors.primaryDark}>
+            Your kindness, in action
           </Text>
-        </PressableScale>
-      </Animated.View>
+          <View style={styles.impactRow}>
+            <Impact value={profile.data.reports_count} label="Reports" />
+            <Impact value={profile.data.rescues_count} label="Rescues" />
+            <Impact value={profile.data.adoptions_count} label="Adoptions" />
+          </View>
+          <Text variant="small" muted>
+            Every contribution helps a cat get closer to care.
+          </Text>
+        </Card>
+      ) : null}
 
-      {/* Persistent nearby sheet */}
-      <NearbySheet
-        sightings={sightings}
-        loading={isPending}
-        failed={isError}
-        refreshing={isFetching}
-        onRetry={() => void refetch()}
-        emptyTitle={
-          filter === 'available'
-            ? 'No adoptable cats in this area'
-            : filter === 'needs_help'
-              ? 'No matching help requests here'
-              : 'No sightings in this area yet'
-        }
-        emptyMessage="Try another area or filter. Reports come from the community, so an empty map does not mean every cat is safe."
-        coords={coords}
-        selectedId={selected?.id}
-        onSelect={(id) => router.push(`/sighting/${id}`)}
-      />
-
-      {/* One-time location primer — the map works on the default region either way */}
-      <PermissionPrimer
-        visible={locationPrimerVisible}
-        kind="location"
-        onAllow={allowLocationPrimer}
-        onDismiss={dismissLocationPrimer}
-      />
-    </View>
+      <View style={styles.safety}>
+        <Ionicons name="shield-checkmark-outline" size={20} color={colors.primaryDark} />
+        <Text variant="small" muted style={styles.flex}>
+          Your safety matters too. Only take on help you can safely provide. Guardians connects
+          neighbours; it isn’t an emergency response service.
+        </Text>
+      </View>
+    </Screen>
   );
 }
 
-function ClusterBubble({ count }: { count: number }) {
-  const size = count >= 100 ? 56 : count >= 10 ? 48 : 40;
+function Action({
+  icon,
+  title,
+  body,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  body: string;
+  onPress: () => void;
+}) {
   return (
-    <View style={[styles.cluster, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text variant="smallStrong" color={colors.white}>
-        {count}
+    <PressableScale
+      onPress={onPress}
+      style={styles.action}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={body}
+    >
+      <View style={styles.iconCircle}>
+        <Ionicons name={icon} size={24} color={colors.primaryDark} />
+      </View>
+      <Text variant="subheading">{title}</Text>
+      <Text variant="small" muted>
+        {body}
+      </Text>
+      <Ionicons name="arrow-forward" size={18} color={colors.primaryDark} />
+    </PressableScale>
+  );
+}
+function Guide({ number, title, body }: { number: string; title: string; body: string }) {
+  return (
+    <View style={styles.guideRow}>
+      <Text variant="mono" color={colors.primaryDark} style={styles.guideNumber}>
+        {number}
+      </Text>
+      <View style={styles.flex}>
+        <Text variant="subheading">{title}</Text>
+        <Text variant="small" muted>
+          {body}
+        </Text>
+      </View>
+    </View>
+  );
+}
+function Impact({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={styles.flex}>
+      <Text variant="title" color={colors.primaryDeep}>
+        {value}
+      </Text>
+      <Text variant="small" muted>
+        {label}
       </Text>
     </View>
   );
 }
-
-function MapPin({ sighting, active }: { sighting: NearbySighting; active: boolean }) {
-  const meta = STATUS_META[sighting.status];
-  // Urgent only while the cat is still waiting for a Guardian; afterwards the
-  // pin shows its real status colour so open emergencies stand out.
-  const urgent = isUrgentNow(sighting.status, sighting.needs_urgent_help);
-  const color = urgent ? colors.urgent : meta.fg;
-  return (
-    <View style={[styles.pinWrap, active && styles.pinWrapActive]}>
-      <View
-        style={[
-          styles.pinHead,
-          { backgroundColor: color, borderColor: active ? colors.accent : colors.white },
-        ]}
-      >
-        <Ionicons name={urgent ? 'alert' : 'paw'} size={16} color={colors.white} />
-      </View>
-      <View style={[styles.pinTail, { borderTopColor: color }]} />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, gap: spacing.sm },
-  searchWrap: { paddingHorizontal: spacing.lg },
-  filterRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingVertical: spacing.xs },
-  filterChip: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadow.card,
-  },
-  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  locationHint: {
+  flex: { flex: 1 },
+  content: { paddingTop: spacing.lg, gap: spacing.xxl, paddingBottom: spacing.xxxl },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  greeting: { marginTop: spacing.sm },
+  settings: { padding: spacing.md, borderRadius: radius.pill, backgroundColor: colors.surface },
+  hero: { padding: spacing.xl, borderRadius: radius.xl, gap: spacing.lg },
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  heroTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primarySoft,
+    padding: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  sectionHint: { marginTop: spacing.xs },
+  actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg, flexWrap: 'wrap' },
+  action: {
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  iconCircle: {
     alignSelf: 'flex-start',
-    gap: spacing.xs,
-    marginLeft: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadow.card,
+    backgroundColor: colors.primaryTint,
+    padding: spacing.md,
+    borderRadius: radius.md,
   },
-  recenter: {
-    position: 'absolute',
-    right: spacing.lg,
-    width: 48,
-    height: 48,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow.floating,
+  section: { gap: spacing.md },
+  firstJourney: { gap: spacing.md },
+  journey: { gap: spacing.sm },
+  nextStep: { paddingHorizontal: spacing.sm },
+  guide: {
+    gap: spacing.lg,
+    backgroundColor: colors.cream,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
   },
-  fetching: {
-    position: 'absolute',
-    alignSelf: 'center',
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  reportWrap: { position: 'absolute', right: spacing.lg },
-  report: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    height: 48,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    ...shadow.floating,
-  },
-  pinWrap: { alignItems: 'center' },
-  pinWrapActive: { transform: [{ scale: 1.25 }] },
-  pinHead: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2.5,
-    ...shadow.card,
-  },
-  pinDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.white },
-  pinGlyph: { fontSize: 15 },
-  pinTail: {
-    width: 0,
-    height: 0,
-    marginTop: -3,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 9,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-  },
-  cluster: {
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2.5,
-    borderColor: colors.white,
-    ...shadow.card,
-  },
+  guideRow: { flexDirection: 'row', gap: spacing.lg },
+  guideNumber: { paddingTop: spacing.xs },
+  impact: { gap: spacing.lg },
+  impactRow: { flexDirection: 'row', gap: spacing.lg },
+  safety: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
 });

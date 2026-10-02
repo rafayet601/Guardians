@@ -88,7 +88,7 @@ test('a filtered empty state offers a working reset and the map prompt navigates
   await page.getByRole('button', { name: 'Show all sightings' }).click();
   await expect(page.getByText('Tabby near the garden', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Explore nearby cats on the map' }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/map$/);
   await expect(page.locator('.leaflet-container')).toBeVisible();
 });
 

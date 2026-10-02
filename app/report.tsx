@@ -297,6 +297,11 @@ function ReportForm() {
           'Report posted — a photo is missing',
           `Your report is live, but ${n === 1 ? 'a photo' : `${n} photos`} could not be attached. Open the report and use "Add photo" to try again.`,
         );
+      } else {
+        notify(
+          'Your sighting is posted',
+          'Follow this report to see rescue updates and share new observations in the timeline.',
+        );
       }
     } catch (e) {
       setUploadFailed(step === 'upload');

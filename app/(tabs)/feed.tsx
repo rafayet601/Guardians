@@ -86,7 +86,7 @@ export default function FeedScreen() {
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
+            refreshing={isRefetching && !isFetchingNextPage}
             onRefresh={refetch}
             tintColor={colors.primary}
           />
@@ -103,13 +103,13 @@ export default function FeedScreen() {
           <View>
             <PageHeader
               eyebrow="Spotted. Safe. Home."
-              title="Community"
+              title="Our community"
               subtitle="Find cats to help and follow their journey home."
               icon="paw-outline"
               style={styles.pageHeader}
             />
             <PressableScale
-              onPress={() => router.push('/')}
+              onPress={() => router.push('/map')}
               accessibilityRole="button"
               accessibilityLabel="Explore nearby cats on the map"
               style={styles.mapPrompt}
@@ -239,6 +239,12 @@ export default function FeedScreen() {
                 retrying={isFetchingNextPage}
               />
             </View>
+          ) : hasNextPage ? (
+            <Button
+              title="See more journeys"
+              variant="outline"
+              onPress={() => void fetchNextPage()}
+            />
           ) : null
         }
         ListEmptyComponent={

@@ -7,6 +7,7 @@ import {
   getFeed,
   getMyRescues,
   getMySightings,
+  getMyActivity,
   getNearby,
   getSighting,
   getUpdates,
@@ -21,7 +22,7 @@ import { useScreenActive } from '@/hooks/useScreenActive';
 import { track } from '@/lib/observability';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuth } from '@/providers/AuthProvider';
-import type { CatStatus, Sighting } from '@/types/models';
+import type { CatStatus, CatTemperament, Sighting } from '@/types/models';
 
 /** How often an open report re-checks for a claim, status change or new comment. */
 const DETAIL_REFRESH_MS = 20_000;
@@ -56,12 +57,21 @@ export function useNearbySightings(params: NearbyParams | null) {
   });
 }
 
-export function useFeed(statuses?: CatStatus[]) {
+export function useFeed(statuses?: CatStatus[], temperament?: CatTemperament) {
   return useInfiniteQuery({
-    queryKey: queryKeys.feed({ statuses }),
-    queryFn: ({ pageParam }) => getFeed(statuses, pageParam),
+    queryKey: queryKeys.feed({ statuses, temperament }),
+    queryFn: ({ pageParam }) => getFeed(statuses, pageParam, 20, temperament),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+export function useMyActivity() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.myActivity(user?.id),
+    queryFn: () => getMyActivity(user!.id),
+    enabled: !!user,
   });
 }
 

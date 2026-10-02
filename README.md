@@ -36,16 +36,25 @@ By gamifying the rescue process with points, levels, and badges, we're building 
 
 <p align="center"><sub>Onboarding & auth flow. (In-app screens — live map, feed, rewards, and profile — are behind sign-in.)</sub></p>
 
+<div align="center">
+  <img src="docs/screenshots/04-home.png" alt="Home — choose how to help and resume rescue journeys" width="32%" />
+  <img src="docs/screenshots/05-adopt.png" alt="Adopt — discover cats and filter by personality" width="32%" />
+  <img src="docs/screenshots/06-rescue-journey.png" alt="Rescue report — progress and next steps" width="32%" />
+</div>
+
+<p align="center"><sub>Product screens captured by mobile browser tests using isolated demo data.</sub></p>
+
 ---
 
 ## Key Features
 
+- **Mission-focused Home:** Choose how to help, resume your reports and claimed rescues, and follow concrete next steps from sighting to care.
 - **Live Sighting Map:** PostGIS-powered geospatial search to discover cats needing help within your radius. Filter by "needs help" or "adoptable".
 - **Instant Reporting:** Drop an exact map-pin, snap photos, and flag urgency, temperament, and injuries.
 - **Rescue Lifecycle:** Secure, server-side state transitions tracking a cat's journey: `Spotted` → `Claimed` → `In Rescue` → `Safe` → `Available` → `Adopted`.
 - **Gamification Engine:** Earn points for every good deed. Level up, climb the leaderboard, and unlock exclusive community badges.
 - **Community Timeline:** An activity feed and threaded comments on every rescue mission (refreshed on demand; live Realtime sync is on the roadmap).
-- **Adoption Flow:** Streamlined matching between rescuers and prospective adopters.
+- **Adoption Discovery:** A dedicated Adopt tab with personality filters applied before pagination, clear interest-request guidance, and useful empty and retry states.
 - **Secure Auth:** Email/password authentication with persisted sessions and rigorous Row Level Security.
 
 ## Tech Stack
