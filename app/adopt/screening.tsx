@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import { z } from 'zod';
 import { Button, Card, Input, Loading, Screen, Text } from '@/components/ui';
 import { submitScreening, uploadScreeningDoc } from '@/api/screening';
 import { useMyScreening, useStartIdVerification, useSubmitScreening } from '@/hooks/useScreening';
+import { captureAccountCacheGuard } from '@/lib/accountCache';
 import { choosePhotoSource, notify } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import { requestPushPrompt } from '@/lib/pushPrompt';
@@ -76,7 +78,13 @@ interface DocAsset {
 }
 
 export default function ScreeningScreen() {
+  const { user } = useAuth();
+  return <ScreeningForm key={user?.id ?? 'signed-out'} />;
+}
+
+function ScreeningForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const screeningQuery = useMyScreening();
   const submit = useSubmitScreening();
@@ -135,6 +143,7 @@ export default function ScreeningScreen() {
 
   const onSubmit = async (values: FormInput) => {
     if (!user || busy) return;
+    const isCurrentAccount = captureAccountCacheGuard(queryClient);
     // A reviewer cannot clear anyone without seeing their ID.
     if (docs.length === 0 && docsOnFile === 0) {
       setDocError('Add a photo of your ID. A reviewer needs it to clear you.');
@@ -150,6 +159,7 @@ export default function ScreeningScreen() {
       const uploaded: string[] = [];
       for (const d of docs) {
         uploaded.push(await uploadScreeningDoc(user.id, d));
+        if (!isCurrentAccount()) return;
       }
       const paths = idDocPathsForSubmit(uploaded, existing);
       // 2. Submit the questionnaire (server scores it deterministically).
@@ -175,18 +185,23 @@ export default function ScreeningScreen() {
         consent: values.consent,
         id_doc_paths: paths,
       });
+      if (!isCurrentAccount()) return;
       // 3. Start ID verification (manual review queue in v1).
       try {
         await verify.mutateAsync(paths);
       } catch (error) {
+        if (!isCurrentAccount()) return;
         await screeningQuery.refetch();
+        if (!isCurrentAccount()) return;
         notify(
           'Answers saved — verification not started',
           getErrorMessage(error, 'Please try submitting again to start ID review.'),
         );
         return;
       }
+      if (!isCurrentAccount()) return;
       await screeningQuery.refetch();
+      if (!isCurrentAccount()) return;
       setDocs([]);
       if (screening.status === 'rejected') {
         notify(
@@ -207,7 +222,7 @@ export default function ScreeningScreen() {
         router.back();
       }
     } catch (e) {
-      notify('Could not submit', getErrorMessage(e));
+      if (isCurrentAccount()) notify('Could not submit', getErrorMessage(e));
     } finally {
       setBusy(false);
     }

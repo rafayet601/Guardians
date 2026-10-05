@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+# CI only reads source; dependency and test steps do not need a write token.
+permissions:
+  contents: read
+
 # Cancel superseded runs on the same ref to save minutes (free-tier friendly).
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -27,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:production
 
       - name: Lint
         run: npm run lint
@@ -54,6 +60,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -72,6 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -90,6 +100,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -100,3 +112,8 @@ jobs:
         run: supabase db start
       - name: Run pgTAP tests
         run: supabase db test
+      - name: Verify concurrent request quotas
+        # This is the disposable database started above, never a hosted project.
+        run: >-
+          python3 supabase/tests/check_rate_limit_concurrency.py
+          --container supabase_db_tiqizsjxqfscwbhyvumk --database postgres

@@ -2,24 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  FadeInDown,
-  interpolate,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { checkEligibility } from '@/api/rewards';
 import { PressableScale } from '@/components/PressableScale';
 import { SponsoredCard } from '@/components/SponsoredCard';
-import { EmptyState, Loading, PageHeader, Pill, Text } from '@/components/ui';
+import { Button, EmptyState, Loading, PageHeader, Pill, QueryNotice, Text } from '@/components/ui';
 import { useUserBadges } from '@/hooks/useGamification';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useMyProfile } from '@/hooks/useProfile';
@@ -31,12 +22,6 @@ import type { RewardOffer } from '@/types/models';
 export const KIBBLE = '🐟';
 
 const WALLET_GRADIENT = [palette.green900, palette.green700, palette.green500] as const;
-const SHIMMER_GRADIENT = [
-  'rgba(255,255,255,0)',
-  'rgba(255,255,255,0.22)',
-  'rgba(255,255,255,0)',
-] as const;
-
 export default function RewardsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -56,8 +41,8 @@ export default function RewardsScreen() {
     <View style={[styles.flex, { paddingTop: insets.top }]}>
       <PageHeader
         eyebrow="Good deeds, little treats"
-        title="Your kindness, rewarded."
-        subtitle="Turn your Kibble into something lovely."
+        title="Rewards"
+        subtitle="Put your earned Kibble toward a little treat."
         icon="gift-outline"
       />
 
@@ -89,15 +74,32 @@ export default function RewardsScreen() {
           }
           ListHeaderComponent={
             <View style={styles.headerBlock}>
+              {isError && offers ? (
+                <QueryNotice
+                  message="Couldn't refresh rewards. You're viewing the last loaded offers."
+                  onRetry={() => void refetch()}
+                  retrying={isRefetching}
+                />
+              ) : null}
               <WalletHero
                 balance={profile?.kibble_balance ?? 0}
                 points={profile?.points ?? 0}
                 onMyRewards={() => router.push('/rewards/redemptions')}
               />
               <SponsoredCard slot="rewards_banner" />
-              <Text variant="heading" style={styles.sectionTitle}>
-                Available rewards
-              </Text>
+              <View style={styles.sectionHeading}>
+                <Text variant="heading" style={styles.sectionTitle}>
+                  Available rewards
+                </Text>
+                <Button
+                  title="Refresh"
+                  size="sm"
+                  variant="ghost"
+                  loading={isRefetching}
+                  accessibilityLabel="Refresh rewards"
+                  onPress={() => void refetch()}
+                />
+              </View>
             </View>
           }
           ListEmptyComponent={
@@ -132,40 +134,6 @@ function WalletHero({
 }) {
   const shown = useCountUp(balance);
   const reduced = useReducedMotion() ?? false;
-  const shimmer = useSharedValue(0);
-  const bob = useSharedValue(0);
-
-  useEffect(() => {
-    if (reduced) {
-      shimmer.value = 0.5;
-      bob.value = 0.5;
-      return;
-    }
-    shimmer.value = withRepeat(
-      withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      false,
-    );
-    bob.value = withRepeat(
-      withTiming(1, { duration: 3400, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-  }, [reduced, shimmer, bob]);
-
-  const shimmerStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(shimmer.value, [0, 1], [-280, 380]) },
-      { rotate: '18deg' },
-    ],
-  }));
-  const bobStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(bob.value, [0, 1], [2, -10]) },
-      { rotate: `${interpolate(bob.value, [0, 1], [-7, 7])}deg` },
-    ],
-  }));
-
   return (
     <Animated.View
       entering={reduced ? undefined : FadeInDown.duration(520).springify().damping(15)}
@@ -178,19 +146,13 @@ function WalletHero({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* floating fish motif */}
-        <Animated.View style={[styles.heroMotif, bobStyle]}>
+        <View
+          style={styles.heroMotif}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           <Ionicons name="fish" size={100} color={colors.primaryLight} />
-        </Animated.View>
-        {/* shimmer sweep */}
-        <Animated.View style={[styles.shimmer, shimmerStyle]}>
-          <LinearGradient
-            colors={SHIMMER_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
+        </View>
 
         <View style={styles.heroContent}>
           <View style={styles.heroTop}>
@@ -326,7 +288,6 @@ const styles = StyleSheet.create({
   heroContent: { padding: spacing.xl, gap: spacing.xs },
   heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroMotif: { position: 'absolute', right: -8, top: -14, fontSize: 130, opacity: 0.12 },
-  shimmer: { position: 'absolute', top: -40, bottom: -40, width: 90 },
   myRewards: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,6 +299,12 @@ const styles = StyleSheet.create({
   },
   balance: { marginTop: spacing.xs, letterSpacing: -0.5 },
 
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   sectionTitle: { marginTop: spacing.xs },
   sep: { height: spacing.md },
 

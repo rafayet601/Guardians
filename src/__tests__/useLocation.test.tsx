@@ -94,9 +94,30 @@ it('surfaces a position failure without throwing and permits a successful retry'
     expect(await location.request()).toBeNull();
   });
   expect(location.error).toBe('Location services unavailable');
+  expect(location.status).toBe('unavailable');
+  expect(location.permissionGranted).toBe(true);
   await act(async () => {
     await location.request();
   });
   expect(location.error).toBeNull();
   expect(location.status).toBe('granted');
+});
+
+it('keeps permission and the last known position during a failed GPS refresh', async () => {
+  await act(async () => {
+    await location.request();
+  });
+  position.mockRejectedValueOnce(new Error('GPS temporarily unavailable'));
+  await act(async () => {
+    await location.request();
+  });
+  expect(location.status).toBe('unavailable');
+  expect(location.permissionGranted).toBe(true);
+  expect(location.coords).toEqual({ lat: 40, lng: -73 });
+  permission.mockResolvedValueOnce({ status: 'denied' } as Location.LocationPermissionResponse);
+  await act(async () => {
+    await location.request();
+  });
+  expect(location.permissionGranted).toBe(false);
+  expect(location.coords).toBeNull();
 });

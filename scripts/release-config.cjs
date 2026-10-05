@@ -1,8 +1,25 @@
 const { Buffer } = require('node:buffer');
 
+// This is a build-time format check, not JWT authentication. Only legacy anon
+// keys and current publishable keys belong in a shipped application.
+function isPublicSupabaseKey(value) {
+  if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(value)) return true;
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)) return false;
+  try {
+    const payload = JSON.parse(Buffer.from(value.split('.')[1], 'base64url').toString('utf8'));
+    return payload.role === 'anon';
+  } catch {
+    return false;
+  }
+}
+
 function releaseErrors(env, platform) {
   const errors = [];
-  const real = (key) => env[key] && !/YOUR-|placeholder|example\.com/i.test(env[key]);
+  const real = (key) =>
+    env[key] &&
+    !/YOUR-|placeholder|example\.com|release-test(?:\.supabase\.co|-public-anon-key)/i.test(
+      env[key],
+    );
   if (platform && !['android', 'ios', 'web'].includes(platform))
     errors.push('Release platform must be android, ios, or web.');
   for (const key of [
@@ -21,27 +38,21 @@ function releaseErrors(env, platform) {
           url.protocol !== 'https:' ||
           url.username ||
           url.password ||
-          ['localhost', '127.0.0.1', '[::1]', 'release-test.supabase.co'].includes(url.hostname) ||
+          ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
           /\.(test|invalid|localhost)$/.test(url.hostname)
         )
           throw new Error();
       } catch {
-        errors.push(`${key} must be a production HTTPS URL without embedded credentials.`);
+        errors.push(`${key} must be an HTTPS URL without embedded credentials.`);
       }
     }
   }
-  const publicKey = env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-  if (publicKey === 'release-test-public-anon-key')
-    errors.push('Replace the smoke-test Supabase key with the production public key.');
-  let role;
-  try {
-    role = JSON.parse(Buffer.from(publicKey.split('.')[1], 'base64url').toString()).role;
-  } catch {
-    // Publishable keys need not be JWTs. This check detects known privileged keys;
-    // it does not verify signatures or replace hosted authorization tests.
+  if (
+    real('EXPO_PUBLIC_SUPABASE_ANON_KEY') &&
+    !isPublicSupabaseKey(env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
+  ) {
+    errors.push('EXPO_PUBLIC_SUPABASE_ANON_KEY must be a publishable key or legacy anon JWT.');
   }
-  if (publicKey.startsWith('sb_secret_') || (role && role !== 'anon'))
-    errors.push('Use only a Supabase anon/publishable key in the client environment.');
   const sentryConfigured = ['EXPO_PUBLIC_SENTRY_DSN', 'SENTRY_ORG', 'SENTRY_PROJECT'].some(
     (key) => env[key],
   );

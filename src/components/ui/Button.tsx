@@ -31,7 +31,7 @@ export interface ButtonProps extends Omit<PressableProps, 'style'> {
   style?: ViewStyle;
 }
 
-const HEIGHT: Record<ButtonSize, number> = { sm: 40, md: 50, lg: 54 };
+const HEIGHT: Record<ButtonSize, number> = { sm: 44, md: 50, lg: 54 };
 const LABEL_SIZE: Record<ButtonSize, number> = { sm: 13.5, md: 15, lg: 16 };
 
 export function Button({
@@ -55,7 +55,8 @@ export function Button({
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
+      aria-disabled={!!isDisabled}
+      aria-busy={!!loading}
       disabled={isDisabled}
       onPressIn={() => {
         scale.value = reduced ? 1 : withSpring(0.98, { duration: 150, dampingRatio: 1 });
@@ -67,7 +68,6 @@ export function Button({
         styles.base,
         {
           minHeight: HEIGHT[size],
-          paddingVertical: spacing.md,
           backgroundColor: v.bg,
           borderColor: v.border ?? 'transparent',
           borderWidth: v.border ? 1.5 : 0,
@@ -93,11 +93,11 @@ export function Button({
 }
 
 const VARIANTS: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
-  primary: { bg: colors.primary, fg: colors.textInverse },
+  primary: { bg: colors.primaryDark, fg: colors.textInverse },
   secondary: { bg: colors.accent, fg: colors.text },
   surface: { bg: colors.surface, fg: colors.text, border: colors.border },
-  outline: { bg: 'transparent', fg: colors.primary, border: colors.primary },
-  ghost: { bg: 'transparent', fg: colors.primary },
+  outline: { bg: 'transparent', fg: colors.primaryDark, border: colors.primaryDark },
+  ghost: { bg: 'transparent', fg: colors.primaryDark },
   danger: { bg: colors.danger, fg: colors.textInverse },
 };
 
@@ -108,14 +108,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
   },
   fullWidth: { alignSelf: 'stretch' },
   content: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   label: {
-    fontFamily: fontFamily.bodyBold,
-    fontWeight: '700',
-    textAlign: 'center',
     flexShrink: 1,
+    textAlign: 'center',
+    fontFamily: fontFamily.extrabold,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   disabled: { opacity: 0.45 },
 });

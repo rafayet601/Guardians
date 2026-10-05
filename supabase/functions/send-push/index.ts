@@ -1,37 +1,14 @@
 // deno-lint-ignore-file no-explicit-any
 // Supabase Edge Function: send-push (Deno runtime)
 // -----------------------------------------------------------------------------
-// One sender, TWO authenticated entry paths (P1-4):
+// Server-to-server notifications from DB triggers (migrations 0029 and 0038).
+// Requests must present x-push-webhook-secret matching PUSH_WEBHOOK_SECRET.
+// User JWTs cannot trigger broadcasts: the former reporter-owned replay path
+// let any reporter spam every opted-in device near an old urgent sighting.
+// All application notifications are already enqueued by database triggers.
 //
-//  1. Server-to-server (DB triggers, migration 0029): pg_net calls this
-//     function with an `x-push-webhook-secret` header — no user JWT exists in
-//     that context, so a shared secret authenticates the call (the
-//     PUSH_WEBHOOK_SECRET edge secret MUST equal the private.push_config
-//     'webhook_secret' row). Events:
-//       urgent_sighting    → geo fan-out to opted-in users near the sighting
-//       sighting_claimed   → targeted push to the reporter
-//       rescue_completed   → targeted push to the reporter
-//       adoption_interest  → targeted push to the lister
-//
-//     Person-addressed events (migration 0038) use a separate envelope,
-//     `{ event, recipient_user_id, about_sighting_id }`, with no `sighting_id`,
-//     so a send-push older than 0038 rejects them (400) instead of treating
-//     them as an urgent broadcast:
-//       screening_decided  → the applicant (a moderator/provider decided)
-//       adoption_approved  → the adopter
-//       adoption_declined  → the adopter (declined, or the cat went elsewhere)
-//       new_comment        → the reporter / assigned Guardian (never the text)
-//
-//  2. Authenticated client (legacy path, kept working): the app may invoke
-//     this function with the caller's session JWT for `urgent_sighting` right
-//     after creating an urgent report (src/api/push.ts). The reporter-only
-//     check is preserved. Lifecycle types REQUIRE the webhook secret —
-//     otherwise any signed-in user could push-spam arbitrary recipients.
-//
-// verify_jwt is OFF for this function (config.toml) because pg_net calls carry
-// no JWT; every request is authenticated in-body via one of the paths above.
-// The service role is used only here to read push tokens (never exposed to
-// clients). Expo's push service is free.
+// verify_jwt is OFF because pg_net carries no user JWT. This handler always
+// checks the webhook secret before parsing the request or using service role.
 //
 // Deploy:
 //   supabase functions deploy send-push
@@ -39,7 +16,8 @@
 //     PUSH_WEBHOOK_SECRET=<random string matching private.push_config>
 //   (SUPABASE_URL is provided automatically.)
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
-import { corsHeaders, preflight } from '../_shared/http.ts';
+import { corsHeaders, preflight, readJsonObject, RequestBodyError } from '../_shared/http.ts';
+import { hasWebhookSecret } from '../_shared/webhook.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -85,31 +63,11 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const url = Deno.env.get('SUPABASE_URL')!;
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const webhookSecret = Deno.env.get('PUSH_WEBHOOK_SECRET') ?? '';
 
-  // Auth path 1: shared webhook secret (DB triggers via pg_net carry no JWT).
-  // Disabled entirely when the edge secret is unset — an empty header can
-  // never match.
-  const headerSecret = req.headers.get('x-push-webhook-secret') ?? '';
-  const isWebhook = webhookSecret.length > 0 && headerSecret === webhookSecret;
-
-  // Auth path 2: caller session JWT (the app client).
-  let callerId: string | null = null;
-  if (!isWebhook) {
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader) return json({ error: 'Unauthorized' }, 401);
-
-    // Identify the caller from their session JWT.
-    const caller = createClient(url, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-    } = await caller.auth.getUser();
-    if (!user) return json({ error: 'Unauthorized' }, 401);
-    callerId = user.id;
+  if (!hasWebhookSecret(req, 'x-push-webhook-secret', webhookSecret)) {
+    return json({ error: 'Unauthorized' }, 401);
   }
 
   let body: {
@@ -120,14 +78,16 @@ Deno.serve(async (req: Request) => {
     about_sighting_id?: string | null;
   };
   try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Bad JSON' }, 400);
+    body = await readJsonObject(req);
+  } catch (error) {
+    return json(
+      { error: error instanceof RequestBodyError ? error.message : 'Invalid JSON object' },
+      error instanceof RequestBodyError ? error.status : 400,
+    );
   }
 
   // Person-addressed events (0038): server-only, like the lifecycle types.
   if (body.event !== undefined) {
-    if (!isWebhook) return json({ error: 'Unauthorized' }, 401);
     if (!PUSH_EVENTS.includes(body.event as PushEvent)) {
       return json({ error: 'Unknown event' }, 400);
     }
@@ -145,7 +105,6 @@ Deno.serve(async (req: Request) => {
   // A trigger always names its type. An unknown one must fail loudly rather
   // than fall through to the urgent broadcast below.
   if (
-    isWebhook &&
     body.type !== undefined &&
     body.type !== 'urgent_sighting' &&
     !LIFECYCLE_TYPES.includes(body.type as PushType)
@@ -153,15 +112,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Unknown type' }, 400);
   }
 
-  // A missing/unknown type degrades to the original urgent fan-out (the legacy
-  // client sends only sighting_id).
   const type: PushType = LIFECYCLE_TYPES.includes(body.type as PushType)
     ? (body.type as PushType)
     : 'urgent_sighting';
-
-  // Lifecycle events are server-authoritative — a DB trigger already decided
-  // the recipient. A caller-JWT request may only run the urgent geo fan-out.
-  if (type !== 'urgent_sighting' && !isWebhook) return json({ error: 'Unauthorized' }, 401);
 
   const admin = createClient(url, serviceKey);
 
@@ -174,9 +127,6 @@ Deno.serve(async (req: Request) => {
 
   if (type === 'urgent_sighting') {
     if (!s.needs_urgent_help) return json({ skipped: 'not urgent' });
-    // Client-path hardening (preserved): only the reporter may fan out. The
-    // webhook path skips this — the INSERT trigger is the authority.
-    if (callerId && s.reporter_id !== callerId) return json({ error: 'Forbidden' }, 403);
     return urgentGeoFanout(admin, s as SightingRow);
   }
 
@@ -202,7 +152,7 @@ async function urgentGeoFanout(admin: any, s: SightingRow): Promise<Response> {
   });
   if (tErr) {
     console.error('[send-push] tokens_near failed:', tErr.message);
-    return json({ error: tErr.message }, 500);
+    return json({ error: 'Unable to load push recipients' }, 500);
   }
 
   const tokens: string[] = (rows ?? []).map((r: { token: string }) => r.token);

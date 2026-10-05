@@ -12,6 +12,8 @@ import {
   expressInterest,
   getNearby,
   getSighting,
+  getFeed,
+  getMyActivity,
   updateStatus,
   withdrawAdoptionInterest,
 } from '@/api/sightings';
@@ -49,6 +51,7 @@ const mockChain = {
   select: jest.fn(),
   eq: jest.fn(),
   neq: jest.fn(),
+  or: jest.fn(),
   order: jest.fn(),
   limit: jest.fn(),
   in: jest.fn(),
@@ -679,6 +682,31 @@ describe('AI pipeline → Edge Function invocation', () => {
 });
 
 describe('API client → table queries', () => {
+  it('loads both my reports and claimed active rescues without list coordinates', async () => {
+    mockChain.order.mockResolvedValueOnce({ data: [], error: null });
+    await getMyActivity('u1');
+    expect(mockChain.or).toHaveBeenCalledWith('reporter_id.eq.u1,claimed_by.eq.u1');
+    expect(mockChain.in).toHaveBeenCalledWith('status', [
+      'spotted',
+      'claimed',
+      'in_rescue',
+      'safe',
+      'available',
+    ]);
+    const projection = mockChain.select.mock.calls[0][0];
+    expect(projection).not.toMatch(/\b(lat|lng|location|address)\b/);
+    expect(mockChain.order).toHaveBeenCalledWith('updated_at', { ascending: false });
+  });
+
+  it('filters adoption personality before pagination, so matches beyond the first page are discoverable', async () => {
+    mockChain.lt.mockResolvedValueOnce({ data: [], error: null });
+    await getFeed(['available'], '2026-09-29T00:00:00Z', 20, 'shy');
+    expect(mockChain.in).toHaveBeenCalledWith('status', ['available']);
+    expect(mockChain.eq).toHaveBeenCalledWith('temperament', 'shy');
+    expect(mockChain.lt).toHaveBeenCalledWith('created_at', '2026-09-29T00:00:00Z');
+    expect(mockChain.limit).toHaveBeenCalledWith(20);
+  });
+
   it('getMyProfile → profiles table for the current user', async () => {
     const profile = { id: 'u1', username: 'alice' };
     mockChain.single.mockResolvedValueOnce({ data: profile, error: null });

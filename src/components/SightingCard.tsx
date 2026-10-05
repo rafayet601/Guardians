@@ -5,8 +5,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { StatusPill } from '@/components/StatusPill';
 import { Card, Pill, Text } from '@/components/ui';
-import { TEMPERAMENT_META } from '@/constants/status';
-import { colors, radius, spacing } from '@/theme';
+import { STATUS_META, TEMPERAMENT_META, isUrgentNow } from '@/constants/status';
+import { colors, palette, radius, spacing } from '@/theme';
 import type { CatStatus, CatTemperament } from '@/types/models';
 import { formatDistance, timeAgo } from '@/utils/format';
 
@@ -25,6 +25,7 @@ export interface SightingCardProps {
   seed?: string;
   distanceM?: number | null;
   createdAt: string;
+  timeLabel?: string;
   onPress?: () => void;
 }
 
@@ -40,15 +41,23 @@ export function SightingCard({
   demoPhoto,
   distanceM,
   createdAt,
+  timeLabel,
   onPress,
 }: SightingCardProps) {
   const temp = TEMPERAMENT_META[temperament];
+  const urgent = isUrgentNow(status, !!needsUrgentHelp);
   const [failedPhoto, setFailedPhoto] = useState<string | number | null>(null);
   const photo = thumbnailUrl || demoPhoto;
   const isDemoPhoto = !thumbnailUrl && !!demoPhoto;
   const feature = variant === 'feature';
   return (
-    <Card onPress={onPress} padded={false} style={styles.card}>
+    <Card
+      onPress={onPress}
+      padded={false}
+      style={styles.card}
+      accessibilityLabel={`${title?.trim() || 'Cat sighting'}, ${STATUS_META[status].label}${urgent ? ', needs urgent help' : ''}${isDemoPhoto ? ', demo photo' : ''}`}
+      accessibilityHint="Open sighting details"
+    >
       <View style={[styles.row, feature && styles.featureRow]}>
         <View style={[styles.photoWrap, feature && styles.featurePhoto]}>
           {photo && failedPhoto !== photo ? (
@@ -73,12 +82,7 @@ export function SightingCard({
               <Pill label="Demo photo" fg={colors.primaryDark} bg={colors.surface} />
             </View>
           )}
-          {feature && (
-            <View style={styles.photoStatus}>
-              <StatusPill status={status} />
-            </View>
-          )}
-          {feature && needsUrgentHelp && (
+          {feature && urgent && (
             <View style={styles.urgentFlag}>
               <Ionicons name="alert-circle" size={14} color={colors.white} />
               <Text variant="caption" color={colors.white}>
@@ -89,6 +93,7 @@ export function SightingCard({
         </View>
 
         <View style={[styles.body, feature && styles.featureBody]}>
+          {feature && <StatusPill status={status} />}
           <View style={styles.headerRow}>
             <Text
               variant={feature ? 'heading' : 'subheading'}
@@ -97,16 +102,16 @@ export function SightingCard({
             >
               {title?.trim() || 'Cat sighting'}
             </Text>
-            {needsUrgentHelp && !feature ? (
+            {urgent && !feature ? (
               <Ionicons
                 name="alert-circle"
                 size={18}
                 color={colors.urgent}
                 accessibilityLabel="Urgent"
               />
-            ) : (
+            ) : !feature ? (
               <Ionicons name="arrow-forward" size={18} color={colors.primary} />
-            )}
+            ) : null}
           </View>
 
           {!feature && <StatusPill status={status} />}
@@ -123,15 +128,24 @@ export function SightingCard({
             {isInjured ? <Pill label="Injured" fg={colors.danger} bg={colors.accentSoft} /> : null}
           </View>
 
-          <View style={styles.footerRow}>
+          <View style={[styles.footerRow, feature && styles.featureFooter]}>
             {typeof distanceM === 'number' ? (
               <Text variant="caption" color={colors.primary}>
                 {formatDistance(distanceM)} away
               </Text>
             ) : null}
             <Text variant="caption" muted>
+              {timeLabel ? `${timeLabel} ` : ''}
               {timeAgo(createdAt)}
             </Text>
+            {feature && (
+              <View style={styles.detailLink}>
+                <Text variant="smallStrong" color={colors.primary}>
+                  View sighting
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -157,11 +171,10 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   featureRow: { flexDirection: 'column' },
-  featurePhoto: { width: '100%', aspectRatio: 1.65, minHeight: 180 },
+  featurePhoto: { width: '100%', aspectRatio: 1.8, minHeight: 144 },
   featureBody: { padding: spacing.lg, gap: spacing.sm },
   demoLabel: { position: 'absolute', bottom: spacing.xs, alignSelf: 'center' },
   featureDemoLabel: { position: 'absolute', top: spacing.md, right: spacing.md },
-  photoStatus: { position: 'absolute', top: spacing.md, left: spacing.md },
   urgentFlag: {
     position: 'absolute',
     bottom: spacing.md,
@@ -170,13 +183,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     padding: spacing.sm,
-    backgroundColor: colors.urgent,
+    backgroundColor: palette.urgentDeep,
     borderRadius: radius.sm,
   },
   body: { flex: 1, padding: spacing.md, gap: spacing.xs },
+  featureFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  detailLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { flex: 1 },
-  urgent: { fontSize: 16, marginLeft: spacing.xs },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   footerRow: {
     flexDirection: 'row',

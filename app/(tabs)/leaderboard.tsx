@@ -3,7 +3,16 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, Card, EmptyState, Loading, PageHeader, Text } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  Card,
+  EmptyState,
+  Loading,
+  PageHeader,
+  QueryNotice,
+  Text,
+} from '@/components/ui';
 import { useLeaderboard, useMyRank } from '@/hooks/useGamification';
 import { useMyProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/providers/AuthProvider';
@@ -70,6 +79,20 @@ export default function LeaderboardScreen() {
           }
           ListHeaderComponent={
             <>
+              <Button
+                title="Refresh rankings"
+                variant="ghost"
+                size="sm"
+                loading={isRefetching}
+                onPress={() => void refetch()}
+              />
+              {isError && data ? (
+                <QueryNotice
+                  message="Couldn't refresh rankings. You're viewing the last loaded standings."
+                  onRetry={() => void refetch()}
+                  retrying={isRefetching}
+                />
+              ) : null}
               {data && data.length >= 3 ? <Podium entries={data.slice(0, 3)} /> : null}
               {profile && myRank && !inTopList ? (
                 <View style={styles.myRank}>

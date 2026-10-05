@@ -1,7 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { askRescueCopilot } from '@/api/aiRag';
-import { getErrorMessage } from '@/lib/errors';
 import { track } from '@/lib/observability';
 import type { AskCopilotInput, RescueCopilotAnswer } from '@/types/aiRag';
 
@@ -23,8 +22,8 @@ export function useRescueCopilot() {
     onSuccess: (result) => {
       track('ai_rescue_copilot_asked', { hasMatch: result.hasMatch });
     },
-    onError: (error) => {
-      track('ai_rescue_copilot_failed', { message: getErrorMessage(error) });
+    onError: () => {
+      track('ai_rescue_copilot_failed');
     },
   });
 }

@@ -52,6 +52,7 @@ export async function getFeed(
   statuses?: CatStatus[],
   cursor?: string,
   limit = 20,
+  temperament?: CatTemperament,
 ): Promise<FeedPage> {
   let query = supabase
     .from('sightings')
@@ -60,6 +61,7 @@ export async function getFeed(
     .order('created_at', { ascending: false })
     .limit(limit);
   if (statuses && statuses.length) query = query.in('status', statuses);
+  if (temperament) query = query.eq('temperament', temperament);
   if (cursor) query = query.lt('created_at', cursor); // keyset pagination
   const { data, error } = await query;
   if (error) throw error;
@@ -83,6 +85,18 @@ export async function getMySightings(userId: string): Promise<Sighting[]> {
     .select(SIGHTING_SELECT)
     .eq('reporter_id', userId)
     .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Sighting[];
+}
+
+/** Active reports AND claimed rescues. Keep the same coordinate-free list projection. */
+export async function getMyActivity(userId: string): Promise<Sighting[]> {
+  const { data, error } = await supabase
+    .from('sightings')
+    .select(SIGHTING_SELECT)
+    .or(`reporter_id.eq.${userId},claimed_by.eq.${userId}`)
+    .in('status', ['spotted', 'claimed', 'in_rescue', 'safe', 'available'])
+    .order('updated_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as Sighting[];
 }

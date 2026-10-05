@@ -9,3 +9,4 @@ export { EmptyState } from './EmptyState';
 export { Loading } from './Loading';
 export { BrandMark } from './BrandMark';
 export { PageHeader } from './PageHeader';
+export { QueryNotice } from './QueryNotice';

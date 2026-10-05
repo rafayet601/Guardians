@@ -352,9 +352,11 @@ function LostCatForm() {
               </PressableScale>
             )}
           </View>
-          {status === 'denied' && !place ? (
+          {(status === 'denied' || status === 'unavailable') && !place ? (
             <Text variant="small" color={colors.danger}>
-              Location is off. Search for the street or area where they were last seen instead.
+              {status === 'denied'
+                ? 'Location access is off. Search for the street or area where they were last seen instead.'
+                : 'Could not update your location. Search for the street or area where they were last seen instead.'}
             </Text>
           ) : null}
           <MapSearchBar

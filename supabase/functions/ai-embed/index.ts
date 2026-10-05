@@ -42,7 +42,13 @@
 //   supabase functions deploy ai-embed
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... VOYAGE_API_KEY=pa-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
-import { corsHeaders, preflight } from '../_shared/http.ts';
+import {
+  corsHeaders,
+  preflight,
+  readJsonObject,
+  RequestBodyError,
+  MAX_IMAGE_REQUEST_BYTES,
+} from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
 import {
@@ -109,9 +115,12 @@ Deno.serve(async (req: Request) => {
 
   let body: { imageBase64?: string; mediaType?: string; text?: string; kind?: string };
   try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Bad JSON' }, 400);
+    body = await readJsonObject(req, MAX_IMAGE_REQUEST_BYTES);
+  } catch (error) {
+    return json(
+      { error: error instanceof RequestBodyError ? error.message : 'Invalid JSON object' },
+      error instanceof RequestBodyError ? error.status : 400,
+    );
   }
 
   const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : '';

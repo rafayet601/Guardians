@@ -2,12 +2,11 @@
 # start`). Migrations live in supabase/migrations and are applied separately.
 project_id = "tiqizsjxqfscwbhyvumk"
 
-# send-push is now ALSO invoked by pg_net DB triggers (migration 0029), which
-# carry no user JWT — so the gateway-level JWT check must stay off. The
-# function authenticates every request IN-BODY instead: either the caller's
-# session JWT (client path, reporter-checked) or the x-push-webhook-secret
-# shared secret (server-to-server path). It uses the service role internally
-# to read push tokens.
+# send-push is invoked by pg_net DB triggers (migrations 0029 and 0038), which
+# carry no user JWT — so the gateway-level JWT check must stay off. Every
+# request must authenticate with the x-push-webhook-secret header. Client
+# session JWTs cannot trigger or replay broadcasts. The function uses the
+# service role internally to read push tokens.
 [functions.send-push]
 verify_jwt = false
 

@@ -12,9 +12,8 @@ export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion() ?? false;
-  // The Map tab renders its own "+ Report" pill above the nearby sheet, so the
-  // global FAB is shown only on the other four tabs (an allowlist, so it never
-  // leaks onto the map or over a pushed modal/detail route).
+  // Home and Map have prominent report actions; the floating action stays out
+  // of adoption discovery and pushed detail routes.
   const pathname = usePathname();
   const showReportFab = ['/feed', '/leaderboard', '/rewards', '/profile'].includes(pathname);
 
@@ -23,7 +22,7 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primary,
+          tabBarActiveTintColor: colors.primaryDark,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: [
             styles.tabBar,
@@ -38,6 +37,13 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="index"
           options={{
+            title: 'Home',
+            tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="map"
+          options={{
             title: 'Map',
             tabBarIcon: ({ color, focused }) => (
               <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
@@ -47,9 +53,16 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
+          name="adopt"
+          options={{
+            title: 'Adopt',
+            tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
           name="feed"
           options={{
-            title: 'Feed',
+            title: 'Community',
             tabBarIcon: ({ color, focused }) => (
               <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
                 <Ionicons name={focused ? 'paw' : 'paw-outline'} size={22} color={color} />
@@ -60,17 +73,15 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="leaderboard"
           options={{
-            title: 'Ranks',
-            tabBarIcon: ({ color, focused }) => (
-              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
-                <Ionicons name={focused ? 'trophy' : 'trophy-outline'} size={22} color={color} />
-              </View>
-            ),
+            href: null,
+            title: 'Community impact',
+            tabBarIcon: ({ color, size }) => <Ionicons name="trophy" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="rewards"
           options={{
+            href: null,
             title: 'Rewards',
             tabBarIcon: ({ color, focused }) => (
               <View style={[styles.tabIcon, focused && styles.tabIconActive]}>

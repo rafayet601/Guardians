@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { colors, layout, radius, spacing } from '@/theme';
 import { Text } from './Text';
@@ -10,14 +10,16 @@ export function PageHeader({
   title,
   subtitle,
   icon,
+  style,
 }: {
   eyebrow: string;
   title: string;
   subtitle: string;
   icon: ComponentProps<typeof Ionicons>['name'];
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, style]}>
       <View style={styles.copy}>
         <Text variant="overline" color={colors.primary}>
           {eyebrow}

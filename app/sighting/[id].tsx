@@ -21,6 +21,7 @@ import { PermissionPrimer } from '@/components/PermissionPrimer';
 import { MapView, Marker, Circle, MAP_PROVIDER } from '@/components/PlatformMap';
 import { ReidSuggestions } from '@/components/ReidSuggestions';
 import { RescueCopilot } from '@/components/RescueCopilot';
+import { RescueProgress } from '@/components/RescueProgress';
 import { StatusPill } from '@/components/StatusPill';
 import { Avatar, Button, Card, EmptyState, Input, Loading, Pill, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
@@ -154,7 +155,7 @@ export default function SightingDetailScreen() {
     const ok = await confirmAsync({
       title: isOwner ? 'Rescue this cat yourself?' : 'Claim this rescue?',
       message:
-        "You'll be the Guardian for this cat: you'll see its exact location and can post updates in Activity. If you can't follow through, you can release it from this screen so another Guardian can step in.",
+        "Claiming lets the community know you're coordinating this rescue. You'll see its exact location and can post updates in Activity. If you can't follow through, you can release it from this screen so another Guardian can step in.",
       confirmLabel: 'Claim rescue',
     });
     if (!ok) return;
@@ -375,7 +376,10 @@ export default function SightingDetailScreen() {
             />
           ) : (
             <View style={[styles.hero, styles.heroFallback]}>
-              <Text style={styles.heroEmoji}>{temp.icon}</Text>
+              <Ionicons name="paw-outline" size={64} color={colors.primaryDark} />
+              <Text variant="small" muted>
+                No photo yet
+              </Text>
             </View>
           )}
           {isDemoPhoto && failedPhoto !== photo && (
@@ -455,6 +459,7 @@ export default function SightingDetailScreen() {
             </Text>
           </Animated.View>
 
+          <RescueProgress status={sighting.status} canManage={canManage} />
           <Card style={styles.caseSummary}>
             <Text variant="smallStrong" color={colors.primary}>
               {guidance.responsibility}
@@ -1112,7 +1117,7 @@ const styles = StyleSheet.create({
   caseAction: { alignSelf: 'flex-start', marginTop: spacing.xs },
   content: { paddingBottom: spacing.xxxl },
   hero: { width: '100%', height: 280, backgroundColor: colors.primaryTint },
-  heroFallback: { alignItems: 'center', justifyContent: 'center' },
+  heroFallback: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   demoLabel: { position: 'absolute', top: spacing.md, right: spacing.md },
   heroEmoji: { fontSize: 96 },
   gallery: { gap: spacing.sm, paddingBottom: spacing.xs },

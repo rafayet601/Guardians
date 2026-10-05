@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/react-native';
 
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
+import { redactTelemetry } from '@/lib/telemetryPrivacy';
 import type { Json } from '@/types/database';
 
 /**
@@ -17,18 +18,19 @@ const isDev = __DEV__;
 
 export function captureError(error: unknown, context?: Props): void {
   if (isDev) {
-    console.error('[capture]', error, context ?? '');
+    console.error('[capture]', redactTelemetry(error), redactTelemetry(context ?? ''));
   }
   // No-op unless initObservability ran with a DSN (uncaptured events are
   // dropped by Sentry when no client is bound).
   if (env.sentryDsn) {
-    Sentry.captureException(error, { extra: context });
+    Sentry.captureException(error, { extra: redactTelemetry(context) });
   }
 }
 
 export function track(event: string, props?: Props): void {
+  const safeProps = redactTelemetry(props ?? {});
   if (isDev) {
-    console.log('[track]', event, props ?? '');
+    console.log('[track]', event, safeProps);
     return; // keep dev events out of the production analytics table
   }
   if (!env.isConfigured) return;
@@ -36,7 +38,7 @@ export function track(event: string, props?: Props): void {
   // analytics_events). Fire-and-forget — telemetry must never block or throw.
   // Supabase builders are lazy thenables: consuming one starts the request.
   void Promise.resolve(
-    supabase.rpc('track_event', { p_event: event, p_props: (props ?? {}) as Json }),
+    supabase.rpc('track_event', { p_event: event, p_props: safeProps as Json }),
   ).catch(() => {
     // Analytics outages must not create unhandled rejections or interrupt rescue work.
   });
@@ -61,6 +63,10 @@ export function initObservability(): void {
       dsn: env.sentryDsn,
       enableNativeCrashHandling: true,
       tracesSampleRate: 0.2,
+      sendDefaultPii: false,
+      beforeBreadcrumb: (breadcrumb) => redactTelemetry(breadcrumb),
+      beforeSend: (event) => redactTelemetry(event),
+      beforeSendTransaction: (event) => redactTelemetry(event),
     });
   }
 
