@@ -151,7 +151,7 @@ check_configuration_integrity() {
     fi
 
     # Check scoped Android permissions
-    local required_permissions=("ACCESS_COARSE_LOCATION" "ACCESS_FINE_LOCATION" "CAMERA" "READ_MEDIA_IMAGES")
+    local required_permissions=("ACCESS_COARSE_LOCATION" "ACCESS_FINE_LOCATION" "CAMERA")
     local perm_missing=0
     for perm in "${required_permissions[@]}"; do
       if ! grep -q "$perm" "$ROOT_DIR/app.config.ts"; then
@@ -160,7 +160,7 @@ check_configuration_integrity() {
       fi
     done
     if [ $perm_missing -eq 0 ]; then
-      echo -e "    ${CHECKMARK} Android permissions strictly scoped (Location, Camera, Media Images)"
+      echo -e "    ${CHECKMARK} Location and camera permission configuration found; verify merged native permissions before release"
     else
       config_errors=$((config_errors + perm_missing))
     fi
@@ -239,7 +239,7 @@ print_summary() {
   echo ""
 
   if [ $FAILED_STEPS -eq 0 ]; then
-    echo -e "${BOLD}${GREEN}🎉 ALL PRE-FLIGHT CHECKS PASSED! The app is ready for EAS Build & Release.${RESET}"
+    echo -e "${BOLD}${GREEN}ALL LOCAL PRE-FLIGHT CHECKS PASSED. Production configuration, hosted backend, store credentials and physical release-build acceptance still require verification.${RESET}"
     echo ""
     echo -e "${INFO} Suggested Next Steps:"
     echo -e "  • Sideloadable Preview APK  : eas build --platform android --profile preview"
@@ -272,7 +272,7 @@ run_step 1 "TypeScript Validation (App Code)" "npm run typecheck"
 run_step 2 "TypeScript Validation (Test Suite)" "npm run typecheck:test"
 
 # 3. Unit & Contract Test Suite
-run_step 3 "Unit & Contract Tests (Jest)" "npm test"
+run_step 3 "Unit & Contract Tests (Jest)" "npm run test:ci"
 
 # 4. ESLint Static Analysis
 run_step 4 "ESLint Static Analysis" "npm run lint"
