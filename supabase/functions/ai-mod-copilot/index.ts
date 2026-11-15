@@ -25,6 +25,7 @@
 //   supabase functions deploy ai-mod-copilot
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, isAnthropicConfigured } from '../_shared/anthropic.ts';
@@ -109,7 +110,7 @@ Deno.serve(async (req: Request) => {
   // Moderators only — the same gate the queue itself uses (migration 0012).
   const { data: isMod, error: modErr } = await caller.rpc('is_moderator');
   if (modErr) {
-    console.error('[ai-mod-copilot] is_moderator check failed:', modErr.message);
+    console.error('[ai-mod-copilot] is_moderator check failed:', safeErrorDetails(modErr));
     return json({ error: 'Could not verify moderator role' }, 500);
   }
   if (isMod !== true) return json({ error: 'Moderators only' }, 403);
@@ -266,7 +267,7 @@ Deno.serve(async (req: Request) => {
 
   // The open reports are the core of the briefing — refuse rather than mislead.
   if (reportsOnTarget.error) {
-    console.error('[ai-mod-copilot] reports read failed:', reportsOnTarget.error.message);
+    console.error('[ai-mod-copilot] reports read failed:', safeErrorDetails(reportsOnTarget.error));
     return json({ error: 'Could not load the reports for this item.' }, 500);
   }
   // History is a signal, not the core: if any lookup failed, present it as
@@ -281,7 +282,7 @@ Deno.serve(async (req: Request) => {
     blocks.error,
   );
   if (pastCases.error) {
-    console.error('[ai-mod-copilot] past-cases read failed:', pastCases.error.message);
+    console.error('[ai-mod-copilot] past-cases read failed:', safeErrorDetails(pastCases.error));
   }
 
   const openReports = (reportsOnTarget.data ?? []) as {
@@ -342,7 +343,7 @@ Deno.serve(async (req: Request) => {
     p_max_per_hour: MAX_PER_HOUR,
   });
   if (rlErr) {
-    console.error('[ai-mod-copilot] rate-limit check failed:', rlErr.message);
+    console.error('[ai-mod-copilot] rate-limit check failed:', safeErrorDetails(rlErr));
     return json({ error: 'Could not verify rate limit' }, 500);
   }
   if (!allowed) {
@@ -359,7 +360,7 @@ Deno.serve(async (req: Request) => {
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
     });
   } catch (e) {
-    console.error('[ai-mod-copilot] model call failed:', e instanceof Error ? e.message : e);
+    console.error('[ai-mod-copilot] model call failed:', safeErrorDetails(e));
     return json({ error: 'AI summary failed. Review the item manually.' }, 502);
   }
   const latencyMs = Date.now() - startedAt;
@@ -388,7 +389,7 @@ Deno.serve(async (req: Request) => {
     p_cost: estCost,
     p_latency: latencyMs,
   });
-  if (logErr) console.error('[ai-mod-copilot] log_ai_usage failed:', logErr.message);
+  if (logErr) console.error('[ai-mod-copilot] log_ai_usage failed:', safeErrorDetails(logErr));
 
   return json(out);
 });

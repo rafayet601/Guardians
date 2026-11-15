@@ -46,6 +46,7 @@
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... VOYAGE_API_KEY=pa-...
 //   (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY / SUPABASE_URL as for send-push)
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
@@ -69,7 +70,7 @@ const HAIKU_OUTPUT_USD_PER_TOKEN = 5 / 1_000_000;
 
 const EXPECTED_DIM = 1024;
 
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+import { optedInPushTokens, sendExpoPush } from '../_shared/expoPush.ts';
 
 // FIXED captioning prompt — identical contract to ai-embed/ai-reid: a factual,
 // identity-focused visual description so a lost-cat photo and a sighting photo
@@ -199,10 +200,7 @@ Deno.serve(async (req: Request) => {
         try {
           embedResult = await computeEmbeddingForPhoto(admin, lc.photo_url);
         } catch (e) {
-          console.error(
-            '[ai-lost-match] lost_cat embed failed:',
-            e instanceof Error ? e.message : e,
-          );
+          console.error('[ai-lost-match] lost_cat embed failed:', safeErrorDetails(e));
           return json({ error: 'Could not compute the lost-cat photo embedding.' }, 502);
         }
         await storeEmbedding(admin, 'lost_cat', lostCatId, 'lost_cat_photo', embedResult.embedding);
@@ -215,7 +213,7 @@ Deno.serve(async (req: Request) => {
         p_lost_cat: lostCatId,
       });
       if (mErr) {
-        console.error('[ai-lost-match] find_lost_cat_matches failed:', mErr.message);
+        console.error('[ai-lost-match] find_lost_cat_matches failed:', safeErrorDetails(mErr));
         return json({ error: 'Could not search for lost-cat matches.' }, 502);
       }
       const candidates = (matches ?? []) as LostCatMatchCandidate[];
@@ -281,10 +279,7 @@ Deno.serve(async (req: Request) => {
         try {
           embedResult = await computeEmbeddingForPhoto(admin, photoUrl);
         } catch (e) {
-          console.error(
-            '[ai-lost-match] sighting embed failed:',
-            e instanceof Error ? e.message : e,
-          );
+          console.error('[ai-lost-match] sighting embed failed:', safeErrorDetails(e));
           return json({ error: 'Could not compute the sighting photo embedding.' }, 502);
         }
         await storeEmbedding(
@@ -306,7 +301,7 @@ Deno.serve(async (req: Request) => {
       p_sighting: sightingId,
     });
     if (lErr) {
-      console.error('[ai-lost-match] find_lost_cats_for_sighting failed:', lErr.message);
+      console.error('[ai-lost-match] find_lost_cats_for_sighting failed:', safeErrorDetails(lErr));
       return json({ error: 'Could not search for lost-cat matches.' }, 502);
     }
     const candidates = (lostCats ?? []) as LostCatForSighting[];
@@ -336,7 +331,7 @@ Deno.serve(async (req: Request) => {
     if (modelCalled && embedResult) await logUsage(caller, embedResult);
     return json({ matches: candidates.length, pushed });
   } catch (e) {
-    console.error('[ai-lost-match] unhandled:', e instanceof Error ? e.message : e);
+    console.error('[ai-lost-match] unhandled:', safeErrorDetails(e));
     return json({ error: 'Lost-cat match failed.' }, 500);
   }
 });
@@ -409,7 +404,9 @@ async function computeEmbeddingForPhoto(admin: any, photoUrl: string): Promise<E
   const embedding = embeddings[0];
   if (!Array.isArray(embedding) || embedding.length !== EXPECTED_DIM) {
     throw new Error(
-      `Expected ${EXPECTED_DIM}-dim, got ${Array.isArray(embedding) ? embedding.length : 'non-array'}`,
+      `Expected ${EXPECTED_DIM}-dim, got ${
+        Array.isArray(embedding) ? embedding.length : 'non-array'
+      }`,
     );
   }
   return {
@@ -437,7 +434,7 @@ async function storeEmbedding(
     p_embedding: `[${embedding.join(',')}]`,
   });
   if (error) {
-    console.error('[ai-lost-match] store_embedding failed:', error.message);
+    console.error('[ai-lost-match] store_embedding failed:', safeErrorDetails(error));
     throw new Error('Could not store the embedding.');
   }
 }
@@ -461,7 +458,7 @@ async function checkRateLimit(caller: any): Promise<boolean> {
     p_max_per_hour: MAX_PER_HOUR,
   });
   if (error) {
-    console.error('[ai-lost-match] rate-limit check failed:', error.message);
+    console.error('[ai-lost-match] rate-limit check failed:', safeErrorDetails(error));
     return false;
   }
   return Boolean(allowed);
@@ -518,7 +515,7 @@ async function ensureSuggestedMatch(
       .maybeSingle();
     if (row) return null;
   }
-  console.error('[ai-lost-match] insert match failed:', error?.message);
+  console.error('[ai-lost-match] insert match failed:', safeErrorDetails(error));
   return null;
 }
 
@@ -527,24 +524,16 @@ async function ensureSuggestedMatch(
  * service role (never exposed to clients), POSTs to Expo, inspects per-message
  * tickets, and reaps DeviceNotRegistered tokens so the table stays clean. A
  * push failure is logged and returns false — it must never fail a match
- * insertion. Returns true when at least one ticket was 'ok'. Mirrors
- * send-push's pattern but inlined (send-push is not modified).
+ * insertion. Returns true when at least one ticket was 'ok'. Uses the
+ * shared sender and the same opt-in checks as lifecycle notifications.
  */
 async function pushToOwner(
   admin: any,
   ownerId: string,
   payload: { lostCatId: string; sightingId: string; title: string | null; distanceM: number },
 ): Promise<boolean> {
-  const { data: tokenRows, error: tErr } = await admin
-    .from('device_push_tokens')
-    .select('token')
-    .eq('user_id', ownerId);
-  if (tErr) {
-    console.error('[ai-lost-match] load push tokens failed:', tErr.message);
-    return false;
-  }
-  const tokens = (tokenRows ?? []).map((r: { token: string }) => r.token);
-  if (tokens.length === 0) return false;
+  const tokens = await optedInPushTokens(admin, ownerId);
+  if (!tokens?.length) return false;
 
   const titleStr = (payload.title ?? '').trim() || 'your lost cat';
   const distanceM = Math.max(1, Math.round(payload.distanceM));
@@ -562,39 +551,7 @@ async function pushToOwner(
     },
   }));
 
-  let resp: Response;
-  try {
-    resp = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(messages),
-    });
-  } catch (e) {
-    console.error('[ai-lost-match] Expo request threw:', e instanceof Error ? e.message : e);
-    return false;
-  }
-
-  if (!resp.ok) {
-    console.error('[ai-lost-match] Expo responded', resp.status, await resp.text().catch(() => ''));
-    return false;
-  }
-
-  const payloadJson = (await resp.json().catch(() => null)) as {
-    data?: { status: string; message?: string; details?: { error?: string } }[];
-  } | null;
-  const tickets = payloadJson?.data ?? [];
-  if (tickets.length === 0) return true; // no ticket detail (older response shape)
-
-  let sent = 0;
-  const deadTokens: string[] = [];
-  tickets.forEach((ticket, j) => {
-    if (ticket.status === 'ok') {
-      sent += 1;
-      return;
-    }
-    console.error('[ai-lost-match] ticket error:', ticket.message ?? ticket.details?.error);
-    if (ticket.details?.error === 'DeviceNotRegistered' && tokens[j]) deadTokens.push(tokens[j]);
-  });
+  const { sent, deadTokens } = await sendExpoPush(messages);
 
   // Reap dead tokens so device_push_tokens doesn't accumulate cruft.
   if (deadTokens.length > 0) {
@@ -602,7 +559,8 @@ async function pushToOwner(
       .from('device_push_tokens')
       .delete()
       .in('token', deadTokens);
-    if (delErr) console.error('[ai-lost-match] failed to reap dead tokens:', delErr.message);
+    if (delErr)
+      console.error('[ai-lost-match] failed to reap dead tokens:', safeErrorDetails(delErr));
   }
 
   return sent > 0;
@@ -623,7 +581,7 @@ async function logUsage(caller: any, r: EmbedResult): Promise<void> {
     p_cost: estCost,
     p_latency: r.latencyMs,
   });
-  if (error) console.error('[ai-lost-match] log_ai_usage failed:', error.message);
+  if (error) console.error('[ai-lost-match] log_ai_usage failed:', safeErrorDetails(error));
 }
 
 /** Infer the photo media type from the URL extension (defaults to jpeg). */

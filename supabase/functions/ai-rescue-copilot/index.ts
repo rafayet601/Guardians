@@ -38,6 +38,7 @@
 //   supabase functions deploy ai-rescue-copilot
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... VOYAGE_API_KEY=pa-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, isAnthropicConfigured } from '../_shared/anthropic.ts';
@@ -178,7 +179,7 @@ Deno.serve(async (req: Request) => {
     p_max_per_hour: MAX_PER_HOUR,
   });
   if (rlErr) {
-    console.error('[ai-rescue-copilot] rate-limit check failed:', rlErr.message);
+    console.error('[ai-rescue-copilot] rate-limit check failed:', safeErrorDetails(rlErr));
     return json({ error: 'Could not verify rate limit' }, 500);
   }
   if (!allowed) {
@@ -204,10 +205,7 @@ Deno.serve(async (req: Request) => {
     queryEmbedding = embeddings[0];
     voyageTokens = usage.total_tokens;
   } catch (e) {
-    console.error(
-      '[ai-rescue-copilot] voyage query embed failed:',
-      e instanceof Error ? e.message : e,
-    );
+    console.error('[ai-rescue-copilot] voyage query embed failed:', safeErrorDetails(e));
     return json({ error: 'Could not embed the question.' }, 502);
   }
 
@@ -218,7 +216,7 @@ Deno.serve(async (req: Request) => {
     p_limit: RETRIEVE_LIMIT,
   });
   if (matchErr) {
-    console.error('[ai-rescue-copilot] match_kb_chunks failed:', matchErr.message);
+    console.error('[ai-rescue-copilot] match_kb_chunks failed:', safeErrorDetails(matchErr));
     return json({ error: 'Retrieval failed.' }, 502);
   }
   const chunks = (retrieved ?? []) as RetrievedChunk[];
@@ -238,7 +236,8 @@ Deno.serve(async (req: Request) => {
       p_cost: 0,
       p_latency: latencyMs,
     });
-    if (logErr) console.error('[ai-rescue-copilot] log_ai_usage (defer) failed:', logErr.message);
+    if (logErr)
+      console.error('[ai-rescue-copilot] log_ai_usage (defer) failed:', safeErrorDetails(logErr));
 
     const out: CopilotResponse = {
       answer: DEFERRAL_ANSWER,
@@ -282,7 +281,7 @@ Deno.serve(async (req: Request) => {
     claudeOutputTokens = result.usage.output_tokens;
     claudeModel = result.model;
   } catch (e) {
-    console.error('[ai-rescue-copilot] model call failed:', e instanceof Error ? e.message : e);
+    console.error('[ai-rescue-copilot] model call failed:', safeErrorDetails(e));
     return json({ error: 'AI copilot failed.' }, 502);
   }
   if (!answerText) {
@@ -316,7 +315,7 @@ Deno.serve(async (req: Request) => {
     p_cost: estCost,
     p_latency: latencyMs,
   });
-  if (logErr) console.error('[ai-rescue-copilot] log_ai_usage failed:', logErr.message);
+  if (logErr) console.error('[ai-rescue-copilot] log_ai_usage failed:', safeErrorDetails(logErr));
 
   const out: CopilotResponse = { answer: answerText, sources, has_match: true };
   return json(out);

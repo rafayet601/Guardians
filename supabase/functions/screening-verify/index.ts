@@ -16,6 +16,7 @@
 //   supabase functions deploy screening-verify
 //
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { corsHeaders, preflight, readJsonObject, RequestBodyError } from '../_shared/http.ts';
@@ -63,7 +64,7 @@ Deno.serve(async (req: Request) => {
     .eq('user_id', user.id)
     .maybeSingle();
   if (readErr) {
-    console.error('[screening-verify] read failed:', readErr.message);
+    console.error('[screening-verify] read failed:', safeErrorDetails(readErr));
     return json({ error: 'Could not load screening' }, 500);
   }
   if (!screening) return json({ error: 'Submit your background check first' }, 409);
@@ -78,7 +79,7 @@ Deno.serve(async (req: Request) => {
   // Once integrated, a provider branch must create a real session and return
   // its URL before bypassing the working manual-review path below.
   if (provider !== 'manual') {
-    console.warn(`[screening-verify] ${provider} is not integrated — manual fallback`);
+    console.warn('[screening-verify] selected provider is not integrated — manual fallback');
   }
 
   const { data: updated, error: updErr } = await admin
@@ -96,7 +97,7 @@ Deno.serve(async (req: Request) => {
     .eq('id_status', screening.id_status)
     .select('id');
   if (updErr) {
-    console.error('[screening-verify] manual stamp failed:', updErr.message);
+    console.error('[screening-verify] manual stamp failed:', safeErrorDetails(updErr));
     return json({ error: 'Could not start verification' }, 500);
   }
   if (!updated?.length) {

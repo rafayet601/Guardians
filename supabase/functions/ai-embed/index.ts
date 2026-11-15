@@ -42,6 +42,7 @@
 //   supabase functions deploy ai-embed
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... VOYAGE_API_KEY=pa-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import {
   corsHeaders,
   preflight,
@@ -152,7 +153,7 @@ Deno.serve(async (req: Request) => {
     p_max_per_hour: MAX_PER_HOUR,
   });
   if (rlErr) {
-    console.error('[ai-embed] rate-limit check failed:', rlErr.message);
+    console.error('[ai-embed] rate-limit check failed:', safeErrorDetails(rlErr));
     return json({ error: 'Could not verify rate limit' }, 500);
   }
   if (!allowed) {
@@ -201,7 +202,7 @@ Deno.serve(async (req: Request) => {
       p_cost: estCost,
       p_latency: Date.now() - startedAt,
     });
-    if (logErr) console.error('[ai-embed] log_ai_usage failed:', logErr.message);
+    if (logErr) console.error('[ai-embed] log_ai_usage failed:', safeErrorDetails(logErr));
   };
 
   if (hasText) {
@@ -211,7 +212,7 @@ Deno.serve(async (req: Request) => {
       embedding = embeddings[0];
       voyageTokens = usage.total_tokens;
     } catch (e) {
-      console.error('[ai-embed] voyage text call failed:', e instanceof Error ? e.message : e);
+      console.error('[ai-embed] voyage text call failed:', safeErrorDetails(e));
       return json({ error: 'Embedding failed.' }, 502);
     }
   } else {
@@ -242,7 +243,7 @@ Deno.serve(async (req: Request) => {
       claudeOutputTokens = captionResult.usage.output_tokens;
       claudeModel = captionResult.model;
     } catch (e) {
-      console.error('[ai-embed] caption call failed:', e instanceof Error ? e.message : e);
+      console.error('[ai-embed] caption call failed:', safeErrorDetails(e));
       return json({ error: 'Embedding failed.' }, 502);
     }
     if (!caption) {
@@ -254,10 +255,7 @@ Deno.serve(async (req: Request) => {
       embedding = embeddings[0];
       voyageTokens = usage.total_tokens;
     } catch (e) {
-      console.error(
-        '[ai-embed] voyage image-caption call failed:',
-        e instanceof Error ? e.message : e,
-      );
+      console.error('[ai-embed] voyage image-caption call failed:', safeErrorDetails(e));
       await logUsage(); // the caption call was already paid for
       return json({ error: 'Embedding failed.' }, 502);
     }

@@ -20,6 +20,7 @@
 //   supabase functions deploy ai-adoption-copy
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, isAnthropicConfigured } from '../_shared/anthropic.ts';
@@ -129,7 +130,7 @@ Deno.serve(async (req: Request) => {
     p_max_per_hour: MAX_PER_HOUR,
   });
   if (rlErr) {
-    console.error('[ai-adoption-copy] rate-limit check failed:', rlErr.message);
+    console.error('[ai-adoption-copy] rate-limit check failed:', safeErrorDetails(rlErr));
     return json({ error: 'Could not verify rate limit' }, 500);
   }
   if (!allowed) {
@@ -187,7 +188,7 @@ Deno.serve(async (req: Request) => {
       ],
     });
   } catch (e) {
-    console.error('[ai-adoption-copy] model call failed:', e instanceof Error ? e.message : e);
+    console.error('[ai-adoption-copy] model call failed:', safeErrorDetails(e));
     return json({ error: 'AI request failed. Please write the listing manually.' }, 502);
   }
   const latencyMs = Date.now() - startedAt;
@@ -209,7 +210,7 @@ Deno.serve(async (req: Request) => {
     p_cost: estCost,
     p_latency: latencyMs,
   });
-  if (logErr) console.error('[ai-adoption-copy] log_ai_usage failed:', logErr.message);
+  if (logErr) console.error('[ai-adoption-copy] log_ai_usage failed:', safeErrorDetails(logErr));
 
   return json({ draft });
 });

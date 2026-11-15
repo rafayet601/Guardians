@@ -6,6 +6,7 @@
 // powers the App Store / Play "in-app account deletion" requirement.
 //
 // Storage objects must be removed first: Auth refuses to delete their owner.
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { deleteUserUploads } from '../_shared/deleteUserUploads.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -34,12 +35,12 @@ Deno.serve(async (req: Request) => {
   try {
     await deleteUserUploads(admin, user.id);
   } catch (error) {
-    console.error('[delete-account] storage cleanup failed:', error);
+    console.error('[delete-account] storage cleanup failed:', safeErrorDetails(error));
     return json({ error: 'Unable to remove uploads. Please retry account deletion.' }, 500);
   }
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
-    console.error('[delete-account] failed:', error.message);
+    console.error('[delete-account] failed:', safeErrorDetails(error));
     return json({ error: 'Unable to delete account. Please retry.' }, 500);
   }
 

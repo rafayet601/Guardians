@@ -1,3 +1,4 @@
+import { ProviderError } from './diagnostics.ts';
 // Shared Anthropic (Claude) client for Guardians edge functions (Deno runtime).
 // -----------------------------------------------------------------------------
 // Dependency-free wrapper around the Anthropic Messages API using native fetch —
@@ -112,11 +113,14 @@ export async function callClaude<T = string>(args: CallClaudeArgs): Promise<Call
   });
 
   if (!resp.ok) {
-    const detail = await resp.text().catch(() => '');
-    throw new Error(`Anthropic API error ${resp.status}: ${detail}`);
+    // Provider error bodies may echo submitted text or credentials. Never log them.
+    await resp.body?.cancel();
+    throw new ProviderError('Anthropic', resp.status);
   }
 
-  const payload = (await resp.json()) as {
+  const payload = (await resp.json().catch(() => {
+    throw new Error('Anthropic response was not valid JSON.');
+  })) as {
     model?: string;
     content?: { type: string; text?: string }[];
     usage?: { input_tokens?: number; output_tokens?: number };
@@ -136,7 +140,13 @@ export async function callClaude<T = string>(args: CallClaudeArgs): Promise<Call
     output_tokens: payload.usage?.output_tokens ?? 0,
   };
 
-  const output = (args.jsonSchema ? (JSON.parse(text) as T) : (text as unknown as T)) as T;
+  let output: T;
+  try {
+    output = args.jsonSchema ? (JSON.parse(text) as T) : (text as unknown as T);
+  } catch {
+    // JSON parser diagnostics can include the provider's generated text.
+    throw new Error('Anthropic structured output was not valid JSON.');
+  }
 
   return { output, model: payload.model ?? model, usage };
 }
