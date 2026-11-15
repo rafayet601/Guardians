@@ -117,3 +117,7 @@ jobs:
         run: >-
           python3 supabase/tests/check_rate_limit_concurrency.py
           --container supabase_db_tiqizsjxqfscwbhyvumk --database postgres
+      - name: Verify concurrent photo attachment cap
+        run: >-
+          python3 supabase/tests/check_photo_cap_concurrency.py
+          --container supabase_db_tiqizsjxqfscwbhyvumk --database postgres

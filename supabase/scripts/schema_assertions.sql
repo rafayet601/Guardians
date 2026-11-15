@@ -202,5 +202,55 @@ begin
     raise exception 'DRIFT: % rewards table(s) have overlapping permissive SELECT policies', v;
   end if;
 
-  raise notice 'schema_assertions: OK — all invariants hold.';
+  -- ── 10. Creation writes and quota reservations are server-owned (0039) ────
+  if has_table_privilege('authenticated', 'public.sightings', 'INSERT')
+     or has_table_privilege('authenticated', 'public.lost_cats', 'INSERT')
+     or has_column_privilege('authenticated', 'public.sighting_updates', 'created_at', 'INSERT')
+     or has_column_privilege('authenticated', 'public.sighting_photos', 'created_at', 'INSERT') then
+    raise exception 'DRIFT: direct creation can forge lifecycle/timestamps (apply migration 0039)';
+  end if;
+  if to_regprocedure('private.reserve_request(uuid,text,integer,interval)') is null
+     or to_regprocedure('public.validate_screening_document_paths()') is null then
+    raise exception 'DRIFT: atomic quotas or screening-document validation are absent (apply migration 0039)';
+  end if;
+  if pg_get_functiondef('public.check_ai_rate_limit(text,integer)'::regprocedure)
+       not like '%reserve_request%' then
+    raise exception 'DRIFT: AI quota does not reserve before provider calls (apply migration 0039)';
+  end if;
+  if not exists (select 1 from pg_trigger
+    where tgrelid = 'public.adopter_screenings'::regclass
+      and tgname = 'validate_screening_document_paths' and tgenabled <> 'D') then
+    raise exception 'DRIFT: screening documents lack validation trigger (apply migration 0039)';
+  end if;
+
+  -- ── 11. Storage API limits exist independently of app validation (0040) ───
+  select count(*) into v from storage.buckets
+  where id in ('avatars', 'cat-photos', 'screening-docs')
+    and file_size_limit > 0
+    and file_size_limit <= case when id = 'screening-docs' then 10485760 else 5242880 end
+    and allowed_mime_types is not null
+    and cardinality(allowed_mime_types) > 0
+    and allowed_mime_types <@ case when id = 'screening-docs'
+      then array['image/jpeg','image/png','image/webp','image/heic','image/heif']
+      else array['image/jpeg','image/png','image/webp'] end
+    and (id <> 'screening-docs' or not public);
+  if v <> 3 then
+    raise exception 'DRIFT: missing private storage/MIME/size upload bounds (apply migration 0040)';
+  end if;
+
+  -- ── 12. Child tables honor their parent visibility; photo cap locks (0041) ─
+  if to_regprocedure('public.can_access_sighting_content(uuid)') is null then
+    raise exception 'DRIFT: child-table parent visibility guard is absent (apply migration 0041)';
+  end if;
+  select count(*) into v from pg_policies
+  where schemaname = 'public' and tablename in ('sighting_photos','sighting_updates')
+    and cmd = 'SELECT' and qual like '%can_access_sighting_content%';
+  if v <> 2 then
+    raise exception 'DRIFT: child-table reads bypass hidden/blocked parents (apply migration 0041)';
+  end if;
+  if pg_get_functiondef('public.enforce_photo_cap()'::regprocedure) not like '%for update%' then
+    raise exception 'DRIFT: concurrent attachments can bypass the photo ceiling (apply migration 0041)';
+  end if;
+
+  raise notice 'schema_assertions: OK — all invariants hold through 0041.';
 end $$;

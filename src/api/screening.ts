@@ -124,6 +124,38 @@ export interface ScreeningLocalAsset {
   base64?: string | null;
 }
 
+/** Matches the screening-docs bucket limit; checked before allocating decoded data. */
+export const MAX_SCREENING_DOC_BYTES = 10 * 1024 * 1024;
+const SCREENING_IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+
+function screeningImageMime(bytes: Buffer): string | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
+    return 'image/jpeg';
+  if (
+    bytes.length >= 8 &&
+    [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, index) => bytes[index] === byte)
+  )
+    return 'image/png';
+  if (
+    bytes.length >= 12 &&
+    bytes.toString('ascii', 0, 4) === 'RIFF' &&
+    bytes.toString('ascii', 8, 12) === 'WEBP'
+  )
+    return 'image/webp';
+  if (bytes.length >= 12 && bytes.toString('ascii', 4, 8) === 'ftyp') {
+    const brand = bytes.toString('ascii', 8, 12);
+    if (['heic', 'heix', 'hevc', 'hevx'].includes(brand)) return 'image/heic';
+    if (['mif1', 'msf1'].includes(brand)) return 'image/heif';
+  }
+  return null;
+}
+
 /**
  * Upload an ID document image into the private `screening-docs` bucket under
  * "{uid}/..." and return its storage path for `id_doc_paths`. Private bucket:
@@ -136,9 +168,28 @@ export async function uploadScreeningDoc(
   if (!asset.base64) {
     throw new Error('Document is missing data — please pick the photo again.');
   }
+  if (asset.base64.length > Math.ceil(MAX_SCREENING_DOC_BYTES / 3) * 4)
+    throw new Error('Please choose an ID photo no larger than 10 MiB.');
+  const paddingAt = asset.base64.indexOf('=');
+  if (
+    asset.base64.length % 4 !== 0 ||
+    /[^A-Za-z0-9+/=]/.test(asset.base64) ||
+    (paddingAt >= 0 &&
+      (paddingAt < asset.base64.length - 2 || !/^={1,2}$/.test(asset.base64.slice(paddingAt))))
+  )
+    throw new Error('Document data could not be read — please pick the photo again.');
+  const declaredMime = asset.mimeType?.toLowerCase();
+  if (declaredMime && !Object.hasOwn(SCREENING_IMAGE_EXTENSIONS, declaredMime))
+    throw new Error('Please choose a JPEG, PNG, WebP, HEIC or HEIF ID photo.');
   const bytes = Buffer.from(asset.base64, 'base64');
-  const mime = asset.mimeType ?? 'image/jpeg';
-  const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+  if (!bytes.length || bytes.length > MAX_SCREENING_DOC_BYTES)
+    throw new Error('Please choose an ID photo no larger than 10 MiB.');
+  // SDK 57 ImagePicker can return JPEG base64 with the original HEIC MIME.
+  // Use the payload signature for its content type and filename, rather than
+  // uploading JPEG bytes as HEIC. This is a format check, not an image decoder.
+  const mime = screeningImageMime(bytes);
+  if (!mime) throw new Error('Document image could not be read — please pick the photo again.');
+  const ext = SCREENING_IMAGE_EXTENSIONS[mime];
   const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage
     .from('screening-docs')

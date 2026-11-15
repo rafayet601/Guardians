@@ -36,8 +36,11 @@ gamification engine that power Guardians.
 | `migrations/0036_read_path_privacy.sql`             | Blocks hide the blocked user's reports and comments; `nearby_sightings` measures against the coarsened point                                                 |
 | `migrations/0037_points_once_per_cat.sql`           | Claim and rescue points are paid once per person per cat                                                                                                     |
 | `migrations/0038_adoption_loop.sql`                 | Moderator background-check queue; lister decline; withdrawn requests cannot be approved; pushes for decisions and comments (deploy `send-push` first)        |
+| `migrations/0039_database_security.sql`             | RPC-only creation; atomic AI/request quotas; screening path validation and evidence replacement protection; hidden/blocked detail and claim guards           |
+| `migrations/0040_storage_upload_bounds.sql`         | Storage API upload size and declared MIME restrictions, including private ID photos                                                                          |
+| `migrations/0041_child_content_visibility.sql`      | Parent visibility on raw photo/comment reads and inserts; serialize the twelve-photo attachment limit                                                        |
 | `seed.sql`                                          | Optional demo sightings                                                                                                                                      |
-| `tests/`                                            | pgTAP behavioral test suites (14 files, 208 tests)                                                                                                           |
+| `tests/`                                            | pgTAP behavioral test suites; counts in older release documents are historical                                                                               |
 | `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                                                  |
 
 ## Option A — hosted Supabase (fastest)
@@ -45,7 +48,7 @@ gamification engine that power Guardians.
 1. Create a project at <https://app.supabase.com>.
 2. For a **new, empty database**, open **SQL Editor** and run every file in
    `migrations/` **in filename order**, currently through
-   `0038_adoption_loop.sql`. Include suffixed migrations such as
+   `0041_child_content_visibility.sql`. Include suffixed migrations such as
    `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
    For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
    do not replay the full migration set.
@@ -129,6 +132,11 @@ migrations and reconcile their history as documented in that runbook.
   (enforced with column-level `GRANT`s). Redemptions and the wallet ledger are
   owner-read-only and written exclusively by `redeem_reward()` / `award_points()`.
 - Storage uploads are restricted to a per-user folder (`{uid}/...`).
+- Migration 0040 limits each new avatar/cat-photo object to 5 MiB and each ID
+  photo to 10 MiB. Avatars/cat photos allow declared JPEG/PNG/WebP; ID photos
+  also allow HEIC/HEIF for original iOS camera files. These are Storage API
+  limits; MIME declarations are not content verification or moderation. Existing
+  objects are preserved. Monitor total usage separately to prevent cost abuse.
 
 ## Edge functions
 
@@ -139,10 +147,10 @@ migrations and reconcile their history as documented in that runbook.
 
 ## Testing
 
-Behavioral DB tests live in `supabase/tests/` — 9 pgTAP suites (114 tests):
-`location_privacy_test`, `write_guards_test`, `redeem_guard_test`,
-`lifecycle_test`, `ai_moderation_test`, `rag_kb_test`, `lost_cat_test`,
-`reid_test`, `push_ranking_test`.
+Behavioral DB tests live in `supabase/tests/`. Run all current SQL suites;
+historical file/test counts are not current verification. Suites cover anonymous
+and multiple-user grants/RLS, screening evidence, account erasure, location and
+block privacy, lifecycle/points, quotas, rewards, and upload configuration.
 
 Run locally:
 
@@ -151,6 +159,43 @@ supabase db test
 ```
 
 A drift-detection script lives at `scripts/schema_assertions.sql` (psql, not pgTAP).
+It asserts protections through migrations 0039–0041 as well as earlier
+invariants. Bucket metadata assertions do not exercise the Storage HTTP API:
+use synthetic staging uploads to verify MIME/size rejection and valid image
+uploads before deploying these limits.
+
+After pgTAP, run `tests/check_rate_limit_concurrency.py` and
+`tests/check_photo_cap_concurrency.py` against an explicitly named isolated local
+database/container. They create and remove synthetic fixtures to verify atomic
+quotas and the twelve-photo cap under simultaneous requests. They never accept a
+hosted connection URL. Hidden/blocked parent rules also apply to raw photo and
+comment reads and inserts; reporter, assigned Guardian and moderator access to
+hidden parents is preserved. Previously known public image URLs remain public.
+
+### Push delivery evidence and limitations
+
+`send-push` requires the webhook secret before service-role access. Both lifecycle
+and optional lost-cat notifications honor account ownership, `push_enabled`, and
+`urgent_opt_in`. The shared transport bounds batches to 100 messages, times out
+requests after 10 seconds, and retries network/HTTP 429/5xx failures at most three
+times with backoff. HTTP 400 is not retried. Missing/malformed tickets count as
+failures, and raw provider bodies/ticket text are excluded from diagnostics
+because they may contain tokens or personal text. AI provider errors likewise
+log status only.
+
+`sent` counts messages accepted by Expo with a ticket ID. It does not prove
+APNs/FCM or device delivery. This backend currently has no persistent notification
+outbox, receipt collector, or webhook event ID. Repeated trusted webhooks send
+again; ambiguous network retries can duplicate delivery. pg_net's response is
+discarded by the existing triggers, so failures after the bounded retries are
+not durably replayed. These limitations are explicitly regression tested.
+Do not promise exactly-once delivery or guaranteed rescue alerts.
+
+Before rollout, verify real opt-in/out and device delivery using synthetic
+accounts, inspect Expo receipts and credential errors, and establish alert
+ownership. Receipt collection/durable replay requires a staging-tested design
+with event identities and retention/erasure rules. See
+[Expo delivery and receipt guidance](https://docs.expo.dev/push-notifications/sending-notifications/).
 
 ## Reconciling the September branch migrations
 
