@@ -73,7 +73,8 @@ function RootNavigator() {
     const root = segments[0];
 
     // Legal pages must remain public, including before backend setup.
-    if (root === 'privacy' || root === 'terms') return;
+    if (root === 'privacy' || root === 'terms' || root === 'support' || root === 'delete-account')
+      return;
 
     // Backend not set up yet → force the setup screen.
     if (!env.isConfigured) {
@@ -236,6 +237,18 @@ function RootNavigator() {
         <Stack.Screen
           name="privacy"
           options={{ headerShown: true, title: 'Privacy Policy', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="support"
+          options={{ headerShown: true, title: 'Support', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="delete-account"
+          options={{
+            headerShown: true,
+            title: 'Account deletion',
+            headerTintColor: colors.primary,
+          }}
         />
         <Stack.Screen
           name="terms"

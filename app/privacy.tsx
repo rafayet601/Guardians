@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { colors, spacing } from '@/theme';
+import { supportEmail } from '@/constants/support';
 
 export default function PrivacyScreen() {
   return (
@@ -138,7 +139,8 @@ export default function PrivacyScreen() {
         Contact
       </Text>
       <Text variant="body" style={styles.para}>
-        Questions about this policy or deletion: use the support contact on our store listing.
+        Questions about this policy or deletion: email {supportEmail}. Account deletion instructions
+        are available at /delete-account without signing in.
       </Text>
       {env.supportUrl ? (
         <Text

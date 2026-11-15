@@ -56,3 +56,6 @@ google-services-key.json
 # Browser test artifacts
 /test-results/
 /playwright-report/
+
+# Public support/legal hosting export
+/dist-public/

@@ -1,6 +1,6 @@
 # Guardians — Privacy Policy
 
-_Last updated: 2026-09-20_
+_Last updated: 2026-10-05_
 
 Guardians ("we", "us", the "app") helps a community rescue feral and lost cats by
 letting people report sightings on a map, claim and complete rescues, and place
@@ -80,5 +80,5 @@ account, authored records are removed from active systems (see above). Backups a
 
 ## Contact
 
-Questions about this policy: reach us through the support contact listed on our
-store listing.
+Questions, support, and deletion requests: **rafayetq@gmail.com**. See
+[account deletion instructions](/delete-account); no sign-in is required.

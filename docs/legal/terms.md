@@ -79,4 +79,4 @@ no sooner than 7 days after posting. Continued use means acceptance.
 
 ## 10. Contact
 
-**rafayetquader@gmail.com**
+**rafayetq@gmail.com**

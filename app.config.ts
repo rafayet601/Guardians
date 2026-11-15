@@ -60,8 +60,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         'Guardians uses your location to show nearby cat sightings and to tag where you spotted a cat.',
-      NSLocationAlwaysAndWhenInUseUsageDescription:
-        'Guardians uses your location to alert nearby guardians about cats that need rescue.',
       NSCameraUsageDescription:
         'Guardians needs your camera so you can photograph a cat you have spotted.',
       NSPhotoLibraryUsageDescription:
@@ -90,6 +88,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.RECORD_AUDIO',
       'android.permission.READ_MEDIA_IMAGES',
       'android.permission.READ_MEDIA_VIDEO',
+      'android.permission.READ_EXTERNAL_STORAGE',
     ],
   },
   web: {
@@ -117,8 +116,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-location',
       {
-        locationAlwaysAndWhenInUsePermission:
-          'Guardians uses your location to surface cat sightings near you.',
+        locationWhenInUsePermission:
+          'Guardians uses your location to show nearby cat sightings and to tag where you spotted a cat.',
+        locationAlwaysAndWhenInUsePermission: false,
+        locationAlwaysPermission: false,
+        motionUsagePermission: false,
       },
     ],
     [

@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { colors, spacing } from '@/theme';
+import { supportEmail } from '@/constants/support';
 
 export default function TermsScreen() {
   return (
@@ -118,7 +119,7 @@ export default function TermsScreen() {
         10. Contact
       </Text>
       <Text variant="body" style={styles.para}>
-        rafayetquader@gmail.com
+        {supportEmail}
       </Text>
     </ScrollView>
   );
