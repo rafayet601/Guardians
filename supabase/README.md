@@ -39,6 +39,7 @@ gamification engine that power Guardians.
 | `migrations/0039_database_security.sql`             | RPC-only creation; atomic AI/request quotas; screening path validation and evidence replacement protection; hidden/blocked detail and claim guards           |
 | `migrations/0040_storage_upload_bounds.sql`         | Storage API upload size and declared MIME restrictions, including private ID photos                                                                          |
 | `migrations/0041_child_content_visibility.sql`      | Parent visibility on raw photo/comment reads and inserts; serialize the twelve-photo attachment limit                                                        |
+| `migrations/0042_claim_lease_escalation.sql`        | Scheduled jobs (pg_cron) with a run log; claims become leases the server releases; unclaimed urgent reports escalate at 20 and 60 minutes                    |
 | `seed.sql`                                          | Optional demo sightings                                                                                                                                      |
 | `tests/`                                            | pgTAP behavioral test suites; counts in older release documents are historical                                                                               |
 | `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                                                  |
@@ -48,7 +49,7 @@ gamification engine that power Guardians.
 1. Create a project at <https://app.supabase.com>.
 2. For a **new, empty database**, open **SQL Editor** and run every file in
    `migrations/` **in filename order**, currently through
-   `0041_child_content_visibility.sql`. Include suffixed migrations such as
+   `0042_claim_lease_escalation.sql`. Include suffixed migrations such as
    `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
    For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
    do not replay the full migration set.
@@ -159,7 +160,7 @@ supabase db test
 ```
 
 A drift-detection script lives at `scripts/schema_assertions.sql` (psql, not pgTAP).
-It asserts protections through migrations 0039–0041 as well as earlier
+It asserts protections through migrations 0039–0042 as well as earlier
 invariants. Bucket metadata assertions do not exercise the Storage HTTP API:
 use synthetic staging uploads to verify MIME/size rejection and valid image
 uploads before deploying these limits.
@@ -211,3 +212,32 @@ If screening was recorded as `0032`, apply only missing migrations. Do not blind
 run `db push` against the timestamped production history or replay push isolation:
 it intentionally disables legacy push registrations. These repository changes do
 not alter any hosted database or deploy Edge Functions.
+
+## Scheduled jobs, claim leases and urgent escalation (0042)
+
+Migration 0042 turns on `pg_cron` and registers three jobs. Each runs through
+`private.run_job`, which writes one row to `private.job_runs` per run, rolls
+the job's own writes back if it throws, and pushes `ops_job_failed` to
+moderators when a job that was healthy starts failing. Moderators can read a
+summary through the `get_job_health()` RPC.
+
+| Job                           | Schedule        | What it does                                                                                                                                        |
+| ----------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guardians-claim-leases`      | every 5 minutes | Warns a Guardian 6 hours before their claim lapses, and returns a lapsed claim to `spotted`, telling the former Guardian and the reporter           |
+| `guardians-urgent-escalation` | every minute    | For an unclaimed urgent report: alerts a wider ring at 20 minutes, and tells moderators and the reporter at 60 minutes. One step per report per run |
+| `guardians-prune-job-runs`    | daily           | Deletes run-log rows older than 14 days                                                                                                             |
+
+A claim lasts 24 hours, or 72 hours once the cat is `in_rescue`. A comment or
+photo from the assigned Guardian renews it, and `extend_claim` restores a full
+lease inside the 6-hour warning window. Once a cat is `safe` there is no lease.
+The numbers live in `claim_lease()` and `claim_warning_lead()`.
+
+Applying 0042 does not send anything by itself: existing claims start a full
+fresh lease, and only reports opened in the last 24 hours are ever escalated.
+Deploy `send-push` first, so the new events and the wider-ring broadcast
+(`escalation_step: 2`) are understood; the previous version would treat a ring
+request as a second base-radius alert.
+
+Tests: `tests/claim_lease_escalation_test.sql` (pgTAP, time moved through each
+job's `p_now` argument) and `tests/check_claim_expiry_concurrency.py`, which
+races the expiry job against a Guardian's renewal on a local database.

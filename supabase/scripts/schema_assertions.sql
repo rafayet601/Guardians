@@ -252,5 +252,47 @@ begin
     raise exception 'DRIFT: concurrent attachments can bypass the photo ceiling (apply migration 0041)';
   end if;
 
-  raise notice 'schema_assertions: OK — all invariants hold through 0041.';
+  -- ── 13. Claims are leases the server enforces; urgent reports escalate (0042) ─
+  if to_regprocedure('private.expire_stale_claims(timestamptz)') is null
+     or to_regprocedure('private.escalate_unclaimed_urgent(timestamptz)') is null
+     or to_regprocedure('private.run_job(text)') is null then
+    raise exception 'DRIFT: claim-lease or escalation jobs are absent (apply migration 0042)';
+  end if;
+  select count(*) into v from pg_trigger
+  where not tgisinternal and tgenabled <> 'D'
+    and (tgrelid, tgname) in (
+      ('public.sightings'::regclass, 'sightings_claim_lease'),
+      ('public.sighting_updates'::regclass, 'sighting_updates_renew_claim'),
+      ('public.sighting_photos'::regclass, 'sighting_photos_renew_claim'));
+  if v <> 3 then
+    raise exception 'DRIFT: lease triggers are missing or disabled (apply migration 0042)';
+  end if;
+  -- Bookkeeping columns must not count as activity on the case.
+  select count(*) into v from pg_trigger
+  where tgrelid = 'public.sightings'::regclass and tgname = 'sightings_set_updated_at'
+    and tgenabled <> 'D' and tgfoid = 'public.set_sighting_updated_at()'::regprocedure;
+  if v <> 1 then
+    raise exception 'DRIFT: sightings_set_updated_at is missing, disabled or not lease-aware (0042)';
+  end if;
+  select count(*) into v from cron.job
+  where active and jobname in ('guardians-claim-leases', 'guardians-urgent-escalation',
+                               'guardians-prune-job-runs');
+  if v <> 3 then
+    raise exception 'DRIFT: scheduled jobs are not registered or not active (apply migration 0042)';
+  end if;
+  if has_column_privilege('authenticated','public.sightings','claim_expires_at','UPDATE')
+     or has_column_privilege('authenticated','public.sightings','escalation_step','UPDATE')
+     or has_function_privilege('authenticated','private.run_job(text)','EXECUTE')
+     or has_function_privilege('authenticated',
+          'public.tokens_in_ring(double precision, double precision, integer, integer, uuid)','EXECUTE') then
+    raise exception 'DRIFT: a client can write the lease, run a job or list devices (0042)';
+  end if;
+  -- A claim without a lease would never lapse.
+  select count(*) into v from public.sightings
+  where claimed_by is not null and status in ('claimed','in_rescue') and claim_expires_at is null;
+  if v <> 0 then
+    raise exception 'DRIFT: % active claim(s) have no lease (0042)', v;
+  end if;
+
+  raise notice 'schema_assertions: OK — all invariants hold through 0042.';
 end $$;
