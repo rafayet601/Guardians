@@ -16,11 +16,12 @@
 //     PUSH_WEBHOOK_SECRET=<random string matching private.push_config>
 //   (SUPABASE_URL is provided automatically.)
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight, readJsonObject, RequestBodyError } from '../_shared/http.ts';
 import { hasWebhookSecret } from '../_shared/webhook.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+import { optedInPushTokens, sendExpoPush } from '../_shared/expoPush.ts';
 const RADIUS_M = 8000;
 
 type PushType = 'urgent_sighting' | 'sighting_claimed' | 'rescue_completed' | 'adoption_interest';
@@ -151,7 +152,7 @@ async function urgentGeoFanout(admin: any, s: SightingRow): Promise<Response> {
     p_exclude_user: s.reporter_id,
   });
   if (tErr) {
-    console.error('[send-push] tokens_near failed:', tErr.message);
+    console.error('[send-push] tokens_near failed:', safeErrorDetails(tErr));
     return json({ error: 'Unable to load push recipients' }, 500);
   }
 
@@ -250,7 +251,7 @@ async function eventPush(
       .eq('user_id', recipientId)
       .maybeSingle();
     if (error) {
-      console.error('[send-push] load screening failed:', error.message);
+      console.error('[send-push] load screening failed:', safeErrorDetails(error));
       return json({ error: 'Could not load screening' }, 500);
     }
     if (row?.status === 'approved') {
@@ -280,12 +281,16 @@ async function eventPush(
 
     if (event === 'adoption_approved') {
       title = '🏠 Your adoption was approved!';
-      message = `${name ? cat : 'Your cat'} is going home with you. Open Guardians to arrange the handover.`;
+      message = `${
+        name ? cat : 'Your cat'
+      } is going home with you. Open Guardians to arrange the handover.`;
     } else if (event === 'adoption_declined') {
       title = 'Update on your adoption request';
       message =
         s.status === 'adopted'
-          ? `${name ? cat : 'The cat'} found a home with another family. Other cats are still waiting.`
+          ? `${
+              name ? cat : 'The cat'
+            } found a home with another family. Other cats are still waiting.`
           : `Your request for ${cat} was not accepted this time.`;
     } else {
       // new_comment — never the comment text: it may be hidden by moderation.
@@ -322,79 +327,11 @@ async function eventPush(
  * the lookup failed.
  */
 async function recipientTokens(admin: any, recipientId: string): Promise<string[] | null> {
-  const { data: tokenRows, error } = await admin
-    .from('device_push_tokens')
-    .select('token')
-    .eq('user_id', recipientId)
-    .eq('push_enabled', true)
-    .eq('urgent_opt_in', true);
-  if (error) {
-    console.error('[send-push] load recipient tokens failed:', error.message);
-    return null;
-  }
-  return (tokenRows ?? []).map((r: { token: string }) => r.token);
+  return await optedInPushTokens(admin, recipientId);
 }
 
-// ── Shared Expo delivery (used by BOTH send paths) ────────────────────────────
-
-/**
- * POST messages to Expo in chunks of 100. Logs non-OK Expo responses, inspects
- * per-message tickets, and collects DeviceNotRegistered tokens for reaping.
- */
-async function sendToExpo(
-  messages: ExpoMessage[],
-): Promise<{ sent: number; failed: number; deadTokens: string[] }> {
-  let sent = 0;
-  let failed = 0;
-  const deadTokens: string[] = [];
-
-  for (let i = 0; i < messages.length; i += 100) {
-    const chunk = messages.slice(i, i + 100);
-
-    let resp: Response;
-    try {
-      resp = await fetch(EXPO_PUSH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(chunk),
-      });
-    } catch (e) {
-      failed += chunk.length;
-      console.error('[send-push] Expo request threw:', e);
-      continue;
-    }
-
-    if (!resp.ok) {
-      failed += chunk.length;
-      console.error('[send-push] Expo responded', resp.status, await resp.text().catch(() => ''));
-      continue;
-    }
-
-    // Inspect per-message tickets: count failures and collect tokens Expo
-    // reports as DeviceNotRegistered so we can prune them.
-    const payload = (await resp.json().catch(() => null)) as {
-      data?: { status: string; message?: string; details?: { error?: string } }[];
-    } | null;
-    const tickets = payload?.data ?? [];
-    if (tickets.length === 0) {
-      sent += chunk.length; // no ticket detail (older response shape)
-      continue;
-    }
-    tickets.forEach((ticket, j) => {
-      if (ticket.status === 'ok') {
-        sent += 1;
-        return;
-      }
-      failed += 1;
-      console.error('[send-push] ticket error:', ticket.message ?? ticket.details?.error);
-      if (ticket.details?.error === 'DeviceNotRegistered' && chunk[j]) {
-        deadTokens.push(chunk[j].to);
-      }
-    });
-  }
-
-  return { sent, failed, deadTokens };
-}
+// `sent` counts Expo ticket acceptance; device delivery requires receipt checks.
+const sendToExpo = sendExpoPush;
 
 /**
  * Reap dead tokens so device_push_tokens doesn't accumulate cruft and degrade
@@ -404,7 +341,7 @@ async function reapDeadTokens(admin: any, deadTokens: string[]): Promise<number>
   if (deadTokens.length === 0) return 0;
   const { error: delErr } = await admin.from('device_push_tokens').delete().in('token', deadTokens);
   if (delErr) {
-    console.error('[send-push] failed to reap dead tokens:', delErr.message);
+    console.error('[send-push] failed to reap dead tokens:', safeErrorDetails(delErr));
     return 0;
   }
   return deadTokens.length;

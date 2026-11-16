@@ -15,7 +15,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: `npx expo start --web --port ${port} --max-workers 2`,
+    command: `npx expo start --web --clear --port ${port} --max-workers 2`,
     url: `http://127.0.0.1:${port}`,
     timeout: 180_000,
     reuseExistingServer: false,

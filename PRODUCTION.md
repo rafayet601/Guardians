@@ -1,5 +1,9 @@
 # Production release
 
+For the complete evidence-based release workflow, use
+[the deployment prompt](docs/release/SECURE_DEPLOY_PROMPT.md). Missing owner contact,
+cloud credentials, or physical-device evidence must remain explicit release blockers.
+
 The app uses Expo SDK 57 / React Native 0.86.3. See
 [the verified review](PRODUCTION_REVIEW.md) for the changes and test evidence.
 
@@ -17,6 +21,10 @@ against the timestamped production migration history.
    key/Sentry configuration. Never put a service-role or AI key in a public var.
 3. Run `npm run release:check -- android` (or `ios` / `web`) with that environment.
    The same checks run automatically for the EAS production build profile.
+   For production web exports use `npm run build:web:production`; it enforces the
+   web configuration check and clears Metro's cache. `npm run build:web` is a
+   general export and does not certify production configuration. Validate the
+   emitted bundle and live deployment against the intended backend.
 4. Apply migrations through `0038_adoption_loop.sql` to staging, then production
    after validating them. Redeploy the Edge Functions. Existing push registrations
    are disabled by 0034 until users explicitly opt in again using the updated app.

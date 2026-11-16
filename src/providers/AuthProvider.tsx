@@ -3,9 +3,9 @@ import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { createAccountCacheBoundary } from '@/lib/accountCache';
+import { captureAccountCacheGuard, createAccountCacheBoundary } from '@/lib/accountCache';
 import { setPushAccount, unregisterForPush } from '@/lib/push';
-import { track } from '@/lib/observability';
+import { captureError, track } from '@/lib/observability';
 import { supabase } from '@/lib/supabase';
 
 interface SignUpParams {
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         publishSession(data.session);
       })
       .catch((err) => {
-        console.error('Failed to resolve session on mount:', err);
+        captureError(err, { source: 'auth-initialization' });
       })
       .finally(() => {
         if (active) setInitializing(false);
@@ -68,8 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queryClient]);
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
+  const value = useMemo<AuthContextValue>(() => {
+    // A confirmation dialog can retain this context's action after an account
+    // changes. Reject that stale action before touching the current session.
+    const isCurrentSession = captureAccountCacheGuard(queryClient);
+    return {
       session,
       user: session?.user ?? null,
       initializing,
@@ -93,7 +96,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { needsConfirmation: !data.session };
       },
       async signOut() {
+        if (!isCurrentSession())
+          throw new Error('Your account changed. Please try signing out again.');
+        const isCurrentAccount = captureAccountCacheGuard(queryClient);
         if (session?.user.id) await unregisterForPush(session.user.id);
+        if (!isCurrentAccount())
+          throw new Error('Your account changed. Please try signing out again.');
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
       },
@@ -118,14 +126,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async deleteAccount() {
         // Permanently deletes the auth user (cascades all data) via the
         // `delete-account` Edge Function, then clears the local session.
+        if (!isCurrentSession())
+          throw new Error('Your account changed. Please review the account before deleting it.');
+        if (!session?.access_token) throw new Error('Not authenticated');
+        const isCurrentAccount = captureAccountCacheGuard(queryClient);
         if (session?.user.id) await unregisterForPush(session.user.id);
-        const { error } = await supabase.functions.invoke('delete-account');
+        if (!isCurrentAccount())
+          throw new Error('Your account changed. Please review the account before deleting it.');
+        // Bind erasure to the account that authorized it. The shared client's
+        // asynchronous token lookup must not substitute a newer account token.
+        const { error } = await supabase.functions.invoke('delete-account', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
         if (error) throw error;
-        await supabase.auth.signOut();
+        // Deleting the old account must never sign out a newer account that
+        // became active while the authenticated deletion request was in flight.
+        if (!isCurrentAccount()) return;
+        try {
+          const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+          if (signOutError) throw signOutError;
+        } catch {
+          throw new Error(
+            'Your account was deleted, but this device could not clear its session. Reconnect and sign out to finish clearing this device.',
+          );
+        }
       },
-    }),
-    [session, initializing],
-  );
+    };
+  }, [session, initializing, queryClient]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

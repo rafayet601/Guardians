@@ -3,7 +3,7 @@ const configured = {
   EAS_PROJECT_ID: '11111111-1111-4111-8111-111111111111',
   EXPO_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
   EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_test_only',
-  EXPO_PUBLIC_SUPPORT_URL: 'https://guardians.test/support',
+  EXPO_PUBLIC_SUPPORT_URL: 'https://guardians.org/support',
   EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY: 'maps-key',
 };
 test('production configuration rejects placeholders and missing business contact', () => {
@@ -82,6 +82,21 @@ test('web release export stops before Metro when production settings are missing
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+test('release configuration rejects nonproduction URLs and incomplete diagnostics', () => {
+  for (const url of [
+    'http://guardians.org',
+    'https://localhost',
+    'https://guardians.test',
+    'https://user:password@guardians.org',
+  ]) {
+    expect(releaseErrors({ ...configured, EXPO_PUBLIC_SUPPORT_URL: url }, 'ios')).not.toEqual([]);
+  }
+  expect(releaseErrors(configured, 'unknown')).not.toEqual([]);
+  expect(
+    releaseErrors({ ...configured, EXPO_PUBLIC_SENTRY_DSN: 'https://sentry.io/dsn' }, 'ios'),
+  ).not.toEqual([]);
+  expect(releaseErrors(configured, 'ios')).toEqual([]);
 });
 test('the patched query-string dependency decodes malformed inputs safely', () => {
   const qs = require('query-string');

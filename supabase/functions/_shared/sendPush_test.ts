@@ -26,10 +26,12 @@ Deno.test(
       globalThis.fetch = (input, init) => {
         privilegedCalls++;
         const request = new Request(input, init);
-        assertEquals(request.headers.get('Authorization'), 'Bearer service-test-key');
         const path = new URL(request.url).pathname;
         let body: unknown;
-        if (path === '/rest/v1/sightings') {
+        if (new URL(request.url).hostname === 'exp.host') {
+          body = { data: [{ status: 'ok', id: 'synthetic-ticket' }] };
+        } else if (path === '/rest/v1/sightings') {
+          assertEquals(request.headers.get('Authorization'), 'Bearer service-test-key');
           body = {
             id: 'sighting',
             reporter_id: 'reporter',
@@ -38,7 +40,7 @@ Deno.test(
             lng: 1,
           };
         } else if (path === '/rest/v1/rpc/tokens_near') {
-          body = [];
+          body = [{ token: 'ExpoPushToken[synthetic]' }];
         } else {
           throw new Error(`Unexpected request: ${request.method} ${path}`);
         }
@@ -71,15 +73,23 @@ Deno.test(
         {} as Deno.ServeHandlerInfo,
       );
       assertEquals(accepted.status, 200);
-      assertEquals(await accepted.json(), { sent: 0 });
-      assertEquals(privilegedCalls, 2);
+      assertEquals(await accepted.json(), { sent: 1, failed: 0, reaped: 0 });
+      assertEquals(privilegedCalls, 3);
+      // Current DB webhooks have no immutable event ID/outbox. Repeated trusted
+      // delivery sends again: this explicitly guards against claiming dedupe.
+      const repeated = await handler(
+        request({ 'x-push-webhook-secret': env.PUSH_WEBHOOK_SECRET }),
+        {} as Deno.ServeHandlerInfo,
+      );
+      assertEquals(await repeated.json(), { sent: 1, failed: 0, reaped: 0 });
+      assertEquals(privilegedCalls, 6);
       env.PUSH_WEBHOOK_SECRET = '';
       const unconfigured = await handler(
         request({ 'x-push-webhook-secret': '' }),
         {} as Deno.ServeHandlerInfo,
       );
       assertEquals(unconfigured.status, 401);
-      assertEquals(privilegedCalls, 2);
+      assertEquals(privilegedCalls, 6);
     } finally {
       Deno.serve = originalServe;
       Deno.env.get = originalEnvGet;

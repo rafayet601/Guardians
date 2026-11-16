@@ -29,6 +29,7 @@
 //   supabase functions deploy ai-kb-ingest
 //   supabase secrets set VOYAGE_API_KEY=pa-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
@@ -123,7 +124,7 @@ Deno.serve(async (req: Request) => {
   // evaluates the caller's profile row, so this runs as the caller.
   const { data: isMod, error: modErr } = await caller.rpc('is_moderator');
   if (modErr) {
-    console.error('[ai-kb-ingest] is_moderator check failed:', modErr.message);
+    console.error('[ai-kb-ingest] is_moderator check failed:', safeErrorDetails(modErr));
     return json({ error: 'Could not verify moderator status' }, 500);
   }
   if (!isMod) return json({ error: 'Moderators only' }, 403);
@@ -138,7 +139,7 @@ Deno.serve(async (req: Request) => {
     p_max_per_hour: MAX_PER_HOUR,
   });
   if (rlErr) {
-    console.error('[ai-kb-ingest] rate-limit check failed:', rlErr.message);
+    console.error('[ai-kb-ingest] rate-limit check failed:', safeErrorDetails(rlErr));
     return json({ error: 'Could not verify rate limit' }, 500);
   }
   if (!allowed) {
@@ -168,7 +169,7 @@ Deno.serve(async (req: Request) => {
       p_cost: voyageTokens * VOYAGE_USD_PER_TOKEN,
       p_latency: Date.now() - startedAt,
     });
-    if (logErr) console.error('[ai-kb-ingest] log_ai_usage failed:', logErr.message);
+    if (logErr) console.error('[ai-kb-ingest] log_ai_usage failed:', safeErrorDetails(logErr));
   };
 
   // ── 1. Find documents without any chunks yet and chunk them ──────────────
@@ -182,7 +183,7 @@ Deno.serve(async (req: Request) => {
       .range(from, to),
   );
   if (unchunkedErr) {
-    console.error('[ai-kb-ingest] kb_documents read failed:', unchunkedErr);
+    console.error('[ai-kb-ingest] kb_documents read failed:', safeErrorDetails(unchunkedErr));
     return json({ error: 'Could not read KB documents' }, 500);
   }
 
@@ -196,7 +197,7 @@ Deno.serve(async (req: Request) => {
         .range(from, to),
   );
   if (chunkCountErr) {
-    console.error('[ai-kb-ingest] kb_chunks read failed:', chunkCountErr);
+    console.error('[ai-kb-ingest] kb_chunks read failed:', safeErrorDetails(chunkCountErr));
     return json({ error: 'Could not read KB chunks' }, 500);
   }
   const chunkedDocIds = new Set(chunkCounts.map((r) => r.document_id));
@@ -218,7 +219,7 @@ Deno.serve(async (req: Request) => {
       .from('kb_chunks')
       .upsert(rows, { onConflict: 'document_id,chunk_index', ignoreDuplicates: true });
     if (insertErr) {
-      console.error('[ai-kb-ingest] kb_chunks insert failed:', insertErr.message);
+      console.error('[ai-kb-ingest] kb_chunks insert failed:', safeErrorDetails(insertErr));
       return json({ error: 'Could not insert KB chunks' }, 500);
     }
   }
@@ -236,7 +237,7 @@ Deno.serve(async (req: Request) => {
       .range(from, to),
   );
   if (allChunksErr) {
-    console.error('[ai-kb-ingest] kb_chunks read failed:', allChunksErr);
+    console.error('[ai-kb-ingest] kb_chunks read failed:', safeErrorDetails(allChunksErr));
     return json({ error: 'Could not read KB chunks' }, 500);
   }
 
@@ -252,7 +253,7 @@ Deno.serve(async (req: Request) => {
         .range(from, to),
   );
   if (embErr) {
-    console.error('[ai-kb-ingest] embeddings read failed:', embErr);
+    console.error('[ai-kb-ingest] embeddings read failed:', safeErrorDetails(embErr));
     return json({ error: 'Could not read embeddings' }, 500);
   }
   const embeddedIds = new Set(existingEmbeddings.map((r) => r.owner_id));
@@ -270,7 +271,7 @@ Deno.serve(async (req: Request) => {
       embeddings = result.embeddings;
       usage = result.usage;
     } catch (e) {
-      console.error('[ai-kb-ingest] voyage call failed:', e instanceof Error ? e.message : e);
+      console.error('[ai-kb-ingest] voyage call failed:', safeErrorDetails(e));
       await logUsage(); // earlier batches were already paid for
       return json({ error: 'Embedding failed.' }, 502);
     }
@@ -293,7 +294,7 @@ Deno.serve(async (req: Request) => {
         p_embedding: vec,
       });
       if (storeErr) {
-        console.error('[ai-kb-ingest] store_embedding failed:', storeErr.message);
+        console.error('[ai-kb-ingest] store_embedding failed:', safeErrorDetails(storeErr));
         await logUsage(); // embeddings up to here were already paid for
         return json({ error: 'Could not store embedding' }, 500);
       }

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +24,7 @@ import {
   useRejectLostCatMatch,
 } from '@/hooks/useLostCat';
 import { useCurrentLocation } from '@/hooks/useLocation';
+import { captureAccountCacheGuard } from '@/lib/accountCache';
 import { choosePhotoSource, confirmAsync, notify, type PhotoSource } from '@/lib/dialog';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -47,6 +49,7 @@ const STATUS_META: Record<LostCatStatus, { label: string; icon: string; fg: stri
 export default function LostCatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
   if (!AI_FEATURES.lostCatReunion) {
     return (
@@ -72,7 +75,7 @@ export default function LostCatScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Header onBack={() => router.back()} />
-      <LostCatForm />
+      <LostCatForm key={user?.id ?? 'signed-out'} />
       <MyLostCats />
     </ScrollView>
   );
@@ -97,6 +100,7 @@ const kindForSource = (source: PhotoSource): PermissionKind =>
 
 function LostCatForm() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { coords, status, request } = useCurrentLocation();
   const createLostCat = useCreateLostCat();
   const reduced = useReducedMotion() ?? false;
@@ -247,11 +251,13 @@ function LostCatForm() {
   };
 
   const submit = async () => {
+    if (submitting) return;
     if (!photo?.base64) {
       notify('Photo required', 'Please add a photo of your cat so we can match sightings.');
       return;
     }
     if (!user) return;
+    const isCurrentAccount = captureAccountCacheGuard(queryClient);
     const where = place ?? coords;
     if (!where) {
       notify(
@@ -268,6 +274,7 @@ function LostCatForm() {
         fileName: photo.fileName,
         base64: photo.base64,
       });
+      if (!isCurrentAccount()) return;
       const lastSeenAt = lastSeenIso(lastSeen);
       const foldedDescription = [locationNotes.trim(), description.trim()]
         .filter(Boolean)
@@ -280,6 +287,7 @@ function LostCatForm() {
         title: title.trim() || undefined,
         description: foldedDescription || undefined,
       });
+      if (!isCurrentAccount()) return;
       notify(
         'Posted 🐾',
         "We'll watch every new sighting for a match and notify you the moment one looks like your cat.",
@@ -295,7 +303,7 @@ function LostCatForm() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
     } catch (e) {
-      notify('Could not post', getErrorMessage(e, 'Please try again.'));
+      if (isCurrentAccount()) notify('Could not post', getErrorMessage(e, 'Please try again.'));
     } finally {
       setSubmitting(false);
     }

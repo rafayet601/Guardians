@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { supportEmail } from '../src/constants/support';
 for (const path of ['privacy', 'terms']) {
   test(`${path} stays public on a mobile viewport`, async ({ page }) => {
     const errors: string[] = [];
@@ -92,3 +93,29 @@ test('signed-in map recovers from a failed nearby-sightings request', async ({ p
   expect(nearbyRequests).toBeGreaterThan(failedRequests);
   expect(errors).toEqual([]);
 });
+
+for (const path of ['support', 'delete-account']) {
+  test(`${path} remains public after a direct reload and provides verified deletion contact details`, async ({
+    page,
+  }) => {
+    await page.goto(`/${path}`);
+    const title = path === 'support' ? 'Guardians support' : 'Delete your Guardians account';
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/${path}$`));
+    await expect(
+      page.getByText(/We verify account ownership before deleting any account/),
+    ).toBeVisible();
+    const deletionLink = page.locator('a[href^="mailto:"]', {
+      hasText: 'Email an account deletion request',
+    });
+    await expect(deletionLink).toHaveAttribute('href', /^mailto:/);
+    const deletionContact = new URL((await deletionLink.getAttribute('href'))!);
+    expect(deletionContact.protocol).toBe('mailto:');
+    expect(deletionContact.pathname).toBe(supportEmail);
+    expect(deletionContact.searchParams.get('subject')).toBe('Guardians account deletion request');
+    await page.getByRole('link', { name: 'Privacy Policy', exact: true }).click();
+    await expect(page).toHaveURL(/\/privacy$/);
+  });
+}

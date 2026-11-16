@@ -20,6 +20,8 @@ function releaseErrors(env, platform) {
     !/YOUR-|placeholder|example\.com|release-test(?:\.supabase\.co|-public-anon-key)/i.test(
       env[key],
     );
+  if (platform && !['android', 'ios', 'web'].includes(platform))
+    errors.push('Release platform must be android, ios, or web.');
   for (const key of [
     'EXPO_PUBLIC_SUPABASE_URL',
     'EXPO_PUBLIC_SUPABASE_ANON_KEY',
@@ -32,7 +34,14 @@ function releaseErrors(env, platform) {
     if (real(key)) {
       try {
         const url = new URL(env[key]);
-        if (url.protocol !== 'https:' || url.username || url.password) throw new Error();
+        if (
+          url.protocol !== 'https:' ||
+          url.username ||
+          url.password ||
+          ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+          /\.(test|invalid|localhost)$/.test(url.hostname)
+        )
+          throw new Error();
       } catch {
         errors.push(`${key} must be an HTTPS URL without embedded credentials.`);
       }
@@ -43,6 +52,15 @@ function releaseErrors(env, platform) {
     !isPublicSupabaseKey(env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
   ) {
     errors.push('EXPO_PUBLIC_SUPABASE_ANON_KEY must be a publishable key or legacy anon JWT.');
+  }
+  const sentryConfigured = ['EXPO_PUBLIC_SENTRY_DSN', 'SENTRY_ORG', 'SENTRY_PROJECT'].some(
+    (key) => env[key],
+  );
+  if (sentryConfigured) {
+    for (const key of ['EXPO_PUBLIC_SENTRY_DSN', 'SENTRY_ORG', 'SENTRY_PROJECT'])
+      if (!real(key)) errors.push(`Set ${key} to complete production Sentry configuration.`);
+    if (env.EAS_BUILD_PROFILE === 'production' && platform !== 'web' && !real('SENTRY_AUTH_TOKEN'))
+      errors.push('Set SENTRY_AUTH_TOKEN for production native sourcemap upload.');
   }
   if (
     real('EAS_PROJECT_ID') &&

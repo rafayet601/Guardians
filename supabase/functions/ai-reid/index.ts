@@ -27,6 +27,7 @@
 //   supabase functions deploy ai-reid
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... VOYAGE_API_KEY=pa-...
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { corsHeaders, preflight } from '../_shared/http.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callClaude, imageBlock, isAnthropicConfigured } from '../_shared/anthropic.ts';
@@ -148,7 +149,7 @@ Deno.serve(async (req: Request) => {
   if (embeddingErr) {
     // A transient DB error must not read as "missing" — that would re-pay the
     // Claude+Voyage legs (and a rate-limit unit) for work already done.
-    console.error('[ai-reid] get_embedding failed:', embeddingErr.message);
+    console.error('[ai-reid] get_embedding failed:', safeErrorDetails(embeddingErr));
     return json({ error: 'Could not check for an existing embedding.' }, 500);
   }
 
@@ -180,7 +181,7 @@ Deno.serve(async (req: Request) => {
       p_max_per_hour: MAX_PER_HOUR,
     });
     if (rlErr) {
-      console.error('[ai-reid] rate-limit check failed:', rlErr.message);
+      console.error('[ai-reid] rate-limit check failed:', safeErrorDetails(rlErr));
       return json({ error: 'Could not verify rate limit' }, 500);
     }
     if (!allowed) {
@@ -199,7 +200,7 @@ Deno.serve(async (req: Request) => {
     try {
       imageBytes = await downloadCatPhoto(admin, photoUrl);
     } catch (e) {
-      console.error('[ai-reid] photo download failed:', e instanceof Error ? e.message : e);
+      console.error('[ai-reid] photo download failed:', safeErrorDetails(e));
       return json({ error: 'Could not load the sighting photo.' }, 502);
     }
     const mediaType = inferMediaType(photoUrl);
@@ -231,7 +232,7 @@ Deno.serve(async (req: Request) => {
       claudeOutputTokens = captionResult.usage.output_tokens;
       claudeModel = captionResult.model;
     } catch (e) {
-      console.error('[ai-reid] caption call failed:', e instanceof Error ? e.message : e);
+      console.error('[ai-reid] caption call failed:', safeErrorDetails(e));
       return json({ error: 'Re-ID failed.' }, 502);
     }
     if (!caption) {
@@ -245,7 +246,7 @@ Deno.serve(async (req: Request) => {
       embedding = embeddings[0];
       voyageTokens = usage.total_tokens;
     } catch (e) {
-      console.error('[ai-reid] voyage embed failed:', e instanceof Error ? e.message : e);
+      console.error('[ai-reid] voyage embed failed:', safeErrorDetails(e));
       return json({ error: 'Re-ID failed.' }, 502);
     }
 
@@ -268,7 +269,7 @@ Deno.serve(async (req: Request) => {
       p_embedding: `[${embedding.join(',')}]`,
     });
     if (storeErr) {
-      console.error('[ai-reid] store_embedding failed:', storeErr.message);
+      console.error('[ai-reid] store_embedding failed:', safeErrorDetails(storeErr));
       return json({ error: 'Could not store the embedding.' }, 500);
     }
 
@@ -281,7 +282,7 @@ Deno.serve(async (req: Request) => {
     p_sighting: sightingId,
   });
   if (dErr) {
-    console.error('[ai-reid] find_sighting_duplicates failed:', dErr.message);
+    console.error('[ai-reid] find_sighting_duplicates failed:', safeErrorDetails(dErr));
     return json({ error: 'Could not search for duplicates.' }, 502);
   }
 
@@ -315,7 +316,7 @@ Deno.serve(async (req: Request) => {
       p_cost: estCost,
       p_latency: latencyMs,
     });
-    if (logErr) console.error('[ai-reid] log_ai_usage failed:', logErr.message);
+    if (logErr) console.error('[ai-reid] log_ai_usage failed:', safeErrorDetails(logErr));
   }
 
   return json({ candidates: result });

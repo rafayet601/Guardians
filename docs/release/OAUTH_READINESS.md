@@ -1,6 +1,6 @@
 # Authentication and OAuth readiness
 
-## Verified 2026-09-16
+## Historical snapshot: 2026-09-16 (refresh before release)
 
 Read-only request to the linked project's `/auth/v1/settings` returned:
 
@@ -49,7 +49,7 @@ In staging, exercise both existing and new users with each enabled provider: suc
 
 Test email signup/confirmation/resend/recovery with confirmation enabled, including cross-device behavior. Verify no codes, tokens, or full callback URLs enter logs/analytics. Use test users; automated unit mocks do not validate console configuration or real delivery.
 
-The dependency installation also reported 27 dependency audit findings (15 moderate, 12 high). They were not automatically upgraded as part of auth changes; assess applicability and remediation before claiming the whole application is production-ready.
+The dependency audit findings from the original auth review are historical. Run a fresh dependency audit and assess the actual current findings before release.
 
 ## Official references
 
@@ -57,4 +57,4 @@ The dependency installation also reported 27 dependency audit findings (15 moder
 - [Supabase redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
 - [Google provider setup](https://supabase.com/docs/guides/auth/social-login/auth-google)
 - [Apple provider setup and secret rotation](https://supabase.com/docs/guides/auth/social-login/auth-apple)
-- [Expo SDK 56 browser authentication](https://docs.expo.dev/versions/v56.0.0/sdk/webbrowser/)
+- [Expo SDK 57 browser authentication](https://docs.expo.dev/versions/v57.0.0/sdk/webbrowser/)

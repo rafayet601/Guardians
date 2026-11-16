@@ -1,3 +1,4 @@
+import { ProviderError } from './diagnostics.ts';
 // Shared Voyage AI embedding client for Guardians edge functions (Deno runtime).
 // -----------------------------------------------------------------------------
 // Dependency-free wrapper around the Voyage AI embeddings endpoint using native
@@ -63,7 +64,7 @@ export function isVoyageConfigured(): boolean {
 
 /**
  * POST to the Voyage embeddings endpoint and return the parsed vectors.
- * Throws on a non-2xx response (with the response body) or a body that doesn't
+ * Throws on a non-2xx response (status only) or a body that doesn't
  * contain the expected `data[].embedding` array.
  *
  * `inputType` controls the retrieval prepended prompt: 'document' for things
@@ -96,11 +97,14 @@ export async function embedTexts(
   });
 
   if (!resp.ok) {
-    const detail = await resp.text().catch(() => '');
-    throw new Error(`Voyage API error ${resp.status}: ${detail}`);
+    // Provider error bodies may echo submitted text or credentials. Never log them.
+    await resp.body?.cancel();
+    throw new ProviderError('Voyage', resp.status);
   }
 
-  const payload = (await resp.json()) as {
+  const payload = (await resp.json().catch(() => {
+    throw new Error('Voyage response was not valid JSON.');
+  })) as {
     data?: { embedding?: number[] }[];
     usage?: { total_tokens?: number };
   };

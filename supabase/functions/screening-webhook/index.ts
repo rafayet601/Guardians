@@ -20,6 +20,7 @@
 //     SUPABASE_SERVICE_ROLE_KEY=... SUPABASE_ANON_KEY=...
 //
 // This file is Deno, not part of the React Native app (excluded in tsconfig).
+import { safeErrorDetails } from '../_shared/diagnostics.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasWebhookSecret } from '../_shared/webhook.ts';
 import { readJsonObject, RequestBodyError } from '../_shared/http.ts';
@@ -76,7 +77,7 @@ Deno.serve(async (req: Request) => {
     .eq('user_id', body.user_id)
     .maybeSingle();
   if (readErr) {
-    console.error('[screening-webhook] read failed:', readErr.message);
+    console.error('[screening-webhook] read failed:', safeErrorDetails(readErr));
     return json({ error: 'Lookup failed' }, 500);
   }
   if (!screening) return json({ error: 'No screening for user' }, 404);
@@ -114,7 +115,7 @@ Deno.serve(async (req: Request) => {
     .eq('id_status', screening.id_status)
     .select('id');
   if (updErr) {
-    console.error('[screening-webhook] update failed:', updErr.message);
+    console.error('[screening-webhook] update failed:', safeErrorDetails(updErr));
     return json({ error: 'Update failed' }, 500);
   }
 

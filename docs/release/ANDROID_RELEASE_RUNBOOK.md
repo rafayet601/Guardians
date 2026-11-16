@@ -3,7 +3,7 @@
 **App Name:** Guardians  
 **Package Identifier:** `com.guardians.app`  
 **Target Platform:** Android (Google Play Store & Sideloadable Preview)  
-**Framework:** Expo SDK 56 (New Architecture enabled) / React Native 0.85.3  
+**Framework:** Expo SDK 57 / React Native 0.86.3
 **Build System:** EAS Build (`eas.json`) & Dynamic Configuration (`app.config.ts`)  
 **Document Purpose:** Definitive, step-by-step engineering runbook for running pre-flight quality gates, configuring EAS build-time secrets, managing Android signing keystores & Google Maps API restrictions, executing builds (APK and AAB), performing physical device verification, and submitting to Google Play Store tracks.
 
@@ -37,7 +37,7 @@ This automated runner (`scripts/preflight-check.sh`) performs:
 
 1. TypeScript compilation for application code (`npm run typecheck`)
 2. TypeScript compilation for test code (`npm run typecheck:test`)
-3. Unit & contract test suite execution (`npm test`) — 7 suites, 102 tests
+3. Unit & contract test suite execution (`npm test`) — current suite; use the actual runner result
 4. ESLint static code analysis (`npm run lint`)
 5. Required production asset existence and non-zero size verification
 6. `app.config.ts` and `eas.json` configuration integrity checks
@@ -50,7 +50,7 @@ If debugging a specific failure, execute individual gates:
 | :------------------ | :----------------------- | :------------------------------------------------ | :-------------------------------------------------------- |
 | **App Typecheck**   | `npm run typecheck`      | `tsc --noEmit` exits with `0` errors              | Fix TypeScript type definition errors in `src/` or `app/` |
 | **Test Typecheck**  | `npm run typecheck:test` | `tsc -p tsconfig.test.json` exits with `0` errors | Fix test typing mismatches in `src/__tests__/`            |
-| **Unit Test Suite** | `npm test`               | `7 passed, 7 total`, `102 passed, 102 total`      | Fix failing assertion or update test contract             |
+| **Unit Test Suite** | `npm test`               | All current tests pass                            | Fix failing assertion or update test contract             |
 | **CI Test Suite**   | `npm run test:ci`        | Fast sequential Jest run in single worker         | Investigate concurrency or race conditions                |
 | **Linting**         | `npm run lint`           | `0 errors`                                        | Fix formatting/linting issues (`npm run format`)          |
 
@@ -75,6 +75,8 @@ ls -la assets/android-icon-foreground.png \
 ---
 
 ## 2. Environment Variables & EAS Secrets Matrix
+
+Follow PRODUCTION.md first. Configure EXPO_PUBLIC_SUPPORT_URL with a real public HTTPS support/deletion page. Public bundle variables are readable by app users regardless of EAS visibility. Do not put secret values into shell history; prefer the dashboard or interactive CLI prompts. Check installed CLI help before using these examples. Historical project references below must be verified against the intended production project.
 
 Guardians separates secrets into three distinct layers:
 
@@ -337,7 +339,7 @@ Monitor the release for the first 48 hours:
 - **For JS/Asset Issues (OTA Updates)**:
   Publish an instant Over-The-Air hotfix without store review:
   ```bash
-  eas update --channel production --message "Hotfix: resolve map marker render glitch"
+  eas update --channel production --environment production --message "Hotfix: resolve map marker render glitch"
   ```
 - **For Native/Binary Issues**:
   1. Fix issue in source code.

@@ -95,3 +95,12 @@ is no published patched release. A checksum-verified local backport now rejects
 the malformed signatures; CI verifies that mitigation before allowing only
 that exact advisory. Raw audit findings remain visible. See
 [dependency mitigation details](docs/DEPENDENCY_SECURITY.md).
+
+## November 15 dependency follow-up
+
+node-forge 1.4.3 fixes GHSA-86w9-cpqp-85rv upstream. The local backport and its
+audit exception are removed; a version-floor check keeps the signature
+regression. New advisories in shell-quote, zod and decode-uri-component were
+closed by in-range updates. The production audit reports no high or critical
+findings; the braces mitigation is the only remaining exception. See
+[dependency mitigation details](docs/DEPENDENCY_SECURITY.md).
