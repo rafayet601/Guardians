@@ -121,3 +121,7 @@ jobs:
         run: >-
           python3 supabase/tests/check_photo_cap_concurrency.py
           --container supabase_db_tiqizsjxqfscwbhyvumk --database postgres
+      - name: Verify a claim lapse and a renewal cannot both win
+        run: >-
+          python3 supabase/tests/check_claim_expiry_concurrency.py
+          --container supabase_db_tiqizsjxqfscwbhyvumk --database postgres

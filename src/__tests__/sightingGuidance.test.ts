@@ -77,4 +77,18 @@ describe('claim ownership guidance', () => {
     expect(owner).not.toContain('Claim this rescue');
     expect(getSightingGuidance(spotted, 'visitor').nextStep).toContain('Claim this rescue');
   });
+  it('is honest when nobody has responded to an urgent report, without urging risk', () => {
+    const open = { ...claimed, status: 'spotted' as const, claimed_by: null, claimer: null };
+    const reporter = getSightingGuidance(open, 'reporter', { noResponderYet: true }).nextStep;
+    expect(reporter).toContain('No Guardian has been able to respond yet');
+    expect(reporter).toContain('emergency vet or animal control');
+    const visitor = getSightingGuidance(open, 'visitor', { noResponderYet: true }).nextStep;
+    expect(visitor).toContain('Claim it if you can take responsibility');
+    expect(visitor).not.toContain('animal control');
+    // Without the flag, and once someone has claimed, the usual copy stands.
+    expect(getSightingGuidance(open, 'reporter').nextStep).not.toContain('No Guardian has been');
+    expect(
+      getSightingGuidance(claimed, 'reporter', { noResponderYet: true }).nextStep,
+    ).not.toContain('No Guardian has been');
+  });
 });

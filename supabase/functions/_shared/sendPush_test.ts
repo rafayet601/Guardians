@@ -12,6 +12,9 @@ Deno.test(
     const originalFetch = globalThis.fetch;
     let handler: Deno.ServeHandler | undefined;
     let privilegedCalls = 0;
+    let sightingStatus = 'spotted';
+    const audiences: string[] = [];
+    let lastPushTitle = '';
     const env: Record<string, string> = {
       SUPABASE_URL: 'https://push-test.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'service-test-key',
@@ -29,6 +32,8 @@ Deno.test(
         const path = new URL(request.url).pathname;
         let body: unknown;
         if (new URL(request.url).hostname === 'exp.host') {
+          const sent = JSON.parse(String(init?.body ?? '[]'));
+          lastPushTitle = (Array.isArray(sent) ? sent[0] : sent)?.title ?? '';
           body = { data: [{ status: 'ok', id: 'synthetic-ticket' }] };
         } else if (path === '/rest/v1/sightings') {
           assertEquals(request.headers.get('Authorization'), 'Bearer service-test-key');
@@ -38,8 +43,11 @@ Deno.test(
             needs_urgent_help: true,
             lat: 1,
             lng: 1,
+            title: null,
+            status: sightingStatus,
           };
-        } else if (path === '/rest/v1/rpc/tokens_near') {
+        } else if (path === '/rest/v1/rpc/tokens_near' || path === '/rest/v1/rpc/tokens_in_ring') {
+          audiences.push(path.split('/').pop()!);
           body = [{ token: 'ExpoPushToken[synthetic]' }];
         } else {
           throw new Error(`Unexpected request: ${request.method} ${path}`);
@@ -83,13 +91,60 @@ Deno.test(
       );
       assertEquals(await repeated.json(), { sent: 1, failed: 0, reaped: 0 });
       assertEquals(privilegedCalls, 6);
+      assertEquals(audiences, ['tokens_near', 'tokens_near']);
+
+      // 0042: the escalation ladder asks for the wider ring, which is a
+      // different audience with its own words.
+      const trusted = (payload: Record<string, unknown>) =>
+        handler!(
+          new Request('https://test.local/send-push', {
+            method: 'POST',
+            headers: { 'x-push-webhook-secret': env.PUSH_WEBHOOK_SECRET },
+            body: JSON.stringify(payload),
+          }),
+          {} as Deno.ServeHandlerInfo,
+        );
+      const ring = await trusted({
+        type: 'urgent_sighting',
+        sighting_id: 'sighting',
+        escalation_step: 2,
+      });
+      assertEquals(await ring.json(), { sent: 1, failed: 0, reaped: 0 });
+      assertEquals(audiences[2], 'tokens_in_ring');
+      assertEquals(lastPushTitle, '🚨 A cat still needs urgent help');
+      const unknownStep = await trusted({
+        type: 'urgent_sighting',
+        sighting_id: 'sighting',
+        escalation_step: 7,
+      });
+      assertEquals(unknownStep.status, 400);
+
+      // Claimed while the alert was queued: nobody is broadcast to, and the
+      // reporter is not told a cat with a Guardian is still waiting.
+      sightingStatus = 'claimed';
+      const late = await trusted({
+        type: 'urgent_sighting',
+        sighting_id: 'sighting',
+        escalation_step: 2,
+      });
+      assertEquals(await late.json(), { skipped: 'no longer open' });
+      const stale = await trusted({
+        event: 'urgent_no_responder',
+        recipient_user_id: 'reporter',
+        about_sighting_id: 'sighting',
+      });
+      assertEquals(await stale.json(), { skipped: 'no longer applies' });
+      assertEquals(audiences.length, 3);
+      sightingStatus = 'spotted';
+
+      const beforeUnconfigured = privilegedCalls;
       env.PUSH_WEBHOOK_SECRET = '';
       const unconfigured = await handler(
         request({ 'x-push-webhook-secret': '' }),
         {} as Deno.ServeHandlerInfo,
       );
       assertEquals(unconfigured.status, 401);
-      assertEquals(privilegedCalls, 6);
+      assertEquals(privilegedCalls, beforeUnconfigured);
     } finally {
       Deno.serve = originalServe;
       Deno.env.get = originalEnvGet;

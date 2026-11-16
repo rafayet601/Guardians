@@ -63,6 +63,16 @@ export interface Sighting {
   needs_urgent_help: boolean;
   claimed_by: string | null;
   claimed_at: string | null;
+  /**
+   * When the current claim lapses unless the Guardian acts (migration 0042).
+   * Null when nobody holds the cat on a lease.
+   */
+  claim_expires_at?: string | null;
+  /**
+   * How far the "nobody has responded" ladder has gone for an open urgent
+   * report: 2 once a wider area was alerted, 3 once the team was told.
+   */
+  escalation_step?: number;
   rescued_at: string | null;
   created_at: string;
   updated_at: string;

@@ -1,5 +1,7 @@
 import {
   CLAIM_STALE_HOURS,
+  CLAIM_WARNING_HOURS,
+  claimLapsesInHours,
   NEXT_STATUSES,
   STATUS_META,
   STATUS_OPTIONS,
@@ -197,5 +199,29 @@ describe('reference data', () => {
     (['friendly', 'shy', 'feral', 'unknown'] as const).forEach((t) => {
       expect(TEMPERAMENT_META[t]).toBeDefined();
     });
+  });
+});
+
+describe('claimLapsesInHours', () => {
+  const now = Date.parse('2026-01-10T12:00:00Z');
+  const inHours = (h: number) => new Date(now + h * 3_600_000).toISOString();
+
+  it('is silent while the lapse is far off or there is no lease', () => {
+    expect(claimLapsesInHours(inHours(CLAIM_WARNING_HOURS + 0.5), now)).toBeNull();
+    expect(claimLapsesInHours(inHours(24), now)).toBeNull();
+    expect(claimLapsesInHours(null, now)).toBeNull();
+    expect(claimLapsesInHours(undefined, now)).toBeNull();
+    expect(claimLapsesInHours('not-a-date', now)).toBeNull();
+  });
+
+  it('prompts inside the warning window, rounding up to whole hours', () => {
+    expect(claimLapsesInHours(inHours(CLAIM_WARNING_HOURS), now)).toBe(CLAIM_WARNING_HOURS);
+    expect(claimLapsesInHours(inHours(2.2), now)).toBe(3);
+    expect(claimLapsesInHours(inHours(0.1), now)).toBe(1);
+  });
+
+  it('stops prompting once the lease has lapsed', () => {
+    expect(claimLapsesInHours(inHours(0), now)).toBeNull();
+    expect(claimLapsesInHours(inHours(-1), now)).toBeNull();
   });
 });

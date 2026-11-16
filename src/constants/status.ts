@@ -107,6 +107,32 @@ export function isClaimStale(
   return now - reference >= CLAIM_STALE_HOURS * 3_600_000;
 }
 
+/**
+ * How long before a claim lapses the Guardian is warned and may extend it.
+ * Mirrors claim_warning_lead() in migration 0042; the server decides, this
+ * only chooses when to show the prompt.
+ */
+export const CLAIM_WARNING_HOURS = 6;
+
+/**
+ * Whole hours until a claim lapses, when that is close enough to act on.
+ * Null when there is no lease, it is not yet close, or it has already lapsed
+ * (the server releases the cat within minutes of that).
+ */
+export function claimLapsesInHours(
+  claimExpiresAt: string | null | undefined,
+  now: number = Date.now(),
+): number | null {
+  const expires = Date.parse(claimExpiresAt ?? '');
+  if (!Number.isFinite(expires)) return null;
+  const remaining = expires - now;
+  if (remaining <= 0 || remaining > CLAIM_WARNING_HOURS * 3_600_000) return null;
+  return Math.max(1, Math.ceil(remaining / 3_600_000));
+}
+
+/** The last step of the urgent ladder: a wider area and the team were told. */
+export const ESCALATION_TEAM_TOLD = 3;
+
 export interface StatusAction {
   /** Status the update_sighting_status RPC will move the sighting to. */
   status: CatStatus;

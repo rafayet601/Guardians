@@ -15,8 +15,8 @@ import type {
 // `get_sighting_detail` RPC (see getSighting + migration 0009).
 const SIGHTING_SELECT = `
   id, reporter_id, title, description, status, temperament, color,
-  is_injured, needs_urgent_help, claimed_by, claimed_at, rescued_at,
-  created_at, updated_at,
+  is_injured, needs_urgent_help, claimed_by, claimed_at, claim_expires_at,
+  escalation_step, rescued_at, created_at, updated_at,
   reporter:profiles!sightings_reporter_id_fkey(id, username, avatar_url, level),
   claimer:profiles!sightings_claimed_by_fkey(id, username, avatar_url, level),
   photos:sighting_photos(id, sighting_id, url, uploaded_by, created_at)
@@ -170,6 +170,16 @@ export async function getPhotos(sightingId: string): Promise<SightingPhoto[]> {
 
 export async function claimSighting(id: string): Promise<Sighting> {
   const { data, error } = await supabase.rpc('claim_sighting', { p_sighting: id });
+  if (error) throw error;
+  return data as Sighting;
+}
+
+/**
+ * The assigned Guardian's "still on it": restores a full lease when the claim
+ * is close to lapsing (migration 0042). Outside that window it changes nothing.
+ */
+export async function extendClaim(id: string): Promise<Sighting> {
+  const { data, error } = await supabase.rpc('extend_claim', { p_sighting: id });
   if (error) throw error;
   return data as Sighting;
 }
