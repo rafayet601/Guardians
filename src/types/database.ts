@@ -282,6 +282,62 @@ export type Database = {
           },
         ]
       }
+      alert_preferences: {
+        Row: {
+          home_lat: number | null
+          home_lng: number | null
+          home_location: unknown
+          home_source: string
+          on_duty: boolean
+          quiet_end: string | null
+          quiet_start: string | null
+          radius_m: number
+          time_zone: string
+          updated_at: string
+          urgent_alerts: boolean
+          user_id: string
+          wider_radius_m: number
+        }
+        Insert: {
+          home_lat?: number | null
+          home_lng?: number | null
+          home_location?: unknown
+          home_source?: string
+          on_duty?: boolean
+          quiet_end?: string | null
+          quiet_start?: string | null
+          radius_m?: number
+          time_zone?: string
+          updated_at?: string
+          urgent_alerts?: boolean
+          user_id: string
+          wider_radius_m?: number
+        }
+        Update: {
+          home_lat?: number | null
+          home_lng?: number | null
+          home_location?: unknown
+          home_source?: string
+          on_duty?: boolean
+          quiet_end?: string | null
+          quiet_start?: string | null
+          radius_m?: number
+          time_zone?: string
+          updated_at?: string
+          urgent_alerts?: boolean
+          user_id?: string
+          wider_radius_m?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -554,6 +610,57 @@ export type Database = {
           {
             foreignKeyName: "lost_cats_owner_id_fkey"
             columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          read_at: string | null
+          sighting_id: string | null
+          silent: boolean
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          read_at?: string | null
+          sighting_id?: string | null
+          silent?: boolean
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          read_at?: string | null
+          sighting_id?: string | null
+          silent?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_sighting_id_fkey"
+            columns: ["sighting_id"]
+            isOneToOne: false
+            referencedRelation: "sightings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1481,6 +1588,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      batch_push_tokens: {
+        Args: { p_batch: string }
+        Returns: {
+          token: string
+        }[]
+      }
       check_ai_rate_limit: {
         Args: { p_feature: string; p_max_per_hour: number }
         Returns: boolean
@@ -2069,6 +2182,10 @@ export type Database = {
         Returns: undefined
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      mark_notifications_read: {
+        Args: { p_ids?: string[] }
+        Returns: number
+      }
       match_embeddings: {
         Args: {
           p_kind: string
@@ -2275,6 +2392,40 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "adopter_screenings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_alert_preferences: {
+        Args: {
+          p_home_lat?: number
+          p_home_lng?: number
+          p_on_duty: boolean
+          p_quiet_end?: string
+          p_quiet_start?: string
+          p_radius_m: number
+          p_time_zone: string
+          p_urgent_alerts: boolean
+          p_wider_radius_m: number
+        }
+        Returns: {
+          home_lat: number | null
+          home_lng: number | null
+          home_location: unknown
+          home_source: string
+          on_duty: boolean
+          quiet_end: string | null
+          quiet_start: string | null
+          radius_m: number
+          time_zone: string
+          updated_at: string
+          urgent_alerts: boolean
+          user_id: string
+          wider_radius_m: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "alert_preferences"
           isOneToOne: true
           isSetofReturn: false
         }

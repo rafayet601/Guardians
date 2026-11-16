@@ -1,7 +1,10 @@
 import {
   BASE_RADIUS_M,
   CASE_EVENTS,
+  CASE_STATUSES,
   caseEventCopy,
+  caseStatusCopy,
+  isCaseStatus,
   RING_RADIUS_M,
   urgentCopy,
   urgentStep,
@@ -64,5 +67,23 @@ Deno.test('every case event has words for an untitled cat', () => {
     assertEquals(typeof copy?.title === 'string' && copy.title.length > 0, true);
     assertEquals(copy?.body.includes('""'), false);
     assertEquals(/the cat|The cat/.test(copy?.body ?? ''), true);
+  }
+});
+
+Deno.test('every reporter status update has words, with or without a title', () => {
+  for (const status of CASE_STATUSES) {
+    for (const title of ['Hurt tabby', null, '   ']) {
+      const copy = caseStatusCopy(status, title);
+      if (!copy.title || !copy.body) throw new Error(`No words for ${status}`);
+      if (copy.body.includes('""') || copy.body.includes('undefined')) {
+        throw new Error(`Broken words for ${status}: ${copy.body}`);
+      }
+    }
+  }
+  if (!caseStatusCopy('adopted', 'Hurt tabby').body.includes('"Hurt tabby"')) {
+    throw new Error('The cat is named when it has a title');
+  }
+  if (isCaseStatus('claimed') || isCaseStatus(undefined) || !isCaseStatus('archived')) {
+    throw new Error('Only the statuses without an event of their own are case statuses');
   }
 });

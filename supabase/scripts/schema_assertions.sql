@@ -294,5 +294,37 @@ begin
     raise exception 'DRIFT: % active claim(s) have no lease (0042)', v;
   end if;
 
-  raise notice 'schema_assertions: OK — all invariants hold through 0042.';
+  -- ── 14. Alert preferences and the inbox (0043) ──────────────────────────────
+  if to_regclass('public.notifications') is null
+     or to_regclass('public.alert_preferences') is null
+     or to_regprocedure('private.broadcast_urgent(uuid, integer)') is null
+     or to_regprocedure('public.batch_push_tokens(uuid)') is null then
+    raise exception 'DRIFT: the inbox or alert preferences are absent (apply migration 0043)';
+  end if;
+  select count(*) into v from pg_class
+  where oid in ('public.notifications'::regclass, 'public.alert_preferences'::regclass)
+    and relrowsecurity;
+  if v <> 2 then
+    raise exception 'DRIFT: RLS is off on notifications or alert_preferences (0043)';
+  end if;
+  if has_table_privilege('authenticated','public.notifications','INSERT')
+     or has_table_privilege('authenticated','public.notifications','UPDATE')
+     or has_table_privilege('authenticated','public.alert_preferences','INSERT')
+     or has_table_privilege('authenticated','public.alert_preferences','UPDATE')
+     or has_function_privilege('authenticated','public.batch_push_tokens(uuid)','EXECUTE')
+     or has_function_privilege('authenticated','private.post_push(jsonb)','EXECUTE') then
+    raise exception 'DRIFT: a client can write an inbox or preferences, send, or list devices (0043)';
+  end if;
+  -- The funnel must record before it sends: post_push writes the inbox.
+  if position('public.notifications' in
+       pg_get_functiondef('private.post_push(jsonb)'::regprocedure)) = 0 then
+    raise exception 'DRIFT: private.post_push no longer records to the inbox (0043)';
+  end if;
+  select count(*) into v from cron.job
+  where active and jobname = 'guardians-prune-notifications';
+  if v <> 1 then
+    raise exception 'DRIFT: the inbox prune job is not registered or not active (0043)';
+  end if;
+
+  raise notice 'schema_assertions: OK — all invariants hold through 0043.';
 end $$;

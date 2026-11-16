@@ -40,6 +40,7 @@ gamification engine that power Guardians.
 | `migrations/0040_storage_upload_bounds.sql`         | Storage API upload size and declared MIME restrictions, including private ID photos                                                                          |
 | `migrations/0041_child_content_visibility.sql`      | Parent visibility on raw photo/comment reads and inserts; serialize the twelve-photo attachment limit                                                        |
 | `migrations/0042_claim_lease_escalation.sql`        | Scheduled jobs (pg_cron) with a run log; claims become leases the server releases; unclaimed urgent reports escalate at 20 and 60 minutes                    |
+| `migrations/0043_alert_preferences_inbox.sql`       | Alert preferences (area, radius, duty, quiet hours); every push recorded in an inbox first; urgent audience chosen per person; reporter told every status    |
 | `seed.sql`                                          | Optional demo sightings                                                                                                                                      |
 | `tests/`                                            | pgTAP behavioral test suites; counts in older release documents are historical                                                                               |
 | `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                                                  |
@@ -49,7 +50,7 @@ gamification engine that power Guardians.
 1. Create a project at <https://app.supabase.com>.
 2. For a **new, empty database**, open **SQL Editor** and run every file in
    `migrations/` **in filename order**, currently through
-   `0042_claim_lease_escalation.sql`. Include suffixed migrations such as
+   `0043_alert_preferences_inbox.sql`. Include suffixed migrations such as
    `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
    For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
    do not replay the full migration set.
@@ -160,7 +161,7 @@ supabase db test
 ```
 
 A drift-detection script lives at `scripts/schema_assertions.sql` (psql, not pgTAP).
-It asserts protections through migrations 0039–0042 as well as earlier
+It asserts protections through migrations 0039–0043 as well as earlier
 invariants. Bucket metadata assertions do not exercise the Storage HTTP API:
 use synthetic staging uploads to verify MIME/size rejection and valid image
 uploads before deploying these limits.
@@ -241,3 +242,45 @@ request as a second base-radius alert.
 Tests: `tests/claim_lease_escalation_test.sql` (pgTAP, time moved through each
 job's `p_now` argument) and `tests/check_claim_expiry_concurrency.py`, which
 races the expiry job against a Guardian's renewal on a local database.
+
+## Alert preferences and the inbox (0043)
+
+Every notification now goes through one function, `private.post_push`. It
+writes a row to `public.notifications` (the inbox) and queues the call to
+`send-push` in the same transaction as the event that caused it. If the push
+never arrives, the inbox entry is still there. The older funnels
+(`enqueue_push_notification`, `enqueue_push_event`) hand over to it.
+
+Urgent broadcasts are no longer worked out from device tokens. The audience
+comes from `public.alert_preferences`, one row per person:
+
+| Preference                  | Effect                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `on_duty`                   | Off: no urgent alerts at all. Updates about the person's own cases still arrive                |
+| `urgent_alerts`             | Off: no urgent alerts                                                                          |
+| `home_location`, `radius_m` | The base alert reaches people within the smaller of 8 km and their own radius                  |
+| `wider_radius_m`            | The wider ring (0042, step 2) reaches people outside that, up to the smaller of 20 km and this |
+| `quiet_start`, `quiet_end`  | Inside the window (read in `time_zone`) the inbox entry is kept but not pushed                 |
+
+People who blocked the reporter are never in the audience, and the reporter
+is never in the audience for their own report. The home area follows the
+phone (`upsert_push_token`) until the person pins one in the app. On apply,
+everyone with a registered device gets preferences copied from their latest
+device, so nobody's alerts change.
+
+`send-push` gets a `batch_id` and asks `batch_push_tokens` for the devices of
+everyone in the batch outside quiet hours with push on. A `send-push` without
+this change ignores the batch and falls back to `tokens_near`, so either can
+be deployed first. The new `case_status` event does need the new `send-push`.
+With the old one, those pushes are refused (the inbox entries are still kept),
+so deploy `send-push` first.
+
+The reporter now hears about every status change: `claimed` and `safe` as
+before, and `case_status` for everything else, carrying the new status. A
+claim lapsing is reported once, by the lease job (`claim_reopened`). Nobody is
+told about their own action.
+
+A daily job (`guardians-prune-notifications`) deletes entries older than 90
+days.
+
+Tests: `tests/alert_inbox_test.sql`.

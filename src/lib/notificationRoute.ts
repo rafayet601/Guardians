@@ -25,6 +25,7 @@ export function notificationRoute(data: unknown): string | null {
   const { type } = asData(data);
   if (type === 'lost_cat_match') return '/lost-cat';
   if (type === 'screening_decided') return '/adopt/screening';
+  if (type === 'ops_job_failed') return '/moderation';
   const sightingId = notificationSightingId(data);
   return sightingId ? `/sighting/${sightingId}` : null;
 }

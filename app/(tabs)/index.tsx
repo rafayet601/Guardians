@@ -10,6 +10,7 @@ import { SightingCard } from '@/components/SightingCard';
 import { Button, Card, Loading, Screen, Text } from '@/components/ui';
 import { AI_FEATURES } from '@/constants/ai';
 import { NEXT_STEP } from '@/constants/journey';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import { useMyProfile } from '@/hooks/useProfile';
 import { useMyActivity } from '@/hooks/useSightings';
 import { colors, motion, radius, spacing } from '@/theme';
@@ -20,12 +21,16 @@ export default function HomeScreen() {
   const reduced = useReducedMotion() ?? false;
   const profile = useMyProfile();
   const activity = useMyActivity();
+  const unread = useUnreadCount();
   const { refetch } = activity;
+  const { refetch: refetchUnread } = unread;
   useFocusEffect(
     useCallback(() => {
       void refetch();
-    }, [refetch]),
+      void refetchUnread();
+    }, [refetch, refetchUnread]),
   );
+  const unreadCount = unread.data ?? 0;
   const name = profile.data?.full_name?.split(' ')[0] || profile.data?.username;
   const refresh = () => {
     void profile.refetch();
@@ -53,6 +58,25 @@ export default function HomeScreen() {
             {name ? `Welcome, ${name}` : 'Welcome, Guardian'}
           </Text>
         </View>
+        <PressableScale
+          onPress={() => router.push('/inbox')}
+          style={styles.settings}
+          accessibilityRole="button"
+          accessibilityLabel={unreadCount > 0 ? `Open inbox, ${unreadCount} unread` : 'Open inbox'}
+        >
+          <Ionicons
+            name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
+            size={22}
+            color={colors.primaryDark}
+          />
+          {unreadCount > 0 ? (
+            <View style={styles.badge} accessibilityElementsHidden>
+              <Text variant="caption" color={colors.white}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          ) : null}
+        </PressableScale>
         <PressableScale
           onPress={() => router.push('/settings')}
           style={styles.settings}
@@ -291,6 +315,18 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   greeting: { marginTop: spacing.sm },
   settings: { padding: spacing.md, borderRadius: radius.pill, backgroundColor: colors.surface },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.urgent,
+  },
   hero: { padding: spacing.xl, borderRadius: radius.xl, gap: spacing.lg },
   heroTop: {
     flexDirection: 'row',

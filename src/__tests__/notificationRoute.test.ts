@@ -18,6 +18,10 @@ describe('notificationRoute', () => {
     expect(notificationRoute({ type: 'screening_decided' })).toBe('/adopt/screening');
   });
 
+  it('opens the moderation tools when a background job fails', () => {
+    expect(notificationRoute({ type: 'ops_job_failed' })).toBe('/moderation');
+  });
+
   it('opens the lost-cat screen for a match, even though the push also names a sighting', () => {
     expect(notificationRoute({ type: 'lost_cat_match', lost_cat_id: 'x', sighting_id: ID })).toBe(
       '/lost-cat',

@@ -174,6 +174,8 @@ function RootNavigator() {
         void queryClient.invalidateQueries({ queryKey: queryKeys.sightingUpdates(id) });
       }
       void queryClient.invalidateQueries({ queryKey: ['sightings'] });
+      // Every push is also an inbox entry (0043).
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     };
     const sub = Notifications.addNotificationReceivedListener((n) =>
       refresh(n.request.content.data),
@@ -261,6 +263,14 @@ function RootNavigator() {
         <Stack.Screen
           name="moderation"
           options={{ headerShown: true, title: 'Moderation', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="inbox"
+          options={{ headerShown: true, title: 'Inbox', headerTintColor: colors.primary }}
+        />
+        <Stack.Screen
+          name="alert-settings"
+          options={{ headerShown: true, title: 'Alerts', headerTintColor: colors.primary }}
         />
         <Stack.Screen
           name="blocked-users"

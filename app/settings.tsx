@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -358,6 +359,23 @@ function SettingsForm({ profile }: { profile: Profile }) {
             accessibilityState={{ checked: pushEnabled }}
             accessibilityLabel="Rescue alerts"
           />
+        </Animated.View>
+
+        <Animated.View entering={enter(6)}>
+          <PressableScale
+            onPress={() => router.push('/alert-settings')}
+            style={styles.toggleRow}
+            accessibilityRole="link"
+            accessibilityLabel="Alert area, radius and quiet hours"
+          >
+            <View style={styles.toggleText}>
+              <Text variant="bodyStrong">📍 Alert area and quiet hours</Text>
+              <Text variant="small" muted>
+                Choose where and when urgent alerts reach you, or go off duty.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </PressableScale>
         </Animated.View>
 
         <Animated.View entering={enter(7)}>
