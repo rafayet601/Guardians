@@ -54,4 +54,7 @@ export const queryKeys = {
   lostCatMatches: (id: string) => ['lost-cat-matches', id] as const,
   reidCandidates: (id: string) => ['reid-candidates', id] as const,
   journeyTimeline: (id: string) => ['journey-timeline', id] as const,
+  inbox: (id?: string) => ['notifications', 'inbox', id] as const,
+  unreadCount: (id?: string) => ['notifications', 'unread', id] as const,
+  alertPreferences: (id?: string) => ['alert-preferences', id] as const,
 };

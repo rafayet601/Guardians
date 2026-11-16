@@ -102,6 +102,46 @@ export function caseEventCopy(
   }
 }
 
+/** Report statuses the reporter is told about with a case_status event (0043). */
+export const CASE_STATUSES = ['spotted', 'in_rescue', 'available', 'adopted', 'archived'] as const;
+export type CaseStatus = (typeof CASE_STATUSES)[number];
+
+export function isCaseStatus(value: unknown): value is CaseStatus {
+  return typeof value === 'string' && (CASE_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * What the reporter is told when their report moves to a status that has no
+ * event of its own. Worded from the status the event carries, so each step
+ * reads true even when the next one follows quickly.
+ */
+export function caseStatusCopy(status: CaseStatus, sightingTitle: string | null): PushCopy {
+  const name = (sightingTitle ?? '').trim();
+  const cat = name ? `"${name}"` : 'the cat you reported';
+  const Cat = name ? `"${name}"` : 'The cat you reported';
+  switch (status) {
+    case 'spotted':
+      return {
+        title: 'Your report is open again',
+        body: `The Guardian on ${cat} had to step back, so other Guardians can now help.`,
+      };
+    case 'in_rescue':
+      return { title: '🧺 Rescue under way', body: `${Cat} is now in a Guardian's care.` };
+    case 'available':
+      return { title: '🏠 Ready for a home', body: `${Cat} is now looking for a forever home.` };
+    case 'adopted':
+      return {
+        title: '🎉 Adopted!',
+        body: `${Cat} has gone to a forever home. Thank you for reporting.`,
+      };
+    case 'archived':
+      return {
+        title: 'Your report was closed',
+        body: `The case for ${cat} has been closed. Open Guardians to see the last update.`,
+      };
+  }
+}
+
 export const OPS_JOB_FAILED_COPY: PushCopy = {
   title: 'A Guardians background job failed',
   body: 'Open the moderation tools to check job health.',

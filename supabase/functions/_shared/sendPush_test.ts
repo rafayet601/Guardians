@@ -46,7 +46,13 @@ Deno.test(
             title: null,
             status: sightingStatus,
           };
-        } else if (path === '/rest/v1/rpc/tokens_near' || path === '/rest/v1/rpc/tokens_in_ring') {
+        } else if (path === '/rest/v1/device_push_tokens') {
+          body = [{ token: 'ExpoPushToken[recipient]' }];
+        } else if (
+          path === '/rest/v1/rpc/tokens_near' ||
+          path === '/rest/v1/rpc/tokens_in_ring' ||
+          path === '/rest/v1/rpc/batch_push_tokens'
+        ) {
           audiences.push(path.split('/').pop()!);
           body = [{ token: 'ExpoPushToken[synthetic]' }];
         } else {
@@ -119,6 +125,41 @@ Deno.test(
       });
       assertEquals(unknownStep.status, 400);
 
+      // 0043: the database chose the audience and names the batch; send-push
+      // delivers exactly that batch, whatever the step.
+      const batch = await trusted({
+        type: 'urgent_sighting',
+        sighting_id: 'sighting',
+        escalation_step: 2,
+        batch_id: 'batch-1',
+      });
+      assertEquals(await batch.json(), { sent: 1, failed: 0, reaped: 0 });
+      assertEquals(audiences[3], 'batch_push_tokens');
+      assertEquals(lastPushTitle, '🚨 A cat still needs urgent help');
+      const badBatch = await trusted({
+        type: 'urgent_sighting',
+        sighting_id: 'sighting',
+        batch_id: 7,
+      });
+      assertEquals(badBatch.status, 400);
+
+      // 0043: the reporter's status updates are worded from the event.
+      const adopted = await trusted({
+        event: 'case_status',
+        recipient_user_id: 'reporter',
+        about_sighting_id: 'sighting',
+        status: 'adopted',
+      });
+      assertEquals(await adopted.json(), { sent: 1, failed: 0, reaped: 0 });
+      assertEquals(lastPushTitle, '🎉 Adopted!');
+      const unknownStatus = await trusted({
+        event: 'case_status',
+        recipient_user_id: 'reporter',
+        about_sighting_id: 'sighting',
+        status: 'claimed',
+      });
+      assertEquals(unknownStatus.status, 400);
+
       // Claimed while the alert was queued: nobody is broadcast to, and the
       // reporter is not told a cat with a Guardian is still waiting.
       sightingStatus = 'claimed';
@@ -134,7 +175,7 @@ Deno.test(
         about_sighting_id: 'sighting',
       });
       assertEquals(await stale.json(), { skipped: 'no longer applies' });
-      assertEquals(audiences.length, 3);
+      assertEquals(audiences.length, 4);
       sightingStatus = 'spotted';
 
       const beforeUnconfigured = privilegedCalls;

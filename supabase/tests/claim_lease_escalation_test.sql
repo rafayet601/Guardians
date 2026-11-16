@@ -67,6 +67,14 @@ update public.profiles set is_moderator = (id = '42000000-0000-0000-0000-0000000
 update public.profiles set is_moderator = false
  where is_moderator and id::text not like '42000000-%';
 
+-- Since 0043 a broadcast is queued only when someone is in its audience: the
+-- stranger lives at the reports (base radius), the moderator ~12 km north
+-- (wider ring only).
+insert into public.alert_preferences (user_id, home_location) values
+  ('42000000-0000-0000-0000-000000000004', st_setsrid(st_makepoint(-73, 40), 4326)),
+  ('42000000-0000-0000-0000-000000000003', st_setsrid(st_makepoint(-73, 40.11), 4326))
+  on conflict (user_id) do update set home_location = excluded.home_location;
+
 -- Seeded reports are not under test; park them at the last step so the
 -- ladder counts below are exact.
 update public.sightings set escalation_step = 3;

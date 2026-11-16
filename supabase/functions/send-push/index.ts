@@ -27,6 +27,8 @@ import {
   CASE_EVENTS,
   type CaseEvent,
   caseEventCopy,
+  caseStatusCopy,
+  isCaseStatus,
   OPS_JOB_FAILED_COPY,
   RING_RADIUS_M,
   urgentCopy,
@@ -40,13 +42,15 @@ const LIFECYCLE_TYPES: readonly PushType[] = [
   'adoption_interest',
 ];
 
-// 0038 events, then the lease and escalation events of 0042.
+// 0038 events, the lease and escalation events of 0042, and the reporter's
+// status updates of 0043.
 type PushEvent =
   | 'screening_decided'
   | 'adoption_approved'
   | 'adoption_declined'
   | 'new_comment'
   | 'ops_job_failed'
+  | 'case_status'
   | CaseEvent;
 const PUSH_EVENTS: readonly PushEvent[] = [
   'screening_decided',
@@ -54,6 +58,7 @@ const PUSH_EVENTS: readonly PushEvent[] = [
   'adoption_declined',
   'new_comment',
   'ops_job_failed',
+  'case_status',
   ...CASE_EVENTS,
 ];
 
@@ -97,6 +102,8 @@ Deno.serve(async (req: Request) => {
     event?: string;
     about_sighting_id?: string | null;
     escalation_step?: unknown;
+    batch_id?: unknown;
+    status?: unknown;
   };
   try {
     body = await readJsonObject(req);
@@ -118,6 +125,7 @@ Deno.serve(async (req: Request) => {
       body.event as PushEvent,
       body.recipient_user_id,
       body.about_sighting_id ?? null,
+      body.status,
     );
   }
 
@@ -153,7 +161,10 @@ Deno.serve(async (req: Request) => {
     // The ladder (0042) queues these minutes after the report; never broadcast
     // for a cat someone has claimed in the meantime.
     if (s.status !== 'spotted') return json({ skipped: 'no longer open' });
-    return urgentGeoFanout(admin, s as SightingRow, step);
+    if (body.batch_id !== undefined && typeof body.batch_id !== 'string') {
+      return json({ error: 'Invalid batch_id' }, 400);
+    }
+    return urgentGeoFanout(admin, s as SightingRow, step, body.batch_id ?? null);
   }
 
   if (!body.recipient_user_id) return json({ error: 'recipient_user_id required' }, 400);
@@ -166,13 +177,23 @@ Deno.serve(async (req: Request) => {
 // `any` for the client — mirrors ai-lost-match/ai-reid.
 
 /**
- * Urgent geo fan-out. Step 1: tokens_near resolves the opted-in audience near
- * the sighting, excluding the reporter. Step 2 (0042): tokens_in_ring reaches
- * the devices beyond that audience, as far as each device allows.
+ * Urgent geo fan-out. Since 0043 the database chooses the audience per person
+ * (alert preferences, quiet hours) and records an inbox entry for each; the
+ * call names that batch and batch_push_tokens returns the devices to push.
+ *
+ * A call without a batch comes from a database that predates 0043: step 1
+ * uses tokens_near around the sighting, excluding the reporter, and step 2
+ * (0042) tokens_in_ring beyond it, as far as each device allows.
  */
-async function urgentGeoFanout(admin: any, s: SightingRow, step: 1 | 2): Promise<Response> {
-  const { data: rows, error: tErr } =
-    step === 1
+async function urgentGeoFanout(
+  admin: any,
+  s: SightingRow,
+  step: 1 | 2,
+  batchId: string | null,
+): Promise<Response> {
+  const { data: rows, error: tErr } = batchId
+    ? await admin.rpc('batch_push_tokens', { p_batch: batchId })
+    : step === 1
       ? await admin.rpc('tokens_near', {
           p_lat: s.lat,
           p_lng: s.lng,
@@ -273,6 +294,7 @@ async function eventPush(
   event: PushEvent,
   recipientId: string,
   sightingId: string | null,
+  status: unknown,
 ): Promise<Response> {
   let title: string;
   let message: string;
@@ -316,7 +338,11 @@ async function eventPush(
     const name = ((s.title as string | null) ?? '').trim();
     const cat = name ? `"${name}"` : 'the cat';
 
-    if ((CASE_EVENTS as readonly string[]).includes(event)) {
+    if (event === 'case_status') {
+      // 0043: worded from the status the event carries, not the case now.
+      if (!isCaseStatus(status)) return json({ error: 'Unknown status' }, 400);
+      ({ title, body: message } = caseStatusCopy(status, s.title as string | null));
+    } else if ((CASE_EVENTS as readonly string[]).includes(event)) {
       // Lease and escalation events (0042): worded from the case as it is now.
       const copy = caseEventCopy(event as CaseEvent, s.title as string | null, s.status as string);
       if (!copy) return json({ skipped: 'no longer applies' });
