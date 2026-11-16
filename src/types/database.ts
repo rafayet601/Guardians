@@ -340,6 +340,7 @@ export type Database = {
       }
       device_push_tokens: {
         Row: {
+          escalation_radius_m: number
           last_known_location: unknown
           notify_radius_m: number
           push_enabled: boolean
@@ -349,6 +350,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          escalation_radius_m?: number
           last_known_location?: unknown
           notify_radius_m?: number
           push_enabled?: boolean
@@ -358,6 +360,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          escalation_radius_m?: number
           last_known_location?: unknown
           notify_radius_m?: number
           push_enabled?: boolean
@@ -963,11 +966,14 @@ export type Database = {
       sightings: {
         Row: {
           address: string | null
+          claim_expires_at: string | null
+          claim_warned_at: string | null
           claimed_at: string | null
           claimed_by: string | null
           color: string | null
           created_at: string
           description: string | null
+          escalation_step: number
           id: string
           is_hidden: boolean
           is_injured: boolean
@@ -981,14 +987,19 @@ export type Database = {
           temperament: Database["public"]["Enums"]["cat_temperament"]
           title: string | null
           updated_at: string
+          urgent_rebroadcasts: number
+          urgent_since: string | null
         }
         Insert: {
           address?: string | null
+          claim_expires_at?: string | null
+          claim_warned_at?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
+          escalation_step?: number
           id?: string
           is_hidden?: boolean
           is_injured?: boolean
@@ -1002,14 +1013,19 @@ export type Database = {
           temperament?: Database["public"]["Enums"]["cat_temperament"]
           title?: string | null
           updated_at?: string
+          urgent_rebroadcasts?: number
+          urgent_since?: string | null
         }
         Update: {
           address?: string | null
+          claim_expires_at?: string | null
+          claim_warned_at?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
+          escalation_step?: number
           id?: string
           is_hidden?: boolean
           is_injured?: boolean
@@ -1023,6 +1039,8 @@ export type Database = {
           temperament?: Database["public"]["Enums"]["cat_temperament"]
           title?: string | null
           updated_at?: string
+          urgent_rebroadcasts?: number
+          urgent_since?: string | null
         }
         Relationships: [
           {
@@ -1422,11 +1440,14 @@ export type Database = {
         Args: { p_interest: string }
         Returns: {
           address: string | null
+          claim_expires_at: string | null
+          claim_warned_at: string | null
           claimed_at: string | null
           claimed_by: string | null
           color: string | null
           created_at: string
           description: string | null
+          escalation_step: number
           id: string
           is_hidden: boolean
           is_injured: boolean
@@ -1440,6 +1461,8 @@ export type Database = {
           temperament: Database["public"]["Enums"]["cat_temperament"]
           title: string | null
           updated_at: string
+          urgent_rebroadcasts: number
+          urgent_since: string | null
         }
         SetofOptions: {
           from: "*"
@@ -1466,11 +1489,14 @@ export type Database = {
         Args: { p_sighting: string }
         Returns: {
           address: string | null
+          claim_expires_at: string | null
+          claim_warned_at: string | null
           claimed_at: string | null
           claimed_by: string | null
           color: string | null
           created_at: string
           description: string | null
+          escalation_step: number
           id: string
           is_hidden: boolean
           is_injured: boolean
@@ -1484,6 +1510,8 @@ export type Database = {
           temperament: Database["public"]["Enums"]["cat_temperament"]
           title: string | null
           updated_at: string
+          urgent_rebroadcasts: number
+          urgent_since: string | null
         }
         SetofOptions: {
           from: "*"
@@ -1574,11 +1602,14 @@ export type Database = {
         }
         Returns: {
           address: string | null
+          claim_expires_at: string | null
+          claim_warned_at: string | null
           claimed_at: string | null
           claimed_by: string | null
           color: string | null
           created_at: string
           description: string | null
+          escalation_step: number
           id: string
           is_hidden: boolean
           is_injured: boolean
@@ -1592,6 +1623,8 @@ export type Database = {
           temperament: Database["public"]["Enums"]["cat_temperament"]
           title: string | null
           updated_at: string
+          urgent_rebroadcasts: number
+          urgent_since: string | null
         }
         SetofOptions: {
           from: "*"
@@ -1658,6 +1691,41 @@ export type Database = {
         Returns: undefined
       }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      extend_claim: {
+        Args: { p_sighting: string }
+        Returns: {
+          address: string | null
+          claim_expires_at: string | null
+          claim_warned_at: string | null
+          claimed_at: string | null
+          claimed_by: string | null
+          color: string | null
+          created_at: string
+          description: string | null
+          escalation_step: number
+          id: string
+          is_hidden: boolean
+          is_injured: boolean
+          lat: number | null
+          lng: number | null
+          location: unknown
+          needs_urgent_help: boolean
+          reporter_id: string | null
+          rescued_at: string | null
+          status: Database["public"]["Enums"]["cat_status"]
+          temperament: Database["public"]["Enums"]["cat_temperament"]
+          title: string | null
+          updated_at: string
+          urgent_rebroadcasts: number
+          urgent_since: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sightings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       express_adoption_interest: {
         Args: { p_message?: string; p_sighting: string }
         Returns: {
@@ -1859,6 +1927,15 @@ export type Database = {
           status: string
           title: string
           updated_at: string
+        }[]
+      }
+      get_job_health: {
+        Args: never
+        Returns: {
+          failures_24h: number
+          job: string
+          last_ok: boolean
+          last_run: string
         }[]
       }
       get_my_screening: {
@@ -2862,11 +2939,14 @@ export type Database = {
         }
         Returns: {
           address: string | null
+          claim_expires_at: string | null
+          claim_warned_at: string | null
           claimed_at: string | null
           claimed_by: string | null
           color: string | null
           created_at: string
           description: string | null
+          escalation_step: number
           id: string
           is_hidden: boolean
           is_injured: boolean
@@ -2880,6 +2960,8 @@ export type Database = {
           temperament: Database["public"]["Enums"]["cat_temperament"]
           title: string | null
           updated_at: string
+          urgent_rebroadcasts: number
+          urgent_since: string | null
         }
         SetofOptions: {
           from: "*"

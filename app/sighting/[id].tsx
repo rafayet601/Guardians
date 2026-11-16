@@ -29,6 +29,8 @@ import { CLAIM_TO_RESCUE_TOTAL, POINTS } from '@/constants/points';
 import {
   STATUS_META,
   TEMPERAMENT_META,
+  claimLapsesInHours,
+  ESCALATION_TEAM_TOLD,
   getStatusActions,
   isClaimStale,
   isUrgentNow,
@@ -48,6 +50,7 @@ import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { MAX_SIGHTING_PHOTOS, useAddSightingPhoto } from '@/hooks/useSightingPhotos';
 import {
   useClaimSighting,
+  useExtendClaim,
   usePostComment,
   useSighting,
   useSightingUpdates,
@@ -80,6 +83,7 @@ export default function SightingDetailScreen() {
 
   const claim = useClaimSighting();
   const updateStatus = useUpdateStatus();
+  const extendClaim = useExtendClaim();
   const expressInterest = useExpressInterest(id);
   const approveAdoption = useApproveAdoption(id);
   const declineAdoption = useDeclineAdoption(id);
@@ -144,8 +148,14 @@ export default function SightingDetailScreen() {
   const claimStale =
     sighting.status === 'claimed' && isClaimStale(sighting.claimed_at, latestActivityAt);
   const statusActions = getStatusActions(sighting.status, { isOwner, isClaimer, claimStale });
-  const guidance = getSightingGuidance(sighting, user?.id, { claimStale });
   const urgentNow = isUrgentNow(sighting.status, sighting.needs_urgent_help);
+  const guidance = getSightingGuidance(sighting, user?.id, {
+    claimStale,
+    noResponderYet: urgentNow && (sighting.escalation_step ?? 0) >= ESCALATION_TEAM_TOLD,
+  });
+  // The server releases a claim nobody has kept alive; give the Guardian the
+  // chance to say they are still on it before that happens.
+  const claimLapsesIn = isClaimer ? claimLapsesInHours(sighting.claim_expires_at) : null;
   const canNavigate =
     canManage && !!sighting.is_precise && sighting.lat != null && sighting.lng != null;
 
@@ -176,6 +186,15 @@ export default function SightingDetailScreen() {
               'Thank you for jumping in. This cat already has a Guardian. Check the map for other cats who still need help.',
             )
           : notify('Could not claim', errMsg(e)),
+    });
+  };
+
+  const onExtendClaim = () => {
+    extendClaim.mutate(sighting.id, {
+      onSuccess: () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      },
+      onError: (e) => notify('Could not keep your claim', errMsg(e)),
     });
   };
 
@@ -472,6 +491,21 @@ export default function SightingDetailScreen() {
               Last recorded activity · {timeAgo(latestActivityAt)}
             </Text>
           </Card>
+          {claimLapsesIn !== null ? (
+            <Card style={styles.caseSummary}>
+              <Text variant="bodyStrong">Still on this rescue?</Text>
+              <Text variant="small" muted>
+                {`Your claim lapses in about ${claimLapsesIn} ${
+                  claimLapsesIn === 1 ? 'hour' : 'hours'
+                } and the cat goes back on the map for another Guardian. Posting an update or a photo also keeps it.`}
+              </Text>
+              <Button
+                title="I'm still on it"
+                onPress={onExtendClaim}
+                loading={extendClaim.isPending}
+              />
+            </Card>
+          ) : null}
           {sightingQuery.isError ? (
             <QueryFailure
               message="This report could not be refreshed. Showing the last loaded details."

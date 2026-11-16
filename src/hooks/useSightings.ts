@@ -4,6 +4,7 @@ import {
   addPhoto,
   claimSighting,
   createSighting,
+  extendClaim,
   getFeed,
   getMyRescues,
   getMySightings,
@@ -202,6 +203,21 @@ export function useClaimSighting() {
       invalidate(id);
       track('sighting_claimed', { id });
     },
+    onError: (_error, id) => refresh(id),
+  });
+}
+
+/** The assigned Guardian confirms they are still on a rescue that is about to lapse. */
+export function useExtendClaim() {
+  const invalidate = useInvalidateSightings();
+  const refresh = useRefreshSighting();
+  return useMutation({
+    mutationFn: (id: string) => extendClaim(id),
+    onSuccess: (_s, id) => {
+      invalidate(id);
+      track('claim_extended', { id });
+    },
+    // Refused means the claim already lapsed: show the cat as it now is.
     onError: (_error, id) => refresh(id),
   });
 }

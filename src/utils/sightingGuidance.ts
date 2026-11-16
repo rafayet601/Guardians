@@ -5,13 +5,18 @@ type CaseSummary = Pick<Sighting, 'status' | 'reporter_id' | 'claimed_by' | 'cla
 interface GuidanceOptions {
   /** A claimed rescue with no activity for CLAIM_STALE_HOURS. */
   claimStale?: boolean;
+  /**
+   * An urgent report nobody has claimed after the alert was widened and the
+   * team was told (escalation step 3).
+   */
+  noResponderYet?: boolean;
 }
 
 /** Copy reflects the existing lifecycle; it never grants permission to change it. */
 export function getSightingGuidance(
   sighting: CaseSummary,
   userId?: string,
-  { claimStale = false }: GuidanceOptions = {},
+  { claimStale = false, noResponderYet = false }: GuidanceOptions = {},
 ) {
   const isClaimer = !!userId && userId === sighting.claimed_by;
   const isOwner = !!userId && userId === sighting.reporter_id;
@@ -24,6 +29,15 @@ export function getSightingGuidance(
 
   switch (sighting.status) {
     case 'spotted':
+      if (noResponderYet) {
+        // Honest about the wait, and never a reason to handle the cat unprepared.
+        return {
+          responsibility,
+          nextStep: isOwner
+            ? 'No Guardian has been able to respond yet. The alert has gone to a wider area and the Guardians team has been told. If the cat is in immediate danger, contact a local emergency vet or animal control. Add a comment if anything changes.'
+            : 'No Guardian has been able to respond to this urgent report yet. Claim it if you can take responsibility, or add a comment with anything that could help.',
+        };
+      }
       return {
         responsibility,
         nextStep: isOwner
