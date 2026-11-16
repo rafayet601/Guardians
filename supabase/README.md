@@ -41,6 +41,7 @@ gamification engine that power Guardians.
 | `migrations/0041_child_content_visibility.sql`      | Parent visibility on raw photo/comment reads and inserts; serialize the twelve-photo attachment limit                                                        |
 | `migrations/0042_claim_lease_escalation.sql`        | Scheduled jobs (pg_cron) with a run log; claims become leases the server releases; unclaimed urgent reports escalate at 20 and 60 minutes                    |
 | `migrations/0043_alert_preferences_inbox.sql`       | Alert preferences (area, radius, duty, quiet hours); every push recorded in an inbox first; urgent audience chosen per person; reporter told every status    |
+| `migrations/0044_screening_rpcs_signed_in_only.sql` | Adopter-screening RPCs callable only when signed in; drift check forbids any anon-callable SECURITY DEFINER function                                         |
 | `seed.sql`                                          | Optional demo sightings                                                                                                                                      |
 | `tests/`                                            | pgTAP behavioral test suites; counts in older release documents are historical                                                                               |
 | `scripts/schema_assertions.sql`                     | psql-based drift detector (run manually, not pgTAP harness)                                                                                                  |
@@ -50,7 +51,7 @@ gamification engine that power Guardians.
 1. Create a project at <https://app.supabase.com>.
 2. For a **new, empty database**, open **SQL Editor** and run every file in
    `migrations/` **in filename order**, currently through
-   `0043_alert_preferences_inbox.sql`. Include suffixed migrations such as
+   `0044_screening_rpcs_signed_in_only.sql`. Include suffixed migrations such as
    `0028b_owner_scoped_storage_select.sql`. Then optionally run `seed.sql`.
    For an existing hosted project, follow [DEPLOY.md](../DEPLOY.md) first;
    do not replay the full migration set.
@@ -161,7 +162,7 @@ supabase db test
 ```
 
 A drift-detection script lives at `scripts/schema_assertions.sql` (psql, not pgTAP).
-It asserts protections through migrations 0039–0043 as well as earlier
+It asserts protections through migrations 0039–0044 as well as earlier
 invariants. Bucket metadata assertions do not exercise the Storage HTTP API:
 use synthetic staging uploads to verify MIME/size rejection and valid image
 uploads before deploying these limits.
