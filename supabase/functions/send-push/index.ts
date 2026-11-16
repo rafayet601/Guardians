@@ -22,7 +22,16 @@ import { hasWebhookSecret } from '../_shared/webhook.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { optedInPushTokens, sendExpoPush } from '../_shared/expoPush.ts';
-const RADIUS_M = 8000;
+import {
+  BASE_RADIUS_M,
+  CASE_EVENTS,
+  type CaseEvent,
+  caseEventCopy,
+  OPS_JOB_FAILED_COPY,
+  RING_RADIUS_M,
+  urgentCopy,
+  urgentStep,
+} from '../_shared/pushCopy.ts';
 
 type PushType = 'urgent_sighting' | 'sighting_claimed' | 'rescue_completed' | 'adoption_interest';
 const LIFECYCLE_TYPES: readonly PushType[] = [
@@ -31,12 +40,21 @@ const LIFECYCLE_TYPES: readonly PushType[] = [
   'adoption_interest',
 ];
 
-type PushEvent = 'screening_decided' | 'adoption_approved' | 'adoption_declined' | 'new_comment';
+// 0038 events, then the lease and escalation events of 0042.
+type PushEvent =
+  | 'screening_decided'
+  | 'adoption_approved'
+  | 'adoption_declined'
+  | 'new_comment'
+  | 'ops_job_failed'
+  | CaseEvent;
 const PUSH_EVENTS: readonly PushEvent[] = [
   'screening_decided',
   'adoption_approved',
   'adoption_declined',
   'new_comment',
+  'ops_job_failed',
+  ...CASE_EVENTS,
 ];
 
 interface SightingRow {
@@ -46,6 +64,7 @@ interface SightingRow {
   lng: number;
   needs_urgent_help: boolean;
   title: string | null;
+  status: string;
 }
 
 interface ExpoMessage {
@@ -77,6 +96,7 @@ Deno.serve(async (req: Request) => {
     recipient_user_id?: string | null;
     event?: string;
     about_sighting_id?: string | null;
+    escalation_step?: unknown;
   };
   try {
     body = await readJsonObject(req);
@@ -121,14 +141,19 @@ Deno.serve(async (req: Request) => {
 
   const { data: s, error: sErr } = await admin
     .from('sightings')
-    .select('id, reporter_id, lat, lng, needs_urgent_help, title')
+    .select('id, reporter_id, lat, lng, needs_urgent_help, title, status')
     .eq('id', body.sighting_id)
     .single();
   if (sErr || !s) return json({ error: 'Sighting not found' }, 404);
 
   if (type === 'urgent_sighting') {
+    const step = urgentStep(body.escalation_step);
+    if (step === null) return json({ error: 'Unknown escalation_step' }, 400);
     if (!s.needs_urgent_help) return json({ skipped: 'not urgent' });
-    return urgentGeoFanout(admin, s as SightingRow);
+    // The ladder (0042) queues these minutes after the report; never broadcast
+    // for a cat someone has claimed in the meantime.
+    if (s.status !== 'spotted') return json({ skipped: 'no longer open' });
+    return urgentGeoFanout(admin, s as SightingRow, step);
   }
 
   if (!body.recipient_user_id) return json({ error: 'recipient_user_id required' }, 400);
@@ -141,26 +166,35 @@ Deno.serve(async (req: Request) => {
 // `any` for the client — mirrors ai-lost-match/ai-reid.
 
 /**
- * Urgent geo fan-out (unchanged semantics): tokens_near resolves the opted-in
- * audience near the sighting, excluding the reporter.
+ * Urgent geo fan-out. Step 1: tokens_near resolves the opted-in audience near
+ * the sighting, excluding the reporter. Step 2 (0042): tokens_in_ring reaches
+ * the devices beyond that audience, as far as each device allows.
  */
-async function urgentGeoFanout(admin: any, s: SightingRow): Promise<Response> {
-  const { data: rows, error: tErr } = await admin.rpc('tokens_near', {
-    p_lat: s.lat,
-    p_lng: s.lng,
-    p_radius_m: RADIUS_M,
-    p_exclude_user: s.reporter_id,
-  });
+async function urgentGeoFanout(admin: any, s: SightingRow, step: 1 | 2): Promise<Response> {
+  const { data: rows, error: tErr } =
+    step === 1
+      ? await admin.rpc('tokens_near', {
+          p_lat: s.lat,
+          p_lng: s.lng,
+          p_radius_m: BASE_RADIUS_M,
+          p_exclude_user: s.reporter_id,
+        })
+      : await admin.rpc('tokens_in_ring', {
+          p_lat: s.lat,
+          p_lng: s.lng,
+          p_inner_m: BASE_RADIUS_M,
+          p_outer_m: RING_RADIUS_M,
+          p_exclude_user: s.reporter_id,
+        });
   if (tErr) {
-    console.error('[send-push] tokens_near failed:', safeErrorDetails(tErr));
+    console.error('[send-push] urgent audience lookup failed:', safeErrorDetails(tErr));
     return json({ error: 'Unable to load push recipients' }, 500);
   }
 
   const tokens: string[] = (rows ?? []).map((r: { token: string }) => r.token);
   if (tokens.length === 0) return json({ sent: 0 });
 
-  const title = '🚨 A cat needs urgent help nearby';
-  const message = (s.title ?? '').trim() || 'Tap to help with a rescue near you.';
+  const { title, body: message } = urgentCopy(step, s.title);
   const messages: ExpoMessage[] = tokens.map((to) => ({
     to,
     title,
@@ -268,6 +302,9 @@ async function eventPush(
       return json({ skipped: 'no decision' });
     }
     data = { type: event };
+  } else if (event === 'ops_job_failed') {
+    ({ title, body: message } = OPS_JOB_FAILED_COPY);
+    data = { type: event };
   } else {
     if (!sightingId) return json({ error: 'about_sighting_id required' }, 400);
     const { data: s, error } = await admin
@@ -279,7 +316,12 @@ async function eventPush(
     const name = ((s.title as string | null) ?? '').trim();
     const cat = name ? `"${name}"` : 'the cat';
 
-    if (event === 'adoption_approved') {
+    if ((CASE_EVENTS as readonly string[]).includes(event)) {
+      // Lease and escalation events (0042): worded from the case as it is now.
+      const copy = caseEventCopy(event as CaseEvent, s.title as string | null, s.status as string);
+      if (!copy) return json({ skipped: 'no longer applies' });
+      ({ title, body: message } = copy);
+    } else if (event === 'adoption_approved') {
       title = '🏠 Your adoption was approved!';
       message = `${
         name ? cat : 'Your cat'
