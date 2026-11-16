@@ -326,5 +326,17 @@ begin
     raise exception 'DRIFT: the inbox prune job is not registered or not active (0043)';
   end if;
 
-  raise notice 'schema_assertions: OK — all invariants hold through 0043.';
+  -- ── 15. No SECURITY DEFINER function of ours is callable signed out (0044) ─
+  -- Supabase grants anon EXECUTE by default; a revoke from PUBLIC misses it.
+  -- Extension-owned functions (PostGIS) are excluded: not ours to alter.
+  select count(*) into v
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef
+    and has_function_privilege('anon', p.oid, 'EXECUTE')
+    and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e');
+  if v > 0 then
+    raise exception 'DRIFT: % SECURITY DEFINER function(s) are callable without signing in (0044)', v;
+  end if;
+
+  raise notice 'schema_assertions: OK — all invariants hold through 0044.';
 end $$;
